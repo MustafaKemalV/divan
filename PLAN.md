@@ -48,6 +48,7 @@ Tek gerçek kaynak `DESIGN.md`; bu plan onun inşa sırasıdır. Model stratejis
 - [ ] Şema-kritik çağrılar yalnız probu geçen koltuklara mı gidiyor?
 - [ ] Gerçek oturum çağrı sayısı DESIGN §5 bütçe tablosuyla uyumlu mu (SAYIM)?
 - [ ] Maliyet sayacı OpenRouter usage ile tutarlı mı?
+- [ ] Probe sadakati: pin + her fallback TEK TEK problanır (models dizisi maskesi yok); şema-kritik yönlendirme yalnız tek-başına-geçen modellere gider; pass-via-fallback ve eko-uyuşmazlık dalları mock kanıtıyla gösterilir.
 
 ## M3: Çıktılar
 **Kapsam:** karar belgesi + kodlama promptu üretimi (`templates/` birebir); `karar.json`; Denetçi final topraklamalı denetimi (bağımlılık listesi doğrulaması).

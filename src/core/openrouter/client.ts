@@ -40,6 +40,26 @@ export function hasApiKey(): boolean {
   return Boolean(process.env.OPENROUTER_API_KEY);
 }
 
+/**
+ * Sağlayıcı hata gövdesini istemciye dönmeden süzer (Fable F-3): yalnız HTTP status +
+ * kısa mesaj geçer. Ham gövde ve hesap kimliği (user_id) / anahtar ASLA sızmaz; gövdenin
+ * yalnız error.message alanı alınır (üst düzey user_id kardeş alanı hiç okunmaz) + kalıp temizliği.
+ */
+export function sanitizeProviderError(status: number, rawBody: string): string {
+  let msg = "";
+  try {
+    const parsed = JSON.parse(rawBody) as { error?: { message?: unknown } };
+    if (typeof parsed.error?.message === "string") msg = parsed.error.message;
+  } catch {
+    // gövde JSON değil: ham gövdeyi ASLA geçirme, status ile yetin
+  }
+  msg = msg
+    .replace(/user_[A-Za-z0-9]+/g, "[gizlendi]")
+    .replace(/sk-[A-Za-z0-9._-]+/g, "[gizlendi]")
+    .slice(0, 150);
+  return msg ? `OpenRouter ${status}: ${msg}` : `OpenRouter ${status}`;
+}
+
 export async function chat(opts: ChatOptions): Promise<ChatResult> {
   const key = process.env.OPENROUTER_API_KEY;
   if (!key) throw new Error("OPENROUTER_API_KEY tanımlı değil (.env.local).");
@@ -75,7 +95,7 @@ export async function chat(opts: ChatOptions): Promise<ChatResult> {
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new Error(`OpenRouter ${res.status}: ${text.slice(0, 300)}`);
+    throw new Error(sanitizeProviderError(res.status, text));
   }
 
   const data = (await res.json()) as {

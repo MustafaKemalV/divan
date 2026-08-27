@@ -20,7 +20,7 @@ Self-hosted anti-yağcılık LLM konseyi; kullanıcı = "Şah". Tek gerçek kayn
 - `templates/` altındaki şablonlar bağlayıcıdır (hem spec hem runtime asset). Format değişikliği = DESIGN §9 değişikliği = Şah onayı gerektirir.
 - Dış iddialar (API davranışı, kütüphane özelliği, sürüm, fiyat) ya canlı doğrulanır ya açıkça "varsayım" etiketlenir; Divan'ın kanıt disiplini bu repoya da uygulanır.
 - Kod, komut, config: önce öner, Şah onaylasın, sonra uygula.
-- Uzun çizgi (em-dash) karakteri hiçbir dosyada, dokümanda, commit mesajında kullanılmaz.
+- Uzun çizgi (em-dash) karakteri hiçbir dosyada, dokümanda, commit mesajında kullanılmaz. İstisna: `next dev`'in makine-üretimi otobloğu (`nextjs-agent-rules`) muaf, kendini her çalıştırmada yeniden ekler.
 - Oturum sonunda `/diary` ile journal'a tarihli özet yazılır.
 
 <!-- BEGIN:nextjs-agent-rules -->
