@@ -78,6 +78,13 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
       const out = await runner.run("chiefAdvisor", { phase: "F3", idea: state.idea, context: rawOfPhase(state, "F3") });
       return { phaseSummaries: [{ phase: "F3", summary: out.content }], callCount: 1 };
     })
+    // OLAY-TETİKLİ DÖNÜŞ (a): bütçe tavanı aşıldıysa Şah'a dön (planlı kapı DEĞİL, koşullu interrupt).
+    .addNode("budget_check", async (state: DivanStateType) => {
+      if (state.callCount >= state.maxCalls) {
+        interrupt({ gate: "BUTCE", callCount: state.callCount, maxCalls: state.maxCalls });
+      }
+      return {};
+    })
     // ---- F4: fizibilite (Müh-1/Müh-2/Mimar) ----
     .addNode("f4_feasibility", async (state: DivanStateType) => {
       const f3Summary = state.phaseSummaries.find((s) => s.phase === "F3")?.summary ?? "";
@@ -110,6 +117,14 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
     .addNode("bd_summary_f4", async (state: DivanStateType) => {
       const out = await runner.run("chiefAdvisor", { phase: "F4", idea: state.idea, context: rawOfPhase(state, "F4") });
       return { phaseSummaries: [{ phase: "F4", summary: out.content }], callCount: 1 };
+    })
+    // OLAY-TETİKLİ DÖNÜŞ (b): hüküm turunda blocking "karsilanmadi" varsa erken brifing (Şah).
+    .addNode("blocking_check", async (state: DivanStateType) => {
+      const unmet = state.judgment.filter((j) => j.blocking && j.status === "karsilanmadi");
+      if (unmet.length > 0) {
+        interrupt({ gate: "ERKEN_BRIFING", blocking: unmet.map((u) => u.rawText) });
+      }
+      return {};
     })
     // ---- F5: kriter bazlı sıralama ----
     .addNode("f5_ranking", async (state: DivanStateType) => {
@@ -162,12 +177,14 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
     .addEdge("f2_ideation", "bd_summary_f2")
     .addEdge("bd_summary_f2", "f3_cross")
     .addEdge("f3_cross", "bd_summary_f3")
-    .addEdge("bd_summary_f3", "f4_feasibility")
+    .addEdge("bd_summary_f3", "budget_check")
+    .addEdge("budget_check", "f4_feasibility")
     .addEdge("f4_feasibility", "f4_audit")
     .addEdge("f4_audit", "f4_judgment")
     .addEdge("f4_judgment", "bd_summary_f4")
+    .addEdge("bd_summary_f4", "blocking_check")
     // ERKEN-UZLAŞI KİLİDİ: hüküm turu tamam + blocking listeli değilse F5 açılmaz (kenar koşulu).
-    .addConditionalEdges("bd_summary_f4", earlyConsensusLockRouter, {
+    .addConditionalEdges("blocking_check", earlyConsensusLockRouter, {
       f5_ranking: "f5_ranking",
       judgment_incomplete: END,
     })

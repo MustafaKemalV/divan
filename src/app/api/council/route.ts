@@ -5,6 +5,7 @@ import { Command } from "@langchain/langgraph";
 import { getCouncilGraph } from "@/core/graph/graph";
 import { encodeSSE, type DivanEvent } from "@/core/graph/events";
 import type { DivanStateType } from "@/core/graph/state";
+import { loadConfig } from "@/core/config/load";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,6 +15,8 @@ export async function POST(req: Request) {
     threadId?: string;
     idea?: string;
     resume?: unknown;
+    maxCalls?: number;
+    reTableToNode?: string;
   };
 
   const graph = getCouncilGraph();
@@ -27,14 +30,48 @@ export async function POST(req: Request) {
 
       try {
         const isResume = body.resume !== undefined;
-        // LangGraph Command<> jenerikleri graf düğüm-adı union'ına daralmıyor (bilinen tip
-        // sürtünmesi); girdi runtime'da geçerli, stream imzasına cast'liyoruz.
-        const input = (
-          isResume ? new Command({ resume: body.resume }) : { idea: body.idea ?? "" }
-        ) as Parameters<typeof graph.stream>[0];
-        if (!isResume) send({ type: "phase-start", phase: "F0", threadId });
+        const reTableTo = typeof body.reTableToNode === "string" ? body.reTableToNode : undefined;
 
-        for await (const chunk of await graph.stream(input, { ...config, streamMode: "updates" })) {
+        // Bütçe tavanı: config §5'ten; test için body.maxCalls override edebilir.
+        let maxCalls = 30;
+        try {
+          maxCalls = loadConfig().budget.maxCalls;
+        } catch {
+          // config yoksa/geçersizse varsayılan tavan
+        }
+        if (typeof body.maxCalls === "number") maxCalls = body.maxCalls;
+
+        // Girdi + config'i moda göre kur: yeni oturum / resume / re-table (checkpoint'ten).
+        let streamConfig: Record<string, unknown> = config;
+        let streamInput: unknown = { idea: body.idea ?? "", maxCalls };
+        if (reTableTo) {
+          // Re-table (§5): hedef fazın hemen ÖNCEKİ checkpoint'ini bul, oradan yeniden koştur.
+          let forkConfig: unknown;
+          for await (const snap of graph.getStateHistory(config)) {
+            if (Array.isArray(snap.next) && snap.next.includes(reTableTo)) {
+              forkConfig = snap.config;
+              break;
+            }
+          }
+          if (!forkConfig) {
+            send({ type: "error", message: `re-table: '${reTableTo}' için checkpoint bulunamadı` });
+            controller.close();
+            return;
+          }
+          streamConfig = forkConfig as Record<string, unknown>;
+          streamInput = null; // null girdi = checkpoint'ten yeniden koşum
+          send({ type: "phase-start", phase: `RE-TABLE:${reTableTo}`, threadId });
+        } else if (isResume) {
+          streamInput = new Command({ resume: body.resume });
+        } else {
+          send({ type: "phase-start", phase: "F0", threadId });
+        }
+
+        // LangGraph girdi jenerikleri graf düğüm-adı union'ına daralmıyor; runtime'da geçerli, cast.
+        for await (const chunk of await graph.stream(
+          streamInput as Parameters<typeof graph.stream>[0],
+          { ...streamConfig, streamMode: "updates" },
+        )) {
           for (const [node, update] of Object.entries(chunk as Record<string, unknown>)) {
             if (node === "__interrupt__") continue; // kapı, aşağıda getState ile ele alınır
             send({ type: "node-update", node, keys: Object.keys((update as object) ?? {}) });

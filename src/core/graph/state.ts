@@ -28,6 +28,11 @@ export interface JudgmentItem {
 export const DivanState = Annotation.Root({
   // --- girdi + kapı seçimleri (üzerine yazılır) ---
   idea: Annotation<string>(),
+  // bütçe tavanı (config §5'ten; olay-tetikli bütçe dönüşü girdisi)
+  maxCalls: Annotation<number>({
+    reducer: (_prev, next) => next,
+    default: () => 30,
+  }),
   hmwOptions: Annotation<string[]>(),
   selectedHmw: Annotation<string | null>({
     reducer: (_prev, next) => next,
