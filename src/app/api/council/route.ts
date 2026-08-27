@@ -4,6 +4,7 @@
 import { Command } from "@langchain/langgraph";
 import { getCouncilGraph } from "@/core/graph/graph";
 import { encodeSSE, type DivanEvent } from "@/core/graph/events";
+import type { DivanStateType } from "@/core/graph/state";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -44,11 +45,27 @@ export async function POST(req: Request) {
         const snap = await graph.getState(config);
         const paused = Array.isArray(snap.next) && snap.next.length > 0;
         if (paused) {
-          const interruptVal =
-            snap.tasks?.[0]?.interrupts?.[0]?.value ?? { options: snap.values.hmwOptions };
-          send({ type: "gate", gate: "KAPI1", payload: interruptVal, threadId });
+          const interruptVal = snap.tasks?.[0]?.interrupts?.[0]?.value ?? {};
+          const gateName =
+            interruptVal && typeof interruptVal === "object" && "gate" in interruptVal
+              ? String((interruptVal as { gate: unknown }).gate)
+              : "gate";
+          send({ type: "gate", gate: gateName, payload: interruptVal, threadId });
         } else {
-          send({ type: "done", threadId, selectedHmw: snap.values.selectedHmw ?? null });
+          const v = snap.values as DivanStateType;
+          const transcriptChars = (v.transcript ?? []).reduce((n, t) => n + t.content.length, 0);
+          const summaryChars = (v.phaseSummaries ?? []).reduce((n, s) => n + s.summary.length, 0);
+          send({
+            type: "done",
+            threadId,
+            selectedHmw: v.selectedHmw ?? null,
+            metrics: {
+              callCount: v.callCount ?? 0,
+              transcriptEntries: (v.transcript ?? []).length,
+              transcriptChars,
+              summaryChars,
+            },
+          });
         }
       } catch (e) {
         send({ type: "error", message: (e as Error).message });

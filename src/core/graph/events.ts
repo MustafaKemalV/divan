@@ -5,7 +5,18 @@ export type DivanEvent =
   | { type: "phase-start"; phase: string; threadId: string }
   | { type: "node-update"; node: string; keys: string[] }
   | { type: "gate"; gate: string; payload: unknown; threadId: string }
-  | { type: "done"; threadId: string; selectedHmw: string | null }
+  | {
+      type: "done";
+      threadId: string;
+      selectedHmw: string | null;
+      // sıkıştırma + bütçe kanıtı: ham transcript vs ileri-taşınan özet boyutu, çağrı sayısı
+      metrics: {
+        callCount: number;
+        transcriptEntries: number;
+        transcriptChars: number;
+        summaryChars: number;
+      };
+    }
   | { type: "error"; message: string };
 
 /** SSE tel formatı: `data: <json>\n\n` */
