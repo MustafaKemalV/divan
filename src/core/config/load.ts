@@ -50,7 +50,7 @@ export function loadConfig(configPath: string = DEFAULT_CONFIG_PATH): DivanConfi
     if (missing.length) parts.push(`eksik koltuk(lar): ${missing.join(", ")}`);
     if (unknown.length) parts.push(`tanınmayan koltuk(lar): ${unknown.join(", ")}`);
     throw new Error(
-      `Config koltuk eşlemesi hatalı — ${parts.join("; ")}. ` +
+      `Config koltuk eşlemesi hatalı: ${parts.join("; ")}. ` +
         `Beklenen 7 koltuk: ${SEAT_IDS.join(", ")}.`,
     );
   }

@@ -30,6 +30,8 @@ export interface ChatOptions {
 
 export interface ChatResult {
   content: string;
+  /** cevabı GERÇEKTE veren model (OpenRouter `model` alanı); fallback yönlendirmesini görünür kılar */
+  servedModel?: string;
   raw: unknown;
 }
 
@@ -77,8 +79,9 @@ export async function chat(opts: ChatOptions): Promise<ChatResult> {
   }
 
   const data = (await res.json()) as {
+    model?: string;
     choices?: { message?: { content?: string } }[];
   };
   const content = data.choices?.[0]?.message?.content ?? "";
-  return { content, raw: data };
+  return { content, servedModel: data.model, raw: data };
 }

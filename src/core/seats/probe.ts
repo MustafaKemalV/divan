@@ -7,13 +7,15 @@ import { chat, hasApiKey } from "../openrouter/client";
 import { SEATS, type Seat } from "./seats";
 import type { DivanConfig } from "../config/schema";
 
-export type ProbeStatus = "pass" | "fail" | "no-key";
+export type ProbeStatus = "pass" | "pass-via-fallback" | "fail" | "no-key";
 
 export interface SeatProbeResult {
   seatId: string;
   title: string;
   family: string;
   model: string;
+  /** cevabı gerçekte veren model; pin'den farklıysa status = pass-via-fallback (Fable F-1) */
+  servedModel?: string;
   status: ProbeStatus;
   detail?: string;
 }
@@ -39,7 +41,7 @@ async function probeSeat(
 ): Promise<SeatProbeResult> {
   const base = { seatId: seat.id, title: seat.title, family: seat.family, model };
   try {
-    const { content } = await chat({
+    const { content, servedModel } = await chat({
       model,
       models,
       messages: [
@@ -52,10 +54,28 @@ async function probeSeat(
       maxTokens: 1024,
     });
     const parsed = JSON.parse(content) as { ok?: unknown; seat?: unknown };
-    if (parsed.ok === true && typeof parsed.seat === "string") {
-      return { ...base, status: "pass" };
+    // Fable F-2: eko birebir doğrulanır; herhangi bir string değil, tam olarak seat.id beklenir.
+    if (parsed.ok === true && typeof parsed.seat === "string" && parsed.seat === seat.id) {
+      // Fable F-1: pass'i pin'e atfetmeden önce cevabı kimin verdiğine bak; fallback verdiyse gizleme.
+      if (servedModel && servedModel !== model) {
+        return {
+          ...base,
+          servedModel,
+          status: "pass-via-fallback",
+          detail: `cevabı fallback verdi: ${servedModel}`,
+        };
+      }
+      return { ...base, servedModel, status: "pass" };
     }
-    return { ...base, status: "fail", detail: "structured-output şema uyumsuz" };
+    return {
+      ...base,
+      servedModel,
+      status: "fail",
+      detail:
+        parsed.ok === true && typeof parsed.seat === "string"
+          ? `koltuk ekosu uyuşmadı (beklenen ${seat.id})`
+          : "structured-output şema uyumsuz",
+    };
   } catch (e) {
     return { ...base, status: "fail", detail: (e as Error).message.slice(0, 200) };
   }
@@ -68,7 +88,7 @@ export async function probeAllSeats(config: DivanConfig): Promise<SeatProbeResul
       seatId: s.id,
       title: s.title,
       family: s.family,
-      model: config.seats[s.id]?.model ?? "—",
+      model: config.seats[s.id]?.model ?? "-",
       status: "no-key" as const,
       detail: "OPENROUTER_API_KEY yok (.env.local)",
     }));

@@ -7,12 +7,14 @@ interface SeatResult {
   title: string;
   family: string;
   model: string;
-  status: "pass" | "fail" | "no-key";
+  servedModel?: string;
+  status: "pass" | "pass-via-fallback" | "fail" | "no-key";
   detail?: string;
 }
 
 const STATUS_STYLE: Record<SeatResult["status"], { label: string; color: string }> = {
   pass: { label: "geçti", color: "#3fb950" },
+  "pass-via-fallback": { label: "geçti (fallback)", color: "#d29922" },
   fail: { label: "başarısız", color: "#f85149" },
   "no-key": { label: "anahtar yok", color: "#d29922" },
 };
@@ -42,7 +44,7 @@ export default function Home() {
     <main style={{ maxWidth: 760, margin: "0 auto", padding: "48px 24px" }}>
       <h1 style={{ marginBottom: 4 }}>Divan</h1>
       <p style={{ marginTop: 0, color: "#8b949e" }}>
-        a parrhesia machine for your ideas — koltuk kontrolü (M0)
+        a parrhesia machine for your ideas: koltuk kontrolü (M0)
       </p>
 
       <button
