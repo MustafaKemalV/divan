@@ -131,7 +131,7 @@ Mutlak skor yok; kriter başına sıralama. Anlaşmazlık = sıralama ters-dönm
 - **Tek LangGraph.js grafı** (1.0 GA, Ekim 2025) + faz subgraph'leri. Dürüst adlandırma: "AutoGen tarzı" ayrı bir katman değildir; faz içi konuşmacı seçimi, BD'nin moderatör düğümü + koşullu kenarlardır (standart supervisor deseni).
 - Şah kapıları = `interrupt()` (human-in-the-loop); kalıcılık = checkpointer (SQLite v1); faz-ortası sağlayıcı çökmesi → resume.
 - Audit-trail: faz granülaritesinde deterministik; faz içi konuşmacı seçimi LLM kararıdır (non-deterministik olduğu dokümante edilir).
-- **Koltuk kontrolü:** açılışta her config'li modele şema probu; structured-output stabil olmayan koltuğa şema-kritik çağrı (puanlama, etiket, hüküm) gitmez.
+- **Koltuk kontrolü:** açılışta her config'li modele şema probu; structured-output stabil olmayan koltuğa şema-kritik çağrı (puanlama, etiket, hüküm, **F0 triyaj gözlemleri** §5.1) gitmez. F0 gözlemleri bu sınıfa dahildir: kurul boyutu, probu geçmemiş bir modelin bozuk şemasına bırakılamaz.
 - Model-pin + koltuk başına fallback listesi (OpenRouter `models` dizisi).
 - **Canlı maliyet sayacı:** OpenRouter usage alanından, UI'da oturum toplamı.
 

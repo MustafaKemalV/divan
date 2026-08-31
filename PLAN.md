@@ -61,7 +61,7 @@ Tek gerçek kaynak `DESIGN.md`; bu plan onun inşa sırasıdır. Model stratejis
 - [ ] Her mekanik için "implementasyon tiyatrosu" avı: mekanik KOD ile mi zorlanıyor, yoksa prompt'ta rica mı ediliyor?
 - [ ] Triyaj: model "küçük mü" diye mi soruluyor (YANLIŞ), yoksa gözlem üretip sınıfı kod mu veriyor (§5.1)? Şüphede tam kurula mı düşülüyor?
 - [ ] Kadro kilitleri gerçekten kilit mi: Denetçi'siz veya iki rollü bir kurul kurulabiliyor mu (denenmeli)? Çeşitlilik uyarısı hangi eşikte çıkıyor?
-- [ ] Şema-kritik çağrılar yalnız probu geçen koltuklara mı gidiyor?
+- [ ] Şema-kritik çağrılar yalnız probu geçen koltuklara mı gidiyor? **F0 triyaj gözlemleri (§5.1) de bu sınıfa dahil mi?** Kurul boyutu, probu geçmemiş bir modelin bozuk şemasına bırakılamaz.
 - [ ] Gerçek oturum çağrı sayısı DESIGN §5 bütçe tablosuyla uyumlu mu (SAYIM)?
 - [ ] Maliyet sayacı OpenRouter usage ile tutarlı mı?
 - [ ] Hüküm turu kriterleri KALICI KİMLİK taşıyor mu? Denetim itirazlarına id verilir, hüküm şeması id ile döner. §6.4 düşen itiraz izi kriter ADI eşleşmesine bağlı kalamaz: gerçek modelde ad turlar arası oynarsa sahte-düşme veya kaçırma üretir. (M1 kapısında Fable'ın açtığı borç.)
@@ -94,7 +94,8 @@ Tek gerçek kaynak `DESIGN.md`; bu plan onun inşa sırasıdır. Model stratejis
 **Kapsam:** kör eval modu (ÜÇ kol: tam kurul / küçük kurul / tek güçlü model, DESIGN §8); kayıttan-oynatma demo modu (anahtarsız); README (dürüst-vaat dili, mekanizma tablosu, Delphi soyağacı, kaynaklar); CI; istenirse divan.vercel.app demo deploy.
 
 **Kabul kriterleri:**
-- Kör A/B uçtan uca: aynı fikir iki yoldan, kör sunum, seçim kaydı.
+- Kör eval uçtan uca: aynı fikir üç yoldan (tam kurul / küçük kurul / tek model), kör sunum, seçim kaydı.
+- **Triyaj isabeti ayrı bir ölçüm satırı:** F0'ın "küçük" dediği fikirlerde küçük kurul kör seçimde ne sıklıkla kaybediyor? Gözlemler model çıktısı olduğu için mekanizmanın kendisi de ölçülmeli (M1 kapısında Fable'ın notu).
 - Demo modu anahtarsız çalışıyor.
 
 **Fable kontrol listesi:**
