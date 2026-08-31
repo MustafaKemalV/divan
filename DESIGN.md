@@ -65,7 +65,7 @@ Gerekçe notları:
 | **F5** Yakınsama + karar kapısı | Sıralama+Mavi | Pazar, Müh-1, Mimar, Denetçi kriter bazlı SIRALAR (skor değil) → BD taslak karar + değişmemiş muhalefet notu → **[KAPI 3]** Şah onayı → karar belgesi + kod promptu + Denetçi final topraklamalı denetim | 8-9 |
 
 - **Bütçe:** tam kurul tipik **26-28 çağrı, tavan 30**; küçük kurul (3 ajan: üretici=Vizyoner, mühendis=Müh-1, Denetçi; F0+F2+F4+F5 kısaltılmış, F1/F3 ve F4 revizyon döngüsü atlanır) **~14**. (İlk taslakta 20-24, küçük kurul için ~10 denmişti; düğüm bazlı sayım ikisini de düzeltti: küçük kurulda da §6.5 sıralama turu ve faz özeti korunduğu için 14.) Kesim adayları, istenirse: F2/F3'te Müh-1'i çıkarmak (-2), F5 puanlayıcıyı 3'e indirmek (-1).
-- **Bütçe kontrolü nerede:** tavan kontrolü her PAHALI fazın girişinde yapılır (F2, F3, F4, revizyon turu, F5) ve "aşıldı mı" değil "aşılacak mı" sorusunu sorar: `koşan çağrı + fazın maliyeti > tavan` ise faz BAŞLAMADAN Şah'a dönülür. Şah kapıda yeni bir tavan sayısı verirse tavan güncellenir, vermezse akış aynı tavanla devam eder.
+- **Bütçe kontrolü nerede:** tavan kontrolü her PAHALI fazın girişinde yapılır (F2, F3, F4, revizyon turu, F5) ve "aşıldı mı" değil "aşılacak mı" sorusunu sorar: `koşan çağrı + fazın maliyeti > tavan` ise faz BAŞLAMADAN Şah'a dönülür. Kapının yanıt sözleşmesi ÜÇ seçenekten ibarettir ve kapı payload'ı bunları açıkça listeler: `devam` (aynı tavanla sürdür), bir SAYI (tavanı bu değere yükselt ve sürdür), `iptal` (oturumu burada bitir). Tanınmayan yanıt akışı SÜRDÜRMEZ, kapı yeniden açılır: yazım hatası bir onay yerine geçemez. `iptal` sessiz bir sonlanma değildir; sebebi yazılı bir `done` olayı üretir.
 - **Olay-tetikli Şah dönüşleri:** (a) bütçe tavanı aşılacaksa; (b) hüküm turunda blocking "karşılanmadı" kalırsa erken brifing; (c) hüküm turu bir kez yeniden koşturulmasına rağmen eksik kalırsa (§6.3 kilidi), oturum sessizce bitmez: `HUKUM_EKSIK` kapısıyla Şah'a çıkar.
 - **F4 revizyon döngüsü, mekanik kapanma:** denetimden sonra savunma/revizyon turu koşar, ardından hüküm turu yeniden alınır. Döngü ancak şu üç koşuldan biriyle kapanır: blocking "karşılanmadı" sayısı 0'a indi, 3 tur doldu, ya da sayı bir önceki tura göre azalmadı (ilerleme yok). Kapanma kararı hiçbir ajanın beyanına bağlı değildir; Denetçi'nin "çözüldü" demesi kapıyı açamaz.
 - **M3 bütçe uyarısı:** F5 kuyruğu M1'de 6 çağrıdır (sıralama + BD taslak + Denetçi final denetimi). §9.2 kod promptu üretimi (Müh-1) ve çapraz denetimi (Müh-2) M3'te eklenince tam kurul tipik toplamı ~29'a çıkar ve 30 tavanına yaslanır. M3'e girerken tavan ya da §5'teki kesim adayları yeniden değerlendirilir; bant sessizce delinmez.
@@ -80,6 +80,8 @@ Gerekçe notları:
 2. **Geri dönüş maliyeti:** yanlış çıkarsa geri almak gün / hafta / ay mertebesinde mi?
 3. **Gereken uzmanlıklar:** hangi koltuklar gerçekten lazım (liste)? Üçü aşıyorsa fikir küçük değildir.
 4. **Kanıt ihtiyacı:** kaç iddia dış doğrulama gerektiriyor? Hiçbiri gerektirmiyorsa topraklama mekanizmasının (§6.2) yapacak işi yoktur.
+
+Bu dört gözlem şema-bağlı döndüğü için F0 çağrısı da şema-kritik sınıftadır (§7). **Ölü-uç kuralı:** Baş Danışman'ın pin'i ve TÜM fallback'leri şema probunu geçemiyorsa gözlem çağrısı hiç yapılmaz; doğrudan tam kurula düşülür ve Şah'a uyarı gösterilir. Bozuk şemadan sınıf tahmin etmeye çalışmak, aşağıdaki asimetri kuralının ihlalidir.
 
 Sınıflandırmayı KOD yapar; eşikler `divan.config.json`'dadır, Şah ayarlar. **Asimetri kuralı: şüphede tam kurul.** Yanlış küçültme kalite kaybettirir, yanlış büyütme para kaybettirir; Divan'ın vaadi kalite üzerine kurulu olduğundan varsayılan güvenli taraf büyük kuruldur.
 
@@ -131,8 +133,10 @@ Mutlak skor yok; kriter başına sıralama. Anlaşmazlık = sıralama ters-dönm
 - **Tek LangGraph.js grafı** (1.0 GA, Ekim 2025) + faz subgraph'leri. Dürüst adlandırma: "AutoGen tarzı" ayrı bir katman değildir; faz içi konuşmacı seçimi, BD'nin moderatör düğümü + koşullu kenarlardır (standart supervisor deseni).
 - Şah kapıları = `interrupt()` (human-in-the-loop); kalıcılık = checkpointer (SQLite v1); faz-ortası sağlayıcı çökmesi → resume.
 - Audit-trail: faz granülaritesinde deterministik; faz içi konuşmacı seçimi LLM kararıdır (non-deterministik olduğu dokümante edilir).
-- **Koltuk kontrolü:** açılışta her config'li modele şema probu; structured-output stabil olmayan koltuğa şema-kritik çağrı (puanlama, etiket, hüküm, **F0 triyaj gözlemleri** §5.1) gitmez. F0 gözlemleri bu sınıfa dahildir: kurul boyutu, probu geçmemiş bir modelin bozuk şemasına bırakılamaz.
+- **Koltuk kontrolü:** açılışta her config'li modele şema probu; structured-output stabil olmayan koltuğa şema-kritik çağrı (puanlama, etiket, hüküm, **F0 triyaj gözlemleri** §5.1) gitmez. F0 gözlemleri bu sınıfa dahildir: kurul boyutu, probu geçmemiş bir modelin bozuk şemasına bırakılamaz. Prob sonucu ÖNBELLEKLENİR (prob 7 çağrı demektir, her oturumda tekrarlanması israftır): anahtar config'in özetidir, ömür ~24 saat, elle tazeleme her zaman açıktır. Asimetri: `pass` ömrü boyunca yeniden kullanılır, `fail` bir sonraki açılışta yeniden denenir; geçici bir sağlayıcı arızası kalıcı dışlamaya dönüşmemelidir.
 - Model-pin + koltuk başına fallback listesi (OpenRouter `models` dizisi).
+- **Promptlar:** koltuk+faz sistem promptları `prompts/<koltuk>-<faz>.md` dosyalarındadır. `templates/`ten farkı önemlidir: şablonlar bağlayıcı spec'tir (format değişikliği = §9 değişikliği = Şah onayı), promptlar ise ayarlanabilir malzemedir ve düzenlenmesi Şah onayı gerektirmez. Güvence promptun metninde değil iki yerdedir: git geçmişi (her değişiklik izlenir) ve mekanizma testleri. İlke şudur: bir mekanik yalnızca promptta duruyorsa zaten zorlanmıyor demektir; §6 mekanikleri şemayla ve graf kenarıyla zorlanır, prompt onları yalnız açıklar.
+- **Runner modu damgası:** oturumun gerçek modellerle mi yoksa stub'larla mı koştuğu karar belgesine ve UI'ya damgalanır. Sahte bir oturum gerçek sanılamaz.
 - **Canlı maliyet sayacı:** OpenRouter usage alanından, UI'da oturum toplamı.
 
 ## 8. Eval modu (measure-before-claiming)
@@ -149,6 +153,7 @@ Aynı fikir üç yoldan koşulur: (a) tam kurul, (b) küçük kurul (§5.1), (c)
 5. **Muhalefet notu:** Denetçi'nin ham metni, değiştirilemez blok.
 6. **Riskler + premortem senaryosu.**
 7. **Karar:** Şah'ın onayı + notu + tarih + oturum referansı.
+8. **Oturum künyesi:** runner modu (`gerçek` / `stub`), toplam çağrı ve maliyet. Stub oturumu belgede ve UI'da rozetle işaretlenir.
 JSON kopyası audit ve eval için saklanır.
 
 ### 9.2 Kodlama Promptu (`prompt.md`, yapıştır-çalıştır)

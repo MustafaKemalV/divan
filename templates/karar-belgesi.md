@@ -44,3 +44,8 @@
 - Şah'ın kararı: {{karar}}
 - Şah'ın notu: {{sah_notu}}
 - Tarih: {{tarih}} | Oturum referansı: {{oturum_id}}
+
+## 8. Oturum künyesi
+<!-- Runner modu damgası (DESIGN §7): stub oturumu gerçek sanılamaz. -->
+- Koşum modu: {{runner_modu}}
+- Toplam çağrı: {{cagri_sayisi}} | Maliyet: ${{maliyet}}
