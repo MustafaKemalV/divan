@@ -5,12 +5,12 @@
 // Çekirdek/UI ayrımı korunur: sıfır React/Next importu.
 
 import { StateGraph, START, END, interrupt } from "@langchain/langgraph";
-import { DivanState, type DivanStateType, type TranscriptEntry, type JudgmentItem } from "./state";
-import { StubSeatRunner, type SeatRunner } from "./seatRunner";
-import { getCheckpointer } from "./checkpointer";
-import { earlyConsensusLockRouter } from "./lock";
-import { revisionLoopRouter, countBlockingUnmet } from "./revision";
-import { isOverBudget } from "./budget";
+import { DivanState, type DivanStateType, type TranscriptEntry, type JudgmentItem } from "./state.ts";
+import { StubSeatRunner, type SeatRunner } from "./seatRunner.ts";
+import { getCheckpointer } from "./checkpointer.ts";
+import { earlyConsensusLockRouter } from "./lock.ts";
+import { revisionLoopRouter, countBlockingUnmet } from "./revision.ts";
+import { isOverBudget } from "./budget.ts";
 
 // DESIGN §4/§5 koltuk rolleri per faz (tam kurul).
 const IDEATORS = ["visionary", "market", "engineer1", "architect"] as const; // F2/F3

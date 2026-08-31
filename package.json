@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "e2e": "node scripts/e2e.mjs"
   },
   "dependencies": {
     "@langchain/langgraph": "^1.4.12",
