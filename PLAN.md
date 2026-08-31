@@ -97,8 +97,10 @@ Tek gerçek kaynak `DESIGN.md`; bu plan onun inşa sırasıdır. Model stratejis
 - Kör eval uçtan uca: aynı fikir üç yoldan (tam kurul / küçük kurul / tek model), kör sunum, seçim kaydı.
 - **Triyaj isabeti ayrı bir ölçüm satırı:** F0'ın "küçük" dediği fikirlerde küçük kurul kör seçimde ne sıklıkla kaybediyor? Gözlemler model çıktısı olduğu için mekanizmanın kendisi de ölçülmeli (M1 kapısında Fable'ın notu).
 - Demo modu anahtarsız çalışıyor.
+- **Kanıt paketi CI'da otomatik yenileniyor:** `npm run e2e` + tsc + build çıktıları her ana-dal koşumunda `docs/M<X>-KANIT.md` dosyasına yeniden yazılır ve üretildiği commit damgalanır. Elle yenileme kalmaz. (M1 kapısında doğan bulgu: kanıt paketi repoya girdiği anda yaşayan doküman olur ve her doküman değişikliğinde eskir; Şah'ın açık talimatı, unutulmayacak.)
 
 **Fable kontrol listesi:**
 - [ ] README iddia-kanıt eşleşmesi: kanıtsız hiçbir üstünlük iddiası yok?
 - [ ] Vaat dili DESIGN §1 ile tutarlı ("yok eder" YOK; "zorlaştırır + görünür kılar" VAR)?
 - [ ] Temiz kurulumdan karar belgesine bağımsız uçtan uca oturum?
+- [ ] **Kanıt paketleri CI'da otomatik mı üretiliyor?** Elle güncellenen kanıt dosyası eskir; eskimiş kanıt kanıt değildir.
