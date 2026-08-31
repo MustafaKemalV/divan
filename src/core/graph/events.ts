@@ -9,12 +9,15 @@ export type DivanEvent =
       type: "done";
       threadId: string;
       selectedHmw: string | null;
-      // sıkıştırma + bütçe kanıtı: ham transcript vs ileri-taşınan özet boyutu, çağrı sayısı
+      // hangi yol koştu (F0 triyajı) + sıkıştırma/bütçe/döngü kanıtları
+      councilMode: "full" | "small";
       metrics: {
         callCount: number;
         transcriptEntries: number;
         transcriptChars: number;
         summaryChars: number;
+        revisionRounds: number;
+        judgmentRetries: number;
       };
     }
   | { type: "error"; message: string };

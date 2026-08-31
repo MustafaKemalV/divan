@@ -96,11 +96,14 @@ export async function POST(req: Request) {
             type: "done",
             threadId,
             selectedHmw: v.selectedHmw ?? null,
+            councilMode: v.councilMode ?? "full",
             metrics: {
               callCount: v.callCount ?? 0,
               transcriptEntries: (v.transcript ?? []).length,
               transcriptChars,
               summaryChars,
+              revisionRounds: v.revisionRounds ?? 0,
+              judgmentRetries: v.judgmentRetries ?? 0,
             },
           });
         }

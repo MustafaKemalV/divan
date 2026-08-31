@@ -33,6 +33,11 @@ export const DivanState = Annotation.Root({
     reducer: (_prev, next) => next,
     default: () => 30,
   }),
+  // F0 triyajı (DESIGN §5): karmaşıklık sınıfı. "small" -> küçük kurul yolu (3 ajan, F1/F3 yok).
+  councilMode: Annotation<"full" | "small">({
+    reducer: (_prev, next) => next,
+    default: () => "full",
+  }),
   hmwOptions: Annotation<string[]>(),
   selectedHmw: Annotation<string | null>({
     reducer: (_prev, next) => next,
@@ -54,6 +59,41 @@ export const DivanState = Annotation.Root({
   judgmentComplete: Annotation<boolean>({
     reducer: (_prev, next) => next,
     default: () => false,
+  }),
+
+  // BİRİKEN: her hüküm turunun tam çıktısı (§6.4). Son tur `judgment`e yazılır, geçmiş burada
+  // durur; revizyonla DÜŞEN itiraz ancak bu iz sayesinde görünür kalabilir.
+  judgmentHistory: Annotation<JudgmentItem[][]>({
+    reducer: (prev, next) => [...prev, ...next],
+    default: () => [],
+  }),
+  // Bir turda blocking "karsilanmadi" işaretlenip sonraki turda düşen maddeler (§6.4 ham metinle).
+  droppedObjections: Annotation<string[]>({
+    reducer: (_prev, next) => next,
+    default: () => [],
+  }),
+
+  // F4 revizyon/savunma döngüsü (DESIGN §5, mekanik kapanma). revisionRounds = SAYAÇ (koşan tur),
+  // prevUnmetCount = bir ÖNCEKİ hüküm turunun blocking "karsilanmadi" sayısı; -1 = henüz ölçüm yok.
+  // Döngünün kapanması bu iki sayının karşılaştırmasıyla belirlenir, hiçbir ajanın beyanıyla değil.
+  revisionRounds: Annotation<number>({
+    reducer: (prev, next) => prev + next,
+    default: () => 0,
+  }),
+  prevUnmetCount: Annotation<number>({
+    reducer: (_prev, next) => next,
+    default: () => -1,
+  }),
+
+  // Erken-uzlaşı kilidi (§6.3) ihlali: hüküm turu bir kez yeniden koşturulur (judgmentRetries),
+  // ikinci kez de eksikse HUKUM_EKSIK kapısı açılır ve Şah'ın yanıtı buraya yazılır.
+  judgmentRetries: Annotation<number>({
+    reducer: (prev, next) => prev + next,
+    default: () => 0,
+  }),
+  judgmentGateAction: Annotation<string | null>({
+    reducer: (_prev, next) => next,
+    default: () => null,
   }),
 
   // F5 çıktıları (M1 stub; gerçek içerik M3). dissentNote = blocking "karsilanmadi" ham metni (§6.4).
