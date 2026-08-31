@@ -51,7 +51,7 @@ Gerekçe notları:
 - Anthropic x2 (Mimar + Baş Danışman): güç pozisyonları ayrık; yargıçlık mekanikleştirildiği için moderatör dar boğaz değil.
 - Koltuklar config'de model-pin'li; tek satırla değiştirilebilir.
 
-## 5. Akış: 6 faz, 3 planlı kapı, 2 olay-tetikli dönüş
+## 5. Akış: 6 faz, 3 planlı kapı, 3 olay-tetikli dönüş
 
 Şapka-kilidi faz-kilidi olarak uygulanır (herkes aynı anda aynı modda).
 
@@ -64,8 +64,10 @@ Gerekçe notları:
 | **F4** Fizibilite + denetim + revizyon | Beyaz/Sarı→Siyah | Müh-1, Müh-2, Mimar değerlendirir (web'li) → Denetçi denetim (web'li, premortem zorunlu) → revizyon/savunma (≤3) → **Denetçi hüküm turu** (şema: karşılandı/kısmen/karşılanmadı) + BD özeti | 8-9 |
 | **F5** Yakınsama + karar kapısı | Sıralama+Mavi | Pazar, Müh-1, Mimar, Denetçi kriter bazlı SIRALAR (skor değil) → BD taslak karar + değişmemiş muhalefet notu → **[KAPI 3]** Şah onayı → karar belgesi + kod promptu + Denetçi final topraklamalı denetim | 8-9 |
 
-- **Bütçe:** tam kurul tipik **26-28 çağrı, tavan 30**; küçük kurul (3 ajan: üretici, mühendis, Denetçi; F0+F2+F4+F5 kısaltılmış) **~10**. (İlk taslakta 20-24 denmişti; faz faz sayım bunu düzeltti.) Kesim adayları, istenirse: F2/F3'te Müh-1'i çıkarmak (-2), F5 puanlayıcıyı 3'e indirmek (-1).
-- **Olay-tetikli Şah dönüşleri:** (a) bütçe tavanı aşılacaksa; (b) hüküm turunda blocking "karşılanmadı" kalırsa erken brifing.
+- **Bütçe:** tam kurul tipik **26-28 çağrı, tavan 30**; küçük kurul (3 ajan: üretici=Vizyoner, mühendis=Müh-1, Denetçi; F0+F2+F4+F5 kısaltılmış, F1/F3 ve F4 revizyon döngüsü atlanır) **~14**. (İlk taslakta 20-24, küçük kurul için ~10 denmişti; düğüm bazlı sayım ikisini de düzeltti: küçük kurulda da §6.5 sıralama turu ve faz özeti korunduğu için 14.) Kesim adayları, istenirse: F2/F3'te Müh-1'i çıkarmak (-2), F5 puanlayıcıyı 3'e indirmek (-1).
+- **Bütçe kontrolü nerede:** tavan kontrolü her PAHALI fazın girişinde yapılır (F2, F3, F4, revizyon turu, F5) ve "aşıldı mı" değil "aşılacak mı" sorusunu sorar: `koşan çağrı + fazın maliyeti > tavan` ise faz BAŞLAMADAN Şah'a dönülür. Şah kapıda yeni bir tavan sayısı verirse tavan güncellenir, vermezse akış aynı tavanla devam eder.
+- **Olay-tetikli Şah dönüşleri:** (a) bütçe tavanı aşılacaksa; (b) hüküm turunda blocking "karşılanmadı" kalırsa erken brifing; (c) hüküm turu bir kez yeniden koşturulmasına rağmen eksik kalırsa (§6.3 kilidi), oturum sessizce bitmez: `HUKUM_EKSIK` kapısıyla Şah'a çıkar.
+- **F4 revizyon döngüsü, mekanik kapanma:** denetimden sonra savunma/revizyon turu koşar, ardından hüküm turu yeniden alınır. Döngü ancak şu üç koşuldan biriyle kapanır: blocking "karşılanmadı" sayısı 0'a indi, 3 tur doldu, ya da sayı bir önceki tura göre azalmadı (ilerleme yok). Kapanma kararı hiçbir ajanın beyanına bağlı değildir; Denetçi'nin "çözüldü" demesi kapıyı açamaz.
 - **Re-table:** Şah her kapıda tek-hedefli geri gönderebilir (hangi fazın yeniden koşulacağı belirtilir; checkpointer'dan resume).
 - **Bağlam mimarisi:** fazlar arası ham transkript taşınmaz; BD'nin token-kapaklı faz özetleri taşınır. Ham transkript audit için state'te durur. (Karesel bağlam büyümesini öldürür.)
 
@@ -83,10 +85,12 @@ URL'siz hiçbir iddia `Doğrulanmış` rozetini alamaz. Web: OpenRouter web plug
 ### 6.3 Erken uzlaşı kilidi
 1. Denetçi denetimi, uyum derecesinden bağımsız **zorunlu premortem** içerir: en az 1 "bu neden başarısız olur" senaryosu + en az 3 sınanmış iddia.
 2. **Tam-uyum bayrağı:** F5'te sıralamalar birebir aynıysa UI "şüpheli uybirliği" uyarısı gösterir.
-3. Hüküm turu tamamlanmadan ve blocking maddeler listelenmeden F5'e geçilemez (graf kenar koşulu).
+3. Hüküm turu tamamlanmadan ve blocking maddeler listelenmeden F5'e geçilemez (graf kenar koşulu). Kilit tetiklendiğinde hüküm turu bir kez yeniden koşturulur; ikinci kez de eksik kalırsa oturum sessizce sonlanmaz, `HUKUM_EKSIK` kapısıyla Şah'a çıkar (§5 olay-tetikli dönüş c).
 
 ### 6.4 Gömülemez muhalefet
 Hüküm turunda `karşılanmadı` + `blocking` işaretli her madde, Denetçi'nin HAM metniyle muhalefet notuna girer; hiçbir modelin (BD dahil) bunu yumuşatma/gömme yetkisi yok. Muhalefet notu karar belgesinin zorunlu bölümüdür.
+
+Revizyon döngüsü bu kalkanda delik açamaz: bir turda `karşılanmadı` + `blocking` işaretlenen madde sonraki turda düşerse, muhalefet notu onu **düşen itiraz** olarak Denetçi'nin o turdaki HAM metniyle birlikte gösterir (hangi turda işaretlendiği dahil). İtiraz sessizce kaybolamaz; "revizyonla çözüldü mü, yoksa geri mi adım atıldı" takdiri Şah'a çıkar.
 
 ### 6.5 Anlaşmazlık sinyali
 Mutlak skor yok; kriter başına sıralama. Anlaşmazlık = sıralama ters-dönmeleri (Kendall tau). Yüksek anlaşmazlık gizlenmez, "işte burada anlaşamıyoruz" olarak Şah'a sunulur.

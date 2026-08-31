@@ -22,17 +22,28 @@ Tek gerçek kaynak `DESIGN.md`; bu plan onun inşa sırasıdır. Model stratejis
 - [ ] Anahtar istemciye sızmıyor mu (network kanıtı)?
 
 ## M1: Çekirdek graf
-**Kapsam:** 6 faz + 3 kapı + 2 olay-tetikli dönüş, STUB ajanlarla uçtan uca; SQLite checkpointer; interrupt = Şah kapıları; re-table (tek-hedefli resume); faz özeti sıkıştırması; SSE endpoint + olay şeması.
+**Kapsam:** 6 faz + 3 kapı + 3 olay-tetikli dönüş, STUB ajanlarla uçtan uca; F0 triyajı (tam kurul / küçük kurul dallanması); F4 revizyon/savunma döngüsü (mekanik kapanma); SQLite checkpointer; interrupt = Şah kapıları; re-table (tek-hedefli resume); faz özeti sıkıştırması; SSE endpoint + olay şeması.
 
 **Kabul kriterleri:**
 - Stub'larla tam oturum akıyor: F0→F5, kapılarda duruyor, resume çalışıyor.
 - Bir fazı re-table edip checkpoint'ten yeniden koşturma kanıtı.
 - SSE olay akışı curl ile izlenebiliyor.
+- İki yol da uçtan uca koşuyor ve çağrı sayımı DESIGN §5 ile uyumlu (tam kurul 26-28, küçük kurul ~14).
+- F4 revizyon döngüsü koşuyor ve kapanışı sayı karşılaştırmasıyla oluyor (ajan beyanı değil).
+- Bütçe kapısı faz BAŞLAMADAN açılıyor; Şah kapıda tavanı yükseltebiliyor.
+- Kilit ihlali sessiz bitişe düşmüyor: yeniden koşum, sonra HUKUM_EKSIK kapısı.
+- Revizyonla düşen blocking itiraz KAPI 3'te iz olarak görünüyor (§6.4).
 
 **Fable kontrol listesi:**
 - [ ] Graf DESIGN §5 tablosuna BİREBİR mi? Sessiz sapma var mı?
 - [ ] Erken-uzlaşı kilidi kenar koşulu grafta gerçekten var mı (F5 geçiş şartları)?
 - [ ] Bağlam sıkıştırması: geç fazlara ham transkript taşınmıyor (token sayım kanıtı)?
+- [ ] F0 triyajı İKİ yolu da gerçekten kuruyor mu (küçük kurul ayrı düğümler mi, yoksa kozmetik bir bayrak mı)?
+- [ ] F4 revizyon döngüsünün kapanışı MEKANİK mi: koşul şema sayımına mı bakıyor, yoksa bir ajanın "çözüldü" beyanına mı?
+- [ ] Bütçe tavanı "aşıldı mı" değil "aşılacak mı" mantığıyla mı, ve her pahalı fazın girişinde mi kontrol ediliyor?
+- [ ] Kilit blok dalı END'e düşüyor mu? (Düşüyorsa sessiz bitiş = arıza.) Retry ve Şah kapısı canlı kanıtlı mı?
+- [ ] Revizyonla düşen itiraz izi gerçek mi: kriter eşleştirmesi neye göre yapılıyor, gerçek modelde ad değişirse ne olur?
+- [ ] Stub'daki test işaretleri ([TEST:...]) mekanikleri kanıtlıyor mu, yoksa mekaniği taklit mi ediyor?
 
 ## M2: Gerçek modeller + mekanikler (KRİTİK KAPI: taze Fable oturumu)
 **Kapsam:** OpenRouter entegrasyonu (pin+fallback); anonimleştirme katmanı; kanıt kapısı (3 durum, URL zorunluluğu); web plugin (kaplı); hüküm turu (şema-bağlı); gömülemez muhalefet; sıralama-puanlama + Kendall tau; maliyet sayacı.
