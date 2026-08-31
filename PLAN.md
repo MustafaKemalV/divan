@@ -47,16 +47,20 @@ Tek gerçek kaynak `DESIGN.md`; bu plan onun inşa sırasıdır. Model stratejis
 - [ ] Stub'daki test işaretleri ([TEST:...]) mekanikleri kanıtlıyor mu, yoksa mekaniği taklit mi ediyor?
 
 ## M2: Gerçek modeller + mekanikler (KRİTİK KAPI: taze Fable oturumu)
-**Kapsam:** OpenRouter entegrasyonu (pin+fallback); anonimleştirme katmanı; kanıt kapısı (3 durum, URL zorunluluğu); web plugin (kaplı); hüküm turu (şema-bağlı); gömülemez muhalefet; sıralama-puanlama + Kendall tau; maliyet sayacı.
+**Kapsam:** OpenRouter entegrasyonu (pin+fallback); anonimleştirme katmanı; kanıt kapısı (3 durum, URL zorunluluğu); web plugin (kaplı); hüküm turu (şema-bağlı); gömülemez muhalefet; sıralama-puanlama + Kendall tau; maliyet sayacı. **Ayrıca DESIGN §5.1:** kadronun dinamikleştirilmesi (koltuk listeleri config + KAPI 1 seçiminden gelir, kodda sabit dizi kalmaz), F0 triyajının gözlem şeması + eşik sınıflandırması, kadro kapısı (öneri + Şah düzenlemesi, Denetçi kilidi, en az üç rol, çeşitlilik uyarısı).
 
 **Kabul kriterleri:**
 - Gerçek bir fikirle tam oturum + karar belgesi çıkıyor.
 - Anonimleştirme: F3/F5 çağrı payload'larında ajan kimliği YOK (log kanıtı).
 - URL'siz iddia "Doğrulanmış" etiketi alamıyor (negatif test).
 - Blocking "karşılanmadı" maddesi muhalefet notunda HAM duruyor (test).
+- Kadro KAPI 1'de değiştirilebiliyor; Denetçi çıkarılamıyor ve üç rolün altına inilemiyor (negatif test); iki aileden az kadroda uyarı çıkıyor.
+- Triyaj sınıflandırması KODDAN geliyor: aynı gözlem seti her koşumda aynı sonucu veriyor, model beyanı sınıfı belirlemiyor (test).
 
 **Fable kontrol listesi:**
 - [ ] Her mekanik için "implementasyon tiyatrosu" avı: mekanik KOD ile mi zorlanıyor, yoksa prompt'ta rica mı ediliyor?
+- [ ] Triyaj: model "küçük mü" diye mi soruluyor (YANLIŞ), yoksa gözlem üretip sınıfı kod mu veriyor (§5.1)? Şüphede tam kurula mı düşülüyor?
+- [ ] Kadro kilitleri gerçekten kilit mi: Denetçi'siz veya iki rollü bir kurul kurulabiliyor mu (denenmeli)? Çeşitlilik uyarısı hangi eşikte çıkıyor?
 - [ ] Şema-kritik çağrılar yalnız probu geçen koltuklara mı gidiyor?
 - [ ] Gerçek oturum çağrı sayısı DESIGN §5 bütçe tablosuyla uyumlu mu (SAYIM)?
 - [ ] Maliyet sayacı OpenRouter usage ile tutarlı mı?
@@ -87,7 +91,7 @@ Tek gerçek kaynak `DESIGN.md`; bu plan onun inşa sırasıdır. Model stratejis
 - [ ] 7 eşzamanlı stream'de akıcılık?
 
 ## M5: Eval + cila + README (KRİTİK KAPI: taze Fable oturumu)
-**Kapsam:** kör A/B eval modu; kayıttan-oynatma demo modu (anahtarsız); README (dürüst-vaat dili, mekanizma tablosu, Delphi soyağacı, kaynaklar); CI; istenirse divan.vercel.app demo deploy.
+**Kapsam:** kör eval modu (ÜÇ kol: tam kurul / küçük kurul / tek güçlü model, DESIGN §8); kayıttan-oynatma demo modu (anahtarsız); README (dürüst-vaat dili, mekanizma tablosu, Delphi soyağacı, kaynaklar); CI; istenirse divan.vercel.app demo deploy.
 
 **Kabul kriterleri:**
 - Kör A/B uçtan uca: aynı fikir iki yoldan, kör sunum, seçim kaydı.

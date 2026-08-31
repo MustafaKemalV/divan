@@ -72,6 +72,36 @@ Gerekçe notları:
 - **Re-table:** Şah her kapıda tek-hedefli geri gönderebilir (hangi fazın yeniden koşulacağı belirtilir; checkpointer'dan resume).
 - **Bağlam mimarisi:** fazlar arası ham transkript taşınmaz; BD'nin token-kapaklı faz özetleri taşınır. Ham transkript audit için state'te durur. (Karesel bağlam büyümesini öldürür.)
 
+### 5.1 Kurul boyutu ve kadro seçimi [M2'de kurulur; M1'de sabit kadro + stub triyajı]
+
+**İlke: model gözlem üretir, kod sınıflandırır, Şah karar verir.** Baş Danışman'a "bu fikir küçük mü" diye SORULMAZ. Sorulursa tahmin eder, aynı fikir iki koşumda farklı sınıflanır ve kurulun boyutu bir modelin o anki eğilimine kalır. Bunun yerine F0 brifingi şema-bağlı dört GÖZLEM döndürür:
+
+1. **Yol sayısı:** fikri çözmenin kaç ayrı makul yolu var? Tek yol varsa orada müzakere değil uygulama vardır.
+2. **Geri dönüş maliyeti:** yanlış çıkarsa geri almak gün / hafta / ay mertebesinde mi?
+3. **Gereken uzmanlıklar:** hangi koltuklar gerçekten lazım (liste)? Üçü aşıyorsa fikir küçük değildir.
+4. **Kanıt ihtiyacı:** kaç iddia dış doğrulama gerektiriyor? Hiçbiri gerektirmiyorsa topraklama mekanizmasının (§6.2) yapacak işi yoktur.
+
+Sınıflandırmayı KOD yapar; eşikler `divan.config.json`'dadır, Şah ayarlar. **Asimetri kuralı: şüphede tam kurul.** Yanlış küçültme kalite kaybettirir, yanlış büyütme para kaybettirir; Divan'ın vaadi kalite üzerine kurulu olduğundan varsayılan güvenli taraf büyük kuruldur.
+
+**Kadro = üç rol; koltuklar değişken.** Küçük kurul sabit bir üçlü değildir. Doldurulan şey, en küçük TAM müzakerenin üç rolüdür: öneri üretmek, yapılabilirliği ölçmek, itiraz etmek. Biri eksikse geriye müzakere kalmaz (öneri yoksa tartışılacak şey yok, ölçüm yoksa hayal, itiraz yoksa Divan'ın kuruluş sebebi yok).
+
+| Rol | Aday koltuklar | Seçim ekseni |
+|---|---|---|
+| Öneren | Vizyoner / Pazar Sesi | ürün yönü mü, müşteri-fiyat mı |
+| Ölçen | Müh-1 / Mimar | "nasıl yapılır" mı, "nasıl kurulmalı" mı |
+| İtiraz eden | Denetçi | sabit, değişmez |
+
+Baş Danışman fikrin eksenini bildirir, eşleştirmeyi config tablosu yapar. Hangi kombinasyon seçilirse seçilsin üç ajan üç FARKLI aileden gelir: §3'teki tek kaynaklı kazanç çeşitlilikten geldiği için, kadro küçülürken çeşitlilik pazarlık konusu değildir.
+
+**[KAPI 1] aynı zamanda kadro kapısıdır.** Şah HMW seçerken önerilen kurul boyutunu ve kadroyu gerekçesiyle görür ("fiyatlandırma ekseninde durduğu için Pazar Sesi kondu"), tek dokunuşla kabul eder ya da kadroyu kendisi kurar. Her koltuğun görevi arayüzde tek cümleyle tanımlıdır (§4 tablosu).
+
+Üç kilit, pazarlık konusu değildir:
+- **Denetçi koltuğu kaldırılamaz.** Modeli değiştirilebilir, koltuk boş bırakılamaz. İtirazı isteğe bağlı yapan bir Divan, ucuzlatılmış bir yağcılık makinesidir.
+- **En az üç rol dolu olmalı.** İkiye düşen kurul müzakere değil sohbettir.
+- **Çeşitlilik uyarısı:** seçilen kadro ikiden az aileden geliyorsa UI uyarır. Engellemez (Şah bilerek yapıyor olabilir) ama sessizce de geçmez.
+
+Bunun yapısal sonucu: **kadro veridir.** Graf, hangi fazda kimin konuşacağını koddaki sabit listelerden değil, config + KAPI 1 seçiminden alır. (M1'de listeler sabittir; M2'de dinamikleştirilir, PLAN M2.)
+
 ## 6. Anti-yağcılık mekanikleri (detay)
 
 ### 6.1 Anonimleştirme
@@ -107,7 +137,7 @@ Mutlak skor yok; kriter başına sıralama. Anlaşmazlık = sıralama ters-dönm
 
 ## 8. Eval modu (measure-before-claiming)
 
-Aynı fikir iki yoldan koşulur: (a) tam kurul, (b) tek güçlü model + sert eleştiri promptu. Şah kör A/B seçer; seçimler saklanır. README'deki "daha iyi karar" iddiası ancak bu veriyle yazılır. v1'de basit haliyle VAR (çatal kararı).
+Aynı fikir üç yoldan koşulur: (a) tam kurul, (b) küçük kurul (§5.1), (c) tek güçlü model + sert eleştiri promptu. Şah kör seçim yapar; seçimler saklanır. Üçüncü kol şunun içindir: "küçük kurul yeterli mi" sorusu bir iddia değil, ölçüm sonucu olsun. README'deki "daha iyi karar" iddiası ancak bu veriyle yazılır. v1'de basit haliyle VAR (çatal kararı).
 
 ## 9. Çıktı formatları [ONAYLANDI, 2026-08-25; bağlayıcı şablonlar: `templates/`]
 
