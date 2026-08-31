@@ -1,5 +1,7 @@
 # M1 kanıt paketi (Divan, 2026-08-31)
 
+> **Üretildiği commit: `3c63b9f` (bu satırın altındaki çıktılar o ağaçta koşuldu).**
+>
 > Bu dosya bir KOŞUM ÇIKTISIDIR, kaynak değil. Aşağıdaki her blok `npm run e2e`, `npx tsc --noEmit`,
 > `npm run build` ve `node src/core/graph/<ad>.test.ts` komutlarının ham çıktısıdır; koşucunun kendisi
 > `scripts/e2e.mjs` dosyasındadır. Kanıtı doğrulamak için bu dosyayı okumak değil, komutu koşmak gerekir.
@@ -75,7 +77,8 @@ Kaynak: `scripts/e2e.mjs`. Birim testleri: `src/core/graph/{lock,revision,budget
   GECTI (F2 ham -> F3 baglami sikistirma ~7.7x, sizinti 0)
 
 ======================================================================
-SONUC: 11/11 gecti```
+SONUC: 11/11 gecti
+```
 
 ---
 
@@ -228,6 +231,46 @@ Transfer-Encoding: chunked```
 ## 4. Commit geçmişi (`git log --format="%h %s%n%b"`)
 
 ```
+3c63b9f docs: F0 triyaji sema-kritik sinifa, triyaj isabeti eval satirina
+M1 kapisinda Fable'in iki notu:
+- DESIGN §7 + PLAN M2: F0 triyaj gozlemleri sema-kritik cagri sinifina girer;
+  kurul boyutu probu gecmemis bir modelin bozuk semasina birakilamaz.
+- PLAN M5: gozlemler model ciktisi oldugu icin triyajin kendisi de olculur;
+  kor eval'e "triyaj isabeti" ayri satir olarak eklendi.
+
+339f5e3 docs: DESIGN §5.1 kurul boyutu ve kadro secimi (M2'de kurulur)
+Sah'in sorusu: bir isin kucuk oldugunu neye dayanarak soyleyecegiz, ve uc ajan
+olacaksa hangileri?
+
+Karar: triyaj bir model YARGISI degil, gozlem + kod + insan onayi zinciri.
+- BD dort GOZLEM dondurur (yol sayisi, geri donus maliyeti, gereken uzmanliklar,
+  kanit ihtiyaci); sinifi KOD verir, esikler config'de; supheda tam kurul.
+- Kucuk kurul sabit ucluk degil: uc ROL (oneren / olcen / itiraz eden) doldurulur,
+  koltuk fikrin eksenine gore secilir, her kombinasyon uc FARKLI aileden gelir.
+- KAPI 1 ayni zamanda kadro kapisidir: oneri gerekcesiyle sunulur, Sah kabul eder
+  veya kadroyu kendisi kurar.
+- Uc kilit: Denetci koltugu kaldirilamaz, en az uc rol dolu olmali, iki aileden az
+  kadroda uyari.
+- Yapisal sonuc: kadro VERIDIR; graf koltuk listelerini config + KAPI 1'den alir.
+
+DESIGN §8: kor karsilastirma uc kola cikti (tam kurul / kucuk kurul / tek model),
+"kucuk kurul yeterli mi" bir iddia degil olcum sonucu olsun diye.
+
+PLAN: bu is M2 kapsamina, iki kabul kriteri ve iki Fable maddesiyle yazildi.
+M1 kodu sabit kadro + stub triyaji ile kalir; §5.1 basligi bunu acikca soyler.
+
+db62c94 docs: M1 kanit paketi repoya alindi (docs/M1-KANIT.md)
+Kanit repoda kosulabilir olmali kurali cikti dosyasini da kapsar: paket artik
+repoda, scratchpad'de degil. Icerik e2e/tsc/build/birim testi ham ciktilari,
+baglam sikistirmasi sayimi, SSE curl yakalamasi, git log ve bilinen sinirlar.
+
+6ec9156 docs: M3 butce uyarisi (DESIGN §5) + M2'ye iki borc (PLAN)
+M1 kapisinda Fable'in actigi iki not:
+- DESIGN §5: F5 kuyrugu M3'te 6'dan 8'e cikinca tipik toplam ~29 olur, tavan 30.
+  Bant M3'te sessizce delinmesin diye acikca yazildi.
+- PLAN M2: (a) hukum turu kriterleri kalici kimlik tasimali, dusen itiraz izi ad
+  eslesmesine birakilamaz; (b) butce kapisinin yanit sozlesmesi acik olmali.
+
 38f8fcd test: M1 uctan uca kanit kosucusu (npm run e2e)
 10 senaryo + baglam sikistirmasi kaniti, tek komutla yeniden uretilebilir:
 - S01 tam kurul (27 cagri), S02 kucuk kurul (14, F1/F3 ve KAPI2 atlanir)
@@ -325,7 +368,8 @@ cadd8d7 fix: M0 review düzeltmeleri (F-1 servedModel, F-2 koltuk ekosu, em-dash
 - Koltuk kontrolü: 7 koltuk json_schema probe (reasoning-güvenli), server-only mühür, /api/seat-check
 - .env.local BYOK, gitignore ile korunuyor (anahtar makineden çıkmaz)
 
-4a8e7c5 docs: tasarım kilidi (DESIGN v2, PLAN M0-M5, kurallar, şablonlar)```
+4a8e7c5 docs: tasarım kilidi (DESIGN v2, PLAN M0-M5, kurallar, şablonlar)
+```
 
 ---
 
