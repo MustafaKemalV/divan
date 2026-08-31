@@ -60,6 +60,8 @@ Tek gerçek kaynak `DESIGN.md`; bu plan onun inşa sırasıdır. Model stratejis
 - [ ] Şema-kritik çağrılar yalnız probu geçen koltuklara mı gidiyor?
 - [ ] Gerçek oturum çağrı sayısı DESIGN §5 bütçe tablosuyla uyumlu mu (SAYIM)?
 - [ ] Maliyet sayacı OpenRouter usage ile tutarlı mı?
+- [ ] Hüküm turu kriterleri KALICI KİMLİK taşıyor mu? Denetim itirazlarına id verilir, hüküm şeması id ile döner. §6.4 düşen itiraz izi kriter ADI eşleşmesine bağlı kalamaz: gerçek modelde ad turlar arası oynarsa sahte-düşme veya kaçırma üretir. (M1 kapısında Fable'ın açtığı borç.)
+- [ ] Bütçe kapısının yanıt sözleşmesi açık mı (`devam` | yeni tavan sayısı | `abort`)? Sayı olmayan her yanıtın sessizce "devam" sayılması kabul edilemez; yazım hatası akışı sürdürmemeli.
 - [ ] Probe sadakati: pin + her fallback TEK TEK problanır (models dizisi maskesi yok); şema-kritik yönlendirme yalnız tek-başına-geçen modellere gider; pass-via-fallback ve eko-uyuşmazlık dalları mock kanıtıyla gösterilir.
 
 ## M3: Çıktılar
