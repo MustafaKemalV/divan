@@ -6,6 +6,7 @@ Tek gerçek kaynak `DESIGN.md`; bu plan onun inşa sırasıdır. Model stratejis
 - Her milestone sonunda: `/model claude-fable-5` → "M<X> bitti, PLAN.md'deki M<X> kontrol listesini uygula" → bulgular kapanmadan milestone kapanmaz → Opus'a dön.
 - **M2 ve M5:** TAZE bir Fable oturumu (bu klasörden aç); sadece repo + DESIGN + PLAN üzerinden bağımsız review.
 - Kural: kanıtsız "bitti" yok; her kabul kriteri test çıktısı veya çalışan örnekle gösterilir.
+- **Kanıt repoda koşulabilir olmalı; oturum-içi scratchpad çıktısı kanıt sayılmaz.** (M1'den itibaren: `npm run e2e`, anahtarsız stub'larla deterministik, düşen senaryoda non-zero exit.)
 
 ---
 
