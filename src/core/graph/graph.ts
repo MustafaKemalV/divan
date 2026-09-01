@@ -18,8 +18,11 @@ const FEASIBILITY = ["engineer1", "engineer2", "architect"] as const; // F4 değ
 const DEFENDERS = ["engineer1", "architect"] as const; // F4 revizyon/savunma turu
 const RANKERS = ["market", "engineer1", "architect", "auditor"] as const; // F5 sıralama
 
-// Küçük kurul (DESIGN §5: 3 ajan = üretici + mühendis + Denetçi, BD moderatör).
-const SMALL_IDEATORS = ["visionary", "engineer1", "auditor"] as const;
+// Küçük kurul (DESIGN §5: 3 ajan = Öneren + Ölçen + İtiraz eden, BD moderatör).
+// Denetçi ÜRETİM turuna girmez: §3'teki "erken eleştiri üretimi bastırır" mekanizması her iki
+// yolda da açık kalmalı. Denetçi küçük kurulda denetim, hüküm ve sıralama turlarında konuşur;
+// bu, seats.ts'teki faz spec'iyle de birebir hizalıdır (auditor: F1, F4, F5).
+const SMALL_IDEATORS = ["visionary", "engineer1"] as const;
 const SMALL_RANKERS = ["engineer1", "auditor"] as const;
 
 /** Bir faz(lar)ın ham transcript'ini "koltuk: içerik" satırlarına indirger (BD özet girdisi). */
@@ -445,10 +448,16 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
   return graph.compile({ checkpointer: getCheckpointer() });
 }
 
-let compiled: ReturnType<typeof buildCouncilGraph> | undefined;
+const compiledByMode = new Map<string, ReturnType<typeof buildCouncilGraph>>();
 
-/** Tek derlenmiş graf (checkpointer singleton'ı paylaşsın diye). */
-export function getCouncilGraph() {
-  if (!compiled) compiled = buildCouncilGraph();
-  return compiled;
+/**
+ * Mod başına tek derlenmiş graf (checkpointer singleton'ı paylaşılsın diye). Runner enjekte edilir:
+ * graf hangi sesle konuştuğunu bilmez, bu yüzden stub ve gerçek koşum aynı mekaniği kullanır.
+ */
+export function getCouncilGraph(mode: string, runner: SeatRunner): ReturnType<typeof buildCouncilGraph> {
+  const existing = compiledByMode.get(mode);
+  if (existing) return existing;
+  const built = buildCouncilGraph(runner);
+  compiledByMode.set(mode, built);
+  return built;
 }

@@ -3,6 +3,7 @@
 
 import { Command } from "@langchain/langgraph";
 import { getCouncilGraph } from "@/core/graph/graph";
+import { createRunner, resolveRunnerMode } from "@/core/graph/runner";
 import { encodeSSE, type DivanEvent } from "@/core/graph/events";
 import type { DivanStateType } from "@/core/graph/state";
 import { loadConfig } from "@/core/config/load";
@@ -19,7 +20,6 @@ export async function POST(req: Request) {
     reTableToNode?: string;
   };
 
-  const graph = getCouncilGraph();
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream<Uint8Array>({
@@ -29,6 +29,10 @@ export async function POST(req: Request) {
       const config = { configurable: { thread_id: threadId } };
 
       try {
+        // Runner seçimi burada: anahtarsız gerçek koşum sessizce stub'a düşmez, hata verir (§7).
+        const runnerMode = resolveRunnerMode();
+        const graph = getCouncilGraph(runnerMode, await createRunner(runnerMode));
+
         const isResume = body.resume !== undefined;
         const reTableTo = typeof body.reTableToNode === "string" ? body.reTableToNode : undefined;
 
@@ -97,6 +101,7 @@ export async function POST(req: Request) {
             threadId,
             selectedHmw: v.selectedHmw ?? null,
             councilMode: v.councilMode ?? "full",
+            runnerMode,
             metrics: {
               callCount: v.callCount ?? 0,
               transcriptEntries: (v.transcript ?? []).length,

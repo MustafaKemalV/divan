@@ -22,6 +22,10 @@ export interface SeatRunOutput {
   content: string;
   /** faz-özel yapılı veri (ör. F0 triyaj + HMW listesi, F4 hüküm turu) */
   data?: Record<string, unknown>;
+  /** cevabı gerçekte veren model; stub'da yok, gerçek runner'da künye ve fallback izi için dolu */
+  servedModel?: string;
+  /** token/maliyet; maliyet sayacı bunu toplar (M2-A2) */
+  usage?: { promptTokens?: number; completionTokens?: number; totalTokens?: number; cost?: number };
 }
 
 export interface SeatRunner {

@@ -37,7 +37,12 @@ function sleep(ms) {
 }
 
 async function startServer() {
-  const env = { ...process.env, PORT: String(PORT), DIVAN_CHECKPOINT_DB: DB };
+  const env = {
+    ...process.env,
+    PORT: String(PORT),
+    DIVAN_CHECKPOINT_DB: DB,
+    DIVAN_RUNNER: "stub", // sahte koşum AÇIKÇA istenir; varsayılan mod gerçek modellerdir
+  };
   delete env.OPENROUTER_API_KEY; // anahtarsız koşum: stub'lar hiçbir sağlayıcıya gitmez
   server = spawn("node_modules/.bin/next", ["dev", "--port", String(PORT)], {
     env,
@@ -89,6 +94,8 @@ function check(cond, msg) {
 }
 
 const results = [];
+/** casus runner çağrıları; bağlam ölçümü ve prompt kapsamı testi ikisi de bunu okur */
+const spyCalls = [];
 async function scenario(id, title, fn) {
   console.log(`\n[${id}] ${title}`);
   try {
@@ -124,13 +131,14 @@ async function run() {
 
     s = stopEvent(await post({ threadId: "e2e-s01", resume: "karar: devam" }));
     check(s.type === "done", `done bekleniyordu: ${s.type}`);
+    check(s.runnerMode === "stub", `stub kosumu damgalanmali, gelen: ${s.runnerMode}`);
     check(s.metrics.callCount === 27, `27 cagri bekleniyordu, gelen ${s.metrics.callCount}`);
     check(s.metrics.callCount >= 26 && s.metrics.callCount <= 28, "DESIGN §5 tipik bant 26-28 disinda");
     console.log(`  kanit: callCount=${s.metrics.callCount}, revizyonTuru=${s.metrics.revisionRounds}`);
   });
 
   // S02: küçük kurul yolu (F0 triyajı) - F1/F3 ve KAPI2 yok
-  await scenario("S02", "Kucuk kurul yolu (triyaj), F1/F3 ve KAPI2 atlanir", async () => {
+  await scenario("S02", "Kucuk kurul yolu (triyaj), F1/F3 ve KAPI2 atlanir, Denetci uretimde yok", async () => {
     let ev = await post({ threadId: "e2e-s02", idea: SHORT });
     let s = stopEvent(ev);
     check(s.payload.councilMode === "small", "triyaj small olmaliydi");
@@ -145,7 +153,7 @@ async function run() {
 
     s = stopEvent(await post({ threadId: "e2e-s02", resume: "karar" }));
     check(s.councilMode === "small", "done olayinda mode small olmali");
-    check(s.metrics.callCount === 14, `14 cagri bekleniyordu, gelen ${s.metrics.callCount}`);
+    check(s.metrics.callCount === 13, `13 cagri bekleniyordu, gelen ${s.metrics.callCount}`);
     console.log(`  kanit: mode=${s.councilMode}, callCount=${s.metrics.callCount}`);
   });
 
@@ -220,7 +228,7 @@ async function run() {
     s = stopEvent(await post({ threadId: "e2e-s07", resume: "devam" }));
     check(s.payload.dissentNote.includes("BLOCKING"), "muhalefet notu HAM olmali");
     s = stopEvent(await post({ threadId: "e2e-s07", resume: "karar" }));
-    check(s.metrics.callCount === 14, `14 cagri bekleniyordu: ${s.metrics.callCount}`);
+    check(s.metrics.callCount === 13, `13 cagri bekleniyordu: ${s.metrics.callCount}`);
     console.log(`  kanit: mode=${s.councilMode}, callCount=${s.metrics.callCount}`);
   });
 
@@ -271,7 +279,7 @@ async function run() {
     const { StubSeatRunner } = await import("../src/core/graph/seatRunner.ts");
     const { Command } = await import("@langchain/langgraph");
 
-    const calls = [];
+    const calls = spyCalls;
     const inner = new StubSeatRunner();
     const spy = {
       async run(seatId, input) {
@@ -282,19 +290,25 @@ async function run() {
     };
 
     const graph = buildCouncilGraph(spy);
-    const cfg = { configurable: { thread_id: "e2e-context" } };
-    const drain = async (input) => {
-      for await (const _ of await graph.stream(input, { ...cfg, streamMode: "updates" })) void _;
+    const runPath = async (threadId, idea, resumes) => {
+      const cfg = { configurable: { thread_id: threadId } };
+      const drain = async (input) => {
+        for await (const _ of await graph.stream(input, { ...cfg, streamMode: "updates" })) void _;
+      };
+      await drain({ idea, maxCalls: 100 });
+      for (const r of resumes) await drain(new Command({ resume: r }));
     };
-    await drain({ idea: LONG, maxCalls: 100 });
-    await drain(new Command({ resume: "hmw" }));
-    await drain(new Command({ resume: "cerceve" }));
-    await drain(new Command({ resume: "karar" }));
+    await runPath("e2e-context", LONG, ["hmw", "cerceve", "karar"]);
+    const fullCalls = calls.length;
+    // Küçük kurul yolu da koşulur: prompt kapsamı iki yolun TAMAMINI kapsamalı.
+    await runPath("e2e-context-small", SHORT, ["hmw", "karar"]);
+    console.log(`  (olcum: tam kurul ${fullCalls} cagri, kucuk kurul ${calls.length - fullCalls} cagri)`);
 
     // Kaba token ölçüsü: boşluğa göre parçalama. Gerçek tokenizer bağımlılığı EKLENMEDİ; sayılar
     // "kaba token" olarak etiketlenir, bir sağlayıcının tokenizer'ıyla birebir eşleşme iddiası yoktur.
     const toks = (t) => t.split(/\s+/).filter(Boolean).length;
-    const rawOf = (phase) => calls.filter((c) => c.phase === phase).map((c) => c.output).join("\n");
+    const fullOnly = calls.slice(0, fullCalls);
+    const rawOf = (phase) => fullOnly.filter((c) => c.phase === phase).map((c) => c.output).join("\n");
 
     // Her fazın ham çıktısının parmak izi ve o fazdan SONRAKİ fazlar. Fazlar arası taşınan tek şey
     // BD özetidir; bir sonraki fazın ajan çağrısında bu parmak izi görünürse sıkıştırma delinmiş demektir.
@@ -304,7 +318,7 @@ async function run() {
       { phase: "F4:feasibility", mark: "[F4:feasibility ", later: /^F5/ },
     ];
     // BD özet düğümleri ham metni GÖRMEK zorundadır (işleri budur); ölçüm ajan çağrıları üzerinde.
-    const agentCalls = calls.filter((c) => !c.phase.endsWith(":summary"));
+    const agentCalls = fullOnly.filter((c) => !c.phase.endsWith(":summary"));
     let totalLeaks = 0;
     for (const fp of FINGERPRINTS) {
       const raw = rawOf(fp.phase);
@@ -320,7 +334,7 @@ async function run() {
     }
 
     const f2Raw = rawOf("F2:idea");
-    const f3Ctx = calls.find((c) => c.phase === "F3:cross")?.context ?? "";
+    const f3Ctx = fullOnly.find((c) => c.phase === "F3:cross")?.context ?? "";
     console.log(`  ileri tasinan baglam (F3 ajan cagrisi): ${f3Ctx.length} krk / ~${toks(f3Ctx)} kaba token`);
 
     // Faz İÇİ ham taşıma tasarım gereğidir (denetim kendi fazının çıktısını okur); bunu ayrı raporla
@@ -335,6 +349,40 @@ async function run() {
     console.log(`  GECTI (F2 ham -> F3 baglami sikistirma ~${(f2Raw.length / Math.max(1, f3Ctx.length)).toFixed(1)}x, sizinti 0)`);
   } catch (e) {
     results.push({ id: "KANIT", ok: false, err: e.message });
+    console.log(`  DUSTU: ${e.message}`);
+  }
+
+  // ------------------------------------------------ prompt kapsamı (mekanizma testi)
+  // Promptların düzenlenmesi Şah onayı gerektirmez (DESIGN §7); güvence burada: grafın çağırdığı
+  // HER koltuk-faz çiftinin bir prompt dosyası olmalı. Silinen ya da unutulan prompt bu testi düşürür,
+  // yani gerçek koşumda hiçbir koltuk sessiz bir varsayılanla konuşamaz.
+  //
+  // BU TEST AYNI ZAMANDA BİR MEKANİZMA BEKÇİSİDİR. Çağrılan çift kümesi, kadronun hangi fazda kimi
+  // konuşturduğunun tam listesidir; beklenmedik bir çift buraya düşerse eksik prompt olarak görünür.
+  // İlk yakaladığı sapma bu oldu: küçük kurulda Denetçi üretim turuna sokulmuştu ve §3'teki
+  // "erken eleştiri üretimi bastırır" mekanizması o yolda sessizce kapanıyordu (M2-A, düzeltildi).
+  // Yani buradaki "eksik dosya" hatası çoğu zaman eksik dosya değil, yanlış kadro demektir.
+  console.log(`\n[KANIT] Prompt kapsami: grafin cagirdigi her koltuk-faz cifti dosyada var mi?`);
+  try {
+    const { loadPrompt, promptFileName } = await import("../src/core/prompts/load.ts");
+    const pairs = new Map();
+    for (const c of spyCalls) pairs.set(`${c.seatId}|${c.phase}`, c);
+    const missing = [];
+    for (const c of pairs.values()) {
+      try {
+        loadPrompt(c.seatId, c.phase);
+      } catch {
+        missing.push(`${promptFileName(c.seatId, c.phase)}  (koltuk ${c.seatId}, faz ${c.phase})`);
+      }
+    }
+    console.log(`  cagrilan benzersiz cift: ${pairs.size} | eksik prompt: ${missing.length}`);
+    for (const m of missing) console.log(`    EKSIK: ${m}`);
+    check(pairs.size > 0, "hic cagri toplanmadi");
+    check(missing.length === 0, `${missing.length} koltuk-faz cifti icin prompt dosyasi yok`);
+    results.push({ id: "PROMPT", ok: true });
+    console.log(`  GECTI`);
+  } catch (e) {
+    results.push({ id: "PROMPT", ok: false, err: e.message });
     console.log(`  DUSTU: ${e.message}`);
   }
 }

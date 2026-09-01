@@ -28,10 +28,19 @@ export interface ChatOptions {
   signal?: AbortSignal;
 }
 
+export interface UsageInfo {
+  promptTokens?: number;
+  completionTokens?: number;
+  totalTokens?: number;
+  /** OpenRouter usage accounting açıksa dolu gelir; ŞEKLİ CANLI DOĞRULANACAK (M2-A2). */
+  cost?: number;
+}
+
 export interface ChatResult {
   content: string;
   /** cevabı GERÇEKTE veren model (OpenRouter `model` alanı); fallback yönlendirmesini görünür kılar */
   servedModel?: string;
+  usage?: UsageInfo;
   raw: unknown;
 }
 
@@ -101,7 +110,22 @@ export async function chat(opts: ChatOptions): Promise<ChatResult> {
   const data = (await res.json()) as {
     model?: string;
     choices?: { message?: { content?: string } }[];
+    usage?: {
+      prompt_tokens?: number;
+      completion_tokens?: number;
+      total_tokens?: number;
+      cost?: number;
+    };
   };
   const content = data.choices?.[0]?.message?.content ?? "";
-  return { content, servedModel: data.model, raw: data };
+  const u = data.usage;
+  const usage: UsageInfo | undefined = u
+    ? {
+        promptTokens: u.prompt_tokens,
+        completionTokens: u.completion_tokens,
+        totalTokens: u.total_tokens,
+        cost: u.cost,
+      }
+    : undefined;
+  return { content, servedModel: data.model, usage, raw: data };
 }

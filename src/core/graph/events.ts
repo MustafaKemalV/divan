@@ -11,6 +11,10 @@ export type DivanEvent =
       selectedHmw: string | null;
       // hangi yol koştu (F0 triyajı) + sıkıştırma/bütçe/döngü kanıtları
       councilMode: "full" | "small";
+      /** DESIGN §7 damgası: oturum gerçek modellerle mi stub'larla mı koştu (sahte gerçek sanılamaz) */
+      runnerMode: "openrouter" | "stub";
+      /** oturum neden bitti: normal akış mı, Şah'ın açık iptali mi (§5 bütçe sözleşmesi) */
+      reason?: string;
       metrics: {
         callCount: number;
         transcriptEntries: number;
