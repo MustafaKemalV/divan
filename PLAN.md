@@ -29,7 +29,7 @@ Tek gerçek kaynak `DESIGN.md`; bu plan onun inşa sırasıdır. Model stratejis
 - Stub'larla tam oturum akıyor: F0→F5, kapılarda duruyor, resume çalışıyor.
 - Bir fazı re-table edip checkpoint'ten yeniden koşturma kanıtı.
 - SSE olay akışı curl ile izlenebiliyor.
-- İki yol da uçtan uca koşuyor ve çağrı sayımı DESIGN §5 ile uyumlu (tam kurul 26-28, küçük kurul ~14).
+- İki yol da uçtan uca koşuyor ve çağrı sayımı DESIGN §5 ile uyumlu (tam kurul 26-28, küçük kurul ~13).
 - F4 revizyon döngüsü koşuyor ve kapanışı sayı karşılaştırmasıyla oluyor (ajan beyanı değil).
 - Bütçe kapısı faz BAŞLAMADAN açılıyor; Şah kapıda tavanı yükseltebiliyor.
 - Kilit ihlali sessiz bitişe düşmüyor: yeniden koşum, sonra HUKUM_EKSIK kapısı.
