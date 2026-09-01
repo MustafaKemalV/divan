@@ -61,6 +61,17 @@ export const DivanState = Annotation.Root({
     default: () => false,
   }),
 
+  // Denetimin mekanik şartları karşılandı mı (§6.3.1: premortem + >=3 etiketli iddia).
+  // Eksik denetim sessizce geçmez: bayrak KAPI 3'te ve done olayında görünür.
+  auditComplete: Annotation<boolean>({
+    reducer: (_prev, next) => next,
+    default: () => false,
+  }),
+  auditIssue: Annotation<string>({
+    reducer: (_prev, next) => next,
+    default: () => "",
+  }),
+
   // BİRİKEN: her hüküm turunun tam çıktısı (§6.4). Son tur `judgment`e yazılır, geçmiş burada
   // durur; revizyonla DÜŞEN itiraz ancak bu iz sayesinde görünür kalabilir.
   judgmentHistory: Annotation<JudgmentItem[][]>({

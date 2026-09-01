@@ -12,9 +12,41 @@ const HMW: JsonSchemaSpec = {
   schema: {
     type: "object",
     additionalProperties: false,
-    required: ["hmw"],
+    required: ["summary", "hmw"],
     properties: {
+      // Her şema-kritik faz insan-okunur bir özet döndürür: transkripte ham JSON düşmesin.
+      summary: { type: "string" },
       hmw: { type: "array", minItems: 3, maxItems: 5, items: { type: "string" } },
+    },
+  },
+};
+
+// DESIGN §6.3.1 + §6.2: zorunlu premortem ve kanıt etiketi PROMPTTA rica edilmez, BURADA zorlanır.
+// Alt sınırlar (minItems) bazı sağlayıcılarda yok sayılabilir; bu yüzden audit.ts KODLA da denetler.
+const AUDIT: JsonSchemaSpec = {
+  name: "divan_f4_audit",
+  schema: {
+    type: "object",
+    additionalProperties: false,
+    required: ["summary", "premortem", "claims", "weakestLink"],
+    properties: {
+      summary: { type: "string" },
+      premortem: { type: "string" },
+      claims: {
+        type: "array",
+        minItems: 3,
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["claim", "evidence", "source"],
+          properties: {
+            claim: { type: "string" },
+            evidence: { type: "string", enum: ["dogrulanmis", "model-bilgisi", "varsayim"] },
+            source: { type: "string" },
+          },
+        },
+      },
+      weakestLink: { type: "string" },
     },
   },
 };
@@ -38,8 +70,9 @@ const JUDGMENT: JsonSchemaSpec = {
   schema: {
     type: "object",
     additionalProperties: false,
-    required: ["judgment"],
+    required: ["summary", "judgment"],
     properties: {
+      summary: { type: "string" },
       judgment: {
         type: "array",
         minItems: 1,
@@ -63,6 +96,8 @@ const JUDGMENT: JsonSchemaSpec = {
 const BY_PHASE: Record<string, JsonSchemaSpec> = {
   "F0:briefing": BRIEFING,
   "F0:hmw": HMW,
+  "F4:audit": AUDIT,
+  "F4s:audit": AUDIT,
   "F4:judgment": JUDGMENT,
   "F4s:judgment": JUDGMENT,
 };

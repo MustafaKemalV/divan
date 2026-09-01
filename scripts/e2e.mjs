@@ -128,6 +128,7 @@ async function run() {
     s = stopEvent(ev);
     check(s.gate === "KAPI3", `KAPI3 bekleniyordu: ${s.gate ?? s.type}`);
     check(nodesOf(ev).includes("f4_revision"), "F4 revizyon turu kosmali");
+    check(s.payload.auditComplete === true, "denetim mekanik sartlari tasimaliydi (§6.3.1)");
 
     s = stopEvent(await post({ threadId: "e2e-s01", resume: "karar: devam" }));
     check(s.type === "done", `done bekleniyordu: ${s.type}`);
@@ -267,6 +268,22 @@ async function run() {
     s = stopEvent(await post({ threadId: "e2e-s10", resume: "hmw secildi" }));
     check(s.gate === "KAPI2", `yeni process ayni thread'den devam etmeliydi: ${s.gate ?? s.type}`);
     console.log(`  kanit: sunucu yeniden basladi, e2e-s10 KAPI1'den KAPI2'ye devam etti`);
+  });
+
+  // S11: zorunlu premortem şema+kodla zorlanır; eksik denetim SESSİZ geçmez
+  await scenario("S11", "Premortem'siz denetim EKSIK isaretlenir (§6.3.1)", async () => {
+    await post({ threadId: "e2e-s11", idea: `${LONG} [TEST:noaudit]` });
+    await post({ threadId: "e2e-s11", resume: "hmw" });
+    let s = stopEvent(await post({ threadId: "e2e-s11", resume: "cerceve onaylandi" }));
+    check(s.gate === "KAPI3", `KAPI3 bekleniyordu: ${s.gate ?? s.type}`);
+    check(s.payload.auditComplete === false, "premortemsiz denetim tam sayilmamaliydi");
+    check(
+      String(s.payload.auditIssue).includes("premortem"),
+      `eksiklik sebebi premortem olmaliydi: ${s.payload.auditIssue}`,
+    );
+    console.log(`  kanit: KAPI3'te auditComplete=false, sebep: ${s.payload.auditIssue}`);
+    s = stopEvent(await post({ threadId: "e2e-s11", resume: "karar" }));
+    check(s.metrics.auditComplete === false, "done olayinda da eksiklik gorunmeli");
   });
 
   await stopServer();

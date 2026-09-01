@@ -11,6 +11,7 @@ import { getCheckpointer } from "./checkpointer.ts";
 import { earlyConsensusLockRouter } from "./lock.ts";
 import { revisionLoopRouter, countBlockingUnmet } from "./revision.ts";
 import { isOverBudget } from "./budget.ts";
+import { validateAudit } from "./audit.ts";
 
 // DESIGN §4/§5 koltuk rolleri per faz (tam kurul).
 const IDEATORS = ["visionary", "market", "engineer1", "architect"] as const; // F2/F3
@@ -175,8 +176,18 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
         idea: state.idea,
         context: rawOfPhase(state, "F4:feasibility"),
       });
+      // §6.3.1 zorunlu premortem + §6.2 etiketli iddialar: şema zorlar, burada da KOD denetler.
+      const check = validateAudit(out.data);
       return {
-        transcript: [{ phase: "F4:audit", seatId: "auditor", content: out.content }],
+        auditComplete: check.ok,
+        auditIssue: check.ok ? "" : check.reason,
+        transcript: [
+          {
+            phase: "F4:audit",
+            seatId: "auditor",
+            content: check.ok ? out.content : `[DENETİM EKSİK: ${check.reason}] ${out.content}`,
+          },
+        ],
         callCount: 1,
       };
     })
@@ -269,8 +280,17 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
         idea: state.idea,
         context: rawOfPhase(state, "F4s:feasibility"),
       });
+      const check = validateAudit(out.data);
       return {
-        transcript: [{ phase: "F4s:audit", seatId: "auditor", content: out.content }],
+        auditComplete: check.ok,
+        auditIssue: check.ok ? "" : check.reason,
+        transcript: [
+          {
+            phase: "F4s:audit",
+            seatId: "auditor",
+            content: check.ok ? out.content : `[DENETİM EKSİK: ${check.reason}] ${out.content}`,
+          },
+        ],
         callCount: 1,
       };
     })
@@ -378,6 +398,9 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
         rankings: state.rankings,
         dissentNote: state.dissentNote,
         droppedObjections: state.droppedObjections,
+        // Denetim mekanik şartları taşımıyorsa Şah bunu karar anında GÖRÜR (§6.3.1).
+        auditComplete: state.auditComplete,
+        auditIssue: state.auditIssue,
       }) as string;
       return { decision };
     })

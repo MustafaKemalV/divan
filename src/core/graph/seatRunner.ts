@@ -45,6 +45,7 @@ export const SMALL_IDEA_MAX_CHARS = 60;
  *   [TEST:nojudgment]   -> ilk hüküm turu boş şema döndürür (erken-uzlaşı kilidi retry dalı)
  *   [TEST:nojudgment:always] -> hiçbir turda şema üretilmez (HUKUM_EKSIK Şah kapısı dalı)
  *   [TEST:drop]         -> itiraz bir tur blocking kalır, ikinci turda düşer (§6.4 düşen itiraz izi)
+ *   [TEST:noaudit]      -> denetim premortemsiz döner (§6.3.1 eksik denetim işaretlenmesi)
  */
 export class StubSeatRunner implements SeatRunner {
   async run(seatId: string, input: SeatRunInput): Promise<SeatRunOutput> {
@@ -88,8 +89,26 @@ export class StubSeatRunner implements SeatRunner {
         };
       }
       if (phase === "F4:audit" || phase === "F4s:audit") {
+        // Stub gerçek çıktı ŞEKLİNİ taklit eder (§6.3.1 şeması), yoksa e2e mekanizmayı değil
+        // yalnız akışı test etmiş olurdu. [TEST:noaudit] premortemsiz eksik denetimi tetikler.
+        if (idea.includes("[TEST:noaudit]")) {
+          return {
+            content: `Denetim (stub): premortem atlandı.`,
+            data: { summary: "eksik denetim", premortem: "", claims: [], weakestLink: "" },
+          };
+        }
         return {
-          content: `Denetim (stub): premortem zorunlu; "bu neden başarısız olur" senaryosu + en az 3 sınanmış iddia.`,
+          content: `Denetim (stub): premortem + 3 etiketli sınanmış iddia + en zayıf halka.`,
+          data: {
+            summary: "Denetim (stub): premortem + 3 etiketli sınanmış iddia + en zayıf halka.",
+            premortem: "Bir yıl sonra başarısız olduk: dağıtım maliyeti gelirden yüksek kaldı.",
+            claims: [
+              { claim: "Dağıtım maliyeti gelirden yüksek.", evidence: "varsayim", source: "" },
+              { claim: "Benzer ürünler bu kanalda tutundu.", evidence: "model-bilgisi", source: "" },
+              { claim: "Hedef segment bu fiyata alışkın.", evidence: "dogrulanmis", source: "https://example.org/kaynak" },
+            ],
+            weakestLink: "dağıtım kanalı",
+          },
         };
       }
       if (phase === "F4:judgment" || phase === "F4s:judgment") {

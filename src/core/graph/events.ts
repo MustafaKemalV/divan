@@ -22,6 +22,8 @@ export type DivanEvent =
         summaryChars: number;
         revisionRounds: number;
         judgmentRetries: number;
+        /** §6.3.1: denetim mekanik şartları taşıdı mı (premortem + >=3 etiketli iddia) */
+        auditComplete: boolean;
       };
     }
   | { type: "error"; message: string };
