@@ -1,0 +1,88 @@
+# Mekanizma zorlama envanteri
+
+Divan'ın her iddiasının karşısında bir soru vardır: **bu mekanizma neyle zorlanıyor?** Bir mekanik
+yalnızca promptta duruyorsa zorlanmıyor demektir; model o gün unutabilir, yumuşatabilir, atlayabilir
+ve kimse fark etmez. Bu tablo o soruyu tek tek cevaplar.
+
+Katmanlar, zayıftan güçlüye: **sadece-prompt** (rica) < **kod** (çalışma anında denetlenir) <
+**şema** (çıktı yapısı zorunlu) < **graf** (geçiş koşulu, ihlal edilemez). Her satırın yanında
+kanıtı vardır: kanıtsız satır bu tabloya giremez.
+
+`SADECE-PROMPT` ve `YOK` satırları **borç listesidir** ve M2 kapısında koda karşı denetlenecektir.
+
+Son güncelleme: M2-A1 (prompt altyapısı + gerçek runner iskeleti + premortem şeması).
+
+## §3 Arıza modu tablosu
+
+| Mekanizma | Zorlayan katman | Kanıt |
+|---|---|---|
+| Heterojen aileler (6 aile / 7 koltuk) | config | `divan.config.json`, 7/7 canlı probe (M0) |
+| Anonimleştirme (F3/F5 kimliksiz) | **YOK** | M2-C borcu |
+| Erken uzlaşı kilidi | graf + test | `lock.ts` koşullu kenar, `lock.test.ts`, e2e S05/S06 |
+| Yargıçlık mekanik (blocking gömülemez) | kod + test | `bd_draft` ham metin kopyası, e2e S03 |
+| Topraklama (kanıt etiketi) | şema + kod + test | `schemas.ts` AUDIT.claims.evidence, `audit.ts`, `audit.test.ts` |
+| Topraklama (URL'siz "doğrulanmış" olamaz) | **YOK** | M2-C borcu: etiket zorunlu ama URL kuralı yok |
+| Değişmemiş muhalefet notu | kod + test | `bd_draft`, e2e S03 |
+| Düşen itiraz izi | kod + test | `judgmentHistory`, e2e S04. **Borç:** eşleştirme kriter ADIYLA (M2 kapısı notu) |
+| Tam-uyum bayrağı | **YOK** | M4 borcu |
+| Kör A/B (ölçüm) | **YOK** | M5 borcu |
+| Denetçi divergent fazlarda sessiz | graf + test | kadro listeleri, prompt kapsamı testi (sapmayı bu test yakaladı) |
+
+## §5 Akış
+
+| Mekanizma | Zorlayan katman | Kanıt |
+|---|---|---|
+| 3 planlı kapı (Şah kararı) | graf + test | `interrupt`, e2e S01/S02 |
+| 3 olay-tetikli dönüş | graf + test | e2e S03 (erken brifing), S06 (hüküm eksik), S08 (bütçe) |
+| F4 revizyon döngüsü, mekanik kapanma | kod + test | `revision.ts` sayı karşılaştırması, `revision.test.ts`, e2e S03 |
+| Bütçe: "aşılacak mı" + faz girişi | kod + test | `budget.ts`, `budget.test.ts`, e2e S08 |
+| Bütçe yanıt sözleşmesi (devam / sayı / iptal) | **YOK** | M2-A2 borcu: şu an sayı dışı her yanıt "devam" |
+| Re-table (tek hedefli yeniden koşum) | kod + test | `route.ts` getStateHistory, e2e S09 |
+| Bağlam sıkıştırması (ham taşınmaz) | graf + test | BD faz özetleri, e2e parmak-izi ölçümü (3 fazda 0 sızıntı) |
+| Faz kilidi (şapka disiplini) | **SADECE-PROMPT** | borç: fazın modu prompt metninde, yapıda değil |
+| §5.1 Triyaj: gözlem + kod sınıflandırması | **YOK** | M2-B borcu: şu an modelin `complexity` beyanı |
+| §5.1 Kadro kilitleri (Denetçi kaldırılamaz, min 3 rol, çeşitlilik uyarısı) | **YOK** | M2-B borcu |
+| §5.1 Ölü-uç kuralı (BD şemayı geçemezse tam kurul) | **YOK** | M2-A2 borcu |
+
+## §6 Anti-yağcılık mekanikleri
+
+| Mekanizma | Zorlayan katman | Kanıt |
+|---|---|---|
+| 6.1 Anonimleştirme | **YOK** | M2-C borcu |
+| 6.2 Kanıt kapısı, üç durum etiketi | şema + kod + test | denetim şemasında zorunlu enum, `audit.test.ts` |
+| 6.2 URL zorunluluğu | **YOK** | M2-C borcu |
+| 6.3.1 Zorunlu premortem + >=3 sınanmış iddia | şema + kod + test | `schemas.ts` AUDIT, `audit.ts`, `audit.test.ts`, e2e S11 |
+| 6.3.2 Tam-uyum bayrağı | **YOK** | M4 borcu |
+| 6.3.3 Hüküm turu tamamlanmadan F5 açılmaz | graf + test | `lock.ts`, e2e S05/S06 |
+| 6.4 Gömülemez muhalefet | kod + test | e2e S03 (ham metin KAPI 3'te) |
+| 6.5 Anlaşmazlık sinyali (Kendall tau) | **YOK** | M2-D borcu |
+
+## §7 Orkestrasyon ve operasyon
+
+| Mekanizma | Zorlayan katman | Kanıt |
+|---|---|---|
+| Anahtar istemciye sızmaz | kod (mühür) | `server-only`, M0 bundle kanıtı |
+| Koltuk probu (şema uyumu ölçümü) | kod | `probe.ts`, 7/7 canlı |
+| Şema-kritik çağrı yönlendirmesi (probu geçmeyene gitmez) | **YOK** | M2-A2 borcu: prob sonucu graf koşumuna bağlı değil |
+| Prob önbelleği (config-hash + TTL) | **YOK** | M2-A2 borcu |
+| Prompt dosyaları (sessiz varsayılan yok) | kod + test | `prompts/load.ts` hata verir, e2e prompt kapsamı (36 çift, 0 eksik) |
+| Runner modu damgası | kod + test | done olayı `runnerMode`, e2e S01 |
+| Maliyet sayacı | **YOK** | M2-A2 borcu: `usage` taşınıyor ama toplanmıyor |
+
+## §9 Çıktılar
+
+| Mekanizma | Zorlayan katman | Kanıt |
+|---|---|---|
+| Şablon sadakati (`templates/` birebir) | **YOK** | M3 borcu |
+| Listede olmayan bağımlılık prompta giremez | **YOK** | M3 borcu |
+| Oturum künyesi (stub oturumu rozeti) | kod | done olayı `runnerMode`; belgeye basımı M3 |
+
+## Özet
+
+Zorlanan mekanizma sayısı 17, borç 16. Borçların dağılımı: M2-A2 beş, M2-B üç, M2-C dört,
+M2-D bir, M3 üç, M4 iki, M5 bir.
+
+Tek **SADECE-PROMPT** satırı faz kilididir (şapka disiplini). Şu an fazın modu yalnız prompt
+metninde duruyor; bir koltuk yanlış modda konuşursa hiçbir yapı bunu durdurmaz. Bunun kodla
+zorlanması, çıktıya mod alanı eklemek veya faz-rol eşleşmesini şemaya bağlamak demektir; M2
+kapısında tartışılacak.

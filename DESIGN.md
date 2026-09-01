@@ -116,7 +116,7 @@ F3 ve F5'te ajanlar birbirinin görüşlerini kimliksiz görür; kendi eski çı
 URL'siz hiçbir iddia `Doğrulanmış` rozetini alamaz. Web: OpenRouter web plugin (Exa, ~$0.007/arama), faz başına kap (varsayılan 3). Kapsam: Denetçi (her denetim) + Müh-1/Müh-2 (F4).
 
 ### 6.3 Erken uzlaşı kilidi
-1. Denetçi denetimi, uyum derecesinden bağımsız **zorunlu premortem** içerir: en az 1 "bu neden başarısız olur" senaryosu + en az 3 sınanmış iddia.
+1. Denetçi denetimi, uyum derecesinden bağımsız **zorunlu premortem** içerir: en az 1 "bu neden başarısız olur" senaryosu + en az 3 sınanmış iddia. Bu zorunluluk PROMPTTA RİCA EDİLMEZ, ŞEMADA ZORLANIR: denetim çıktısı `json_schema`'ya bağlıdır (§7 şema-kritik çağrı), premortem senaryosu ve en az üç sınanmış iddia alanları zorunludur, eksik çıktı geçersizdir ve denetim eksik olarak işaretlenir. Ayrıca her sınanmış iddia §6.2'nin üç durumundan birini etiket olarak TAŞIMAK ZORUNDADIR; etiketsiz iddia şemada geçersizdir. Böylece kanıt disiplini denetimin içine ilk günden gömülür, sonradan eklenen bir katman olmaz.
 2. **Tam-uyum bayrağı:** F5'te sıralamalar birebir aynıysa UI "şüpheli uybirliği" uyarısı gösterir.
 3. Hüküm turu tamamlanmadan ve blocking maddeler listelenmeden F5'e geçilemez (graf kenar koşulu). Kilit tetiklendiğinde hüküm turu bir kez yeniden koşturulur; ikinci kez de eksik kalırsa oturum sessizce sonlanmaz, `HUKUM_EKSIK` kapısıyla Şah'a çıkar (§5 olay-tetikli dönüş c).
 

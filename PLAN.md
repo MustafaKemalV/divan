@@ -55,6 +55,7 @@ Tek gerçek kaynak `DESIGN.md`; bu plan onun inşa sırasıdır. Model stratejis
 - URL'siz iddia "Doğrulanmış" etiketi alamıyor (negatif test).
 - Blocking "karşılanmadı" maddesi muhalefet notunda HAM duruyor (test).
 - Kadro KAPI 1'de değiştirilebiliyor; Denetçi çıkarılamıyor ve üç rolün altına inilemiyor (negatif test); iki aileden az kadroda uyarı çıkıyor.
+- **Türkçe prompt varsayımı ölçüldü:** şema-kritik koltuklar (Denetçi, Baş Danışman) Türkçe sistem promptu altında şema disiplinini koruyor mu? Sallantı varsa ilk çare karma yapı (içerik Türkçe, şema iskeleti İngilizce). Prompt dili GERİ ALINABİLİR bir varsayımdır, ölçülmeden kalıcı sayılmaz.
 - Triyaj sınıflandırması KODDAN geliyor: aynı gözlem seti her koşumda aynı sonucu veriyor, model beyanı sınıfı belirlemiyor (test).
 
 **Fable kontrol listesi:**
