@@ -6,7 +6,7 @@
 // Kilit tetiklendiğinde oturum SESSİZCE BİTMEZ (DESIGN §5 olay-tetikli dönüş c): hüküm turu bir
 // kez yeniden koşturulur, ikinci kez de eksikse HUKUM_EKSIK kapısıyla Şah'a çıkılır.
 
-import type { DivanStateType } from "./state";
+import type { DivanStateType } from "./state.ts";
 
 export type LockDecision =
   | "f5_ranking" // izin: tam kurul sıralamasına geç

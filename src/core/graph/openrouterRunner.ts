@@ -5,12 +5,12 @@
 // Ayrıştırılamayan şema çıktısı SESSİZ GEÇİLMEZ ama sahte veri de üretilmez: data boş bırakılır,
 // böylece erken-uzlaşı kilidi (§6.3) devreye girer ve durum Şah'a çıkar.
 
-import { chat } from "../openrouter/client";
-import { loadPrompt } from "../prompts/load";
-import { getSeat } from "../seats/seats";
-import type { DivanConfig } from "../config/schema";
-import { schemaForPhase } from "./schemas";
-import type { SeatRunInput, SeatRunOutput, SeatRunner } from "./seatRunner";
+import { chat } from "../openrouter/client.ts";
+import { loadPrompt } from "../prompts/load.ts";
+import { getSeat } from "../seats/seats.ts";
+import type { DivanConfig } from "../config/schema.ts";
+import { schemaForPhase } from "./schemas.ts";
+import type { SeatRunInput, SeatRunOutput, SeatRunner } from "./seatRunner.ts";
 
 /** Kullanıcı mesajı: fikir + ileri taşınan bağlam + tur bilgisi. Ham transkript BURADAN geçmez. */
 function buildUserMessage(input: SeatRunInput): string {
@@ -24,7 +24,13 @@ function buildUserMessage(input: SeatRunInput): string {
 }
 
 export class OpenRouterSeatRunner implements SeatRunner {
-  constructor(private readonly config: DivanConfig) {}
+  // Node'un tip-soyma modu constructor parametre özelliğini desteklemez (ERR_UNSUPPORTED_
+  // TYPESCRIPT_SYNTAX); alan açıkça tanımlanır ki bu dosya Next dışında da import edilebilsin.
+  private readonly config: DivanConfig;
+
+  constructor(config: DivanConfig) {
+    this.config = config;
+  }
 
   async run(seatId: string, input: SeatRunInput): Promise<SeatRunOutput> {
     const seat = getSeat(seatId);

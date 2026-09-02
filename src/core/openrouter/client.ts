@@ -32,7 +32,17 @@ export interface UsageInfo {
   promptTokens?: number;
   completionTokens?: number;
   totalTokens?: number;
-  /** OpenRouter usage accounting açıksa dolu gelir; ŞEKLİ CANLI DOĞRULANACAK (M2-A2). */
+  /**
+   * Sağlayıcının bildirdiği USD maliyeti.
+   *
+   * CANLI DOĞRULANDI (2026-09-02, M2-A ilk gerçek çağrılar): OpenRouter `usage` nesnesi
+   * `prompt_tokens` / `completion_tokens` / `total_tokens` ve `cost` alanlarını döndürür.
+   * `cost` için ayrıca `usage: { include: true }` göndermek GEREKMEDİ; iki ayrı sağlayıcıda da geldi:
+   *   anthropic/claude-sonnet-5  -> 1027 token, cost 0.003926
+   *   deepseek/deepseek-v4-pro   -> 1505 token, cost 0.002648802
+   * Maliyet sayacı (M2-A2) bu alanı toplar; alan gelmezse token sayısıyla tahmin YAPILMAZ,
+   * maliyet "bilinmiyor" olarak gösterilir (uydurma rakam, rakam olmamasından kötüdür).
+   */
   cost?: number;
 }
 

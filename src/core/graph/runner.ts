@@ -5,7 +5,7 @@
 // openrouterRunner tembel yüklenir: stub modunda sağlayıcı zinciri (server-only mühürlü) hiç
 // import edilmez, böylece graf saf Node ortamında da (e2e in-process ölçüm) çalışır.
 
-import { StubSeatRunner, type SeatRunner } from "./seatRunner";
+import { StubSeatRunner, type SeatRunner } from "./seatRunner.ts";
 
 export type RunnerMode = "openrouter" | "stub";
 

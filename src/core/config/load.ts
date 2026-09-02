@@ -4,8 +4,8 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
-import { ConfigSchema, type DivanConfig } from "./schema";
-import { SEAT_IDS } from "../seats/seats";
+import { ConfigSchema, type DivanConfig } from "./schema.ts";
+import { SEAT_IDS } from "../seats/seats.ts";
 
 export const DEFAULT_CONFIG_PATH = join(process.cwd(), "divan.config.json");
 

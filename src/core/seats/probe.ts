@@ -3,9 +3,9 @@
 // (puanlama/etiket/hüküm) YÖNLENDİRİLMEZ. server-only mühürlü.
 
 import "server-only";
-import { chat, hasApiKey } from "../openrouter/client";
-import { SEATS, type Seat } from "./seats";
-import type { DivanConfig } from "../config/schema";
+import { chat, hasApiKey } from "../openrouter/client.ts";
+import { SEATS, type Seat } from "./seats.ts";
+import type { DivanConfig } from "../config/schema.ts";
 
 export type ProbeStatus = "pass" | "pass-via-fallback" | "fail" | "no-key";
 

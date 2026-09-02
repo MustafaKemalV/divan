@@ -2,7 +2,7 @@
 // "bu faz koşarsa tavan AŞILACAK mı". Kontrol her pahalı fazın girişinde yapılır; faz başlamadan
 // Şah'a dönülür, yani tavan gerçekten tavandır. Saf fonksiyon, izole test edilir.
 
-import type { DivanStateType } from "./state";
+import type { DivanStateType } from "./state.ts";
 
 export function isOverBudget(
   state: Pick<DivanStateType, "callCount" | "maxCalls">,

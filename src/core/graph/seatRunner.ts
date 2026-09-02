@@ -3,7 +3,7 @@
 // M2'de bu arayüzün gerçek OpenRouter impl'i yazılıp swap edilecek (çekirdek/graf değişmeyecek).
 // Framework-bağımsız.
 
-import type { JudgmentItem } from "./state";
+import type { JudgmentItem } from "./state.ts";
 
 export interface SeatRunInput {
   phase: string;

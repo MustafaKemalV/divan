@@ -6,7 +6,7 @@
 // beyanına bağlardı; yağcılık/yumuşama tam da orada sızar. Burada Denetçi'nin hiçbir cümlesi
 // kapıyı açamaz, yalnız blocking "karsilanmadi" SAYISI konuşur. Saf fonksiyon, izole test edilir.
 
-import type { DivanStateType, JudgmentItem } from "./state";
+import type { DivanStateType, JudgmentItem } from "./state.ts";
 
 /** DESIGN §5: revizyon/savunma en fazla 3 tur. */
 export const MAX_REVISION_ROUNDS = 3;
