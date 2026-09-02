@@ -28,3 +28,6 @@ yarn-debug.log*
 yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
+
+# koltuk probu onbellegi (M2-A2)
+.divan-probe-cache.json

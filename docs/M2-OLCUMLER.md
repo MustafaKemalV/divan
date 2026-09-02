@@ -50,6 +50,26 @@ sürer. F2 fazı tanımı gereği "birbirini görmeden" üretim yapıyor, yani o
 bağımlılık yok ve paralel koşabilirler; aynısı F3, F4 fizibilite ve F5 sıralama için de geçerli.
 Paralelleştirme bir hız iyileştirmesi değil, kullanılabilirlik şartı olabilir. M2-A2'de tartışılacak.
 
+## Prob önbelleği (2026-09-02, M2-A2)
+
+Yedi koltuğun şema probu, aynı config ile üç kez koşuldu:
+
+| Koşum | Süre | Gerçek çağrı | Önbellekten |
+|---|---|---|---|
+| İlk (önbellek boş) | 12.5 sn | 7 | 0 |
+| İkinci (önbellek dolu) | **0 ms** | **0** | 7 |
+| Elle tazeleme (`refresh`) | 5.9 sn | 7 | 0 |
+
+Yedi koltuğun yedisi de pin modelinde geçti, düşen koltuk olmadı. Önbellek dosyasında anahtar
+izi yok (kontrol edildi).
+
+Bunun anlamı: prob artık oturum başına değil, config başına ve günde bir koşuyor. Yedi çağrılık
+bir maliyet her oturumda tekrarlanmıyor.
+
+**Açık kalem:** prob çağrılarının maliyeti oturum sayacına girmiyor. Sayaç graf içindeki koltuk
+çağrılarını topluyor, prob ise grafın dışında ve farklı bir ritimde koşuyor. Prob maliyetinin ayrı
+raporlanması gerekiyor; şu an ölçülmüyor.
+
 ## Maliyet: ölçülen ve öngörülen
 
 Ölçülen (kesin, sağlayıcının bildirdiği rakamlar):

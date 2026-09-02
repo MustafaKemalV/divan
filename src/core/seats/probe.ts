@@ -6,6 +6,13 @@ import "server-only";
 import { chat, hasApiKey } from "../openrouter/client.ts";
 import { SEATS, type Seat } from "./seats.ts";
 import type { DivanConfig } from "../config/schema.ts";
+import {
+  cacheableResults,
+  configHashOf,
+  isCacheFresh,
+  readProbeCacheFile,
+  writeProbeCacheFile,
+} from "./probeCache.ts";
 
 export type ProbeStatus = "pass" | "pass-via-fallback" | "fail" | "no-key";
 
@@ -18,6 +25,8 @@ export interface SeatProbeResult {
   servedModel?: string;
   status: ProbeStatus;
   detail?: string;
+  /** sonuç bu koşumda mı alındı, yoksa önbellekten mi geldi (görünürlük; §7) */
+  fromCache?: boolean;
 }
 
 // Probun beklediği minimal şema. Model bunu birebir döndürebiliyorsa structured-output stabil.
@@ -81,8 +90,25 @@ async function probeSeat(
   }
 }
 
-/** 7 koltuğu paralel probla. Anahtar yoksa hepsini no-key olarak döndür (para/patlama yok). */
-export async function probeAllSeats(config: DivanConfig): Promise<SeatProbeResult[]> {
+export interface ProbeOptions {
+  /** elle tazeleme: önbelleği yok say, hepsini yeniden probla (§7) */
+  refresh?: boolean;
+  /** test edilebilirlik: zaman dışarıdan verilebilir */
+  now?: number;
+}
+
+/**
+ * 7 koltuğu probla. Anahtar yoksa hepsini no-key olarak döndür (para/patlama yok).
+ *
+ * Önbellek (§7): geçerli önbellekteki koltuklar YENİDEN PROBLANMAZ. Asimetri gereği önbellekte
+ * yalnız geçen koltuklar bulunur, dolayısıyla düşen bir koltuk her açılışta yeniden denenir.
+ * Önbellek damgası taze kayıt varken korunur: aksi halde her koşum ömrü sıfırlar ve önbellek
+ * hiç eskimezdi.
+ */
+export async function probeAllSeats(
+  config: DivanConfig,
+  opts: ProbeOptions = {},
+): Promise<SeatProbeResult[]> {
   if (!hasApiKey()) {
     return SEATS.map((s) => ({
       seatId: s.id,
@@ -94,10 +120,31 @@ export async function probeAllSeats(config: DivanConfig): Promise<SeatProbeResul
     }));
   }
 
-  return Promise.all(
-    SEATS.map((s) => {
+  const now = opts.now ?? Date.now();
+  const hash = configHashOf(config);
+  const file = opts.refresh ? undefined : readProbeCacheFile();
+  const cachedList = isCacheFresh(file, hash, now) && file ? file.results : [];
+  const cachedById = new Map(cachedList.map((r) => [r.seatId, r]));
+
+  const fresh = await Promise.all(
+    SEATS.filter((s) => !cachedById.has(s.id)).map((s) => {
       const sm = config.seats[s.id];
       return probeSeat(s, sm.model, [sm.model, ...sm.fallbacks]);
     }),
   );
+  const freshById = new Map(fresh.map((r) => [r.seatId, r]));
+
+  const all: SeatProbeResult[] = SEATS.map((s) => {
+    const c = cachedById.get(s.id);
+    if (c) return { ...c, fromCache: true };
+    return freshById.get(s.id) as SeatProbeResult;
+  });
+
+  writeProbeCacheFile({
+    configHash: hash,
+    savedAt: cachedList.length > 0 && file ? file.savedAt : now,
+    results: cacheableResults(all).map(({ fromCache: _drop, ...r }) => r),
+  });
+
+  return all;
 }
