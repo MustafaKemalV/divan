@@ -38,11 +38,14 @@ const AUDIT: JsonSchemaSpec = {
         items: {
           type: "object",
           additionalProperties: false,
-          required: ["claim", "evidence", "source"],
+          required: ["claim", "evidence", "source", "url"],
           properties: {
             claim: { type: "string" },
             evidence: { type: "string", enum: ["dogrulanmis", "model-bilgisi", "varsayim"] },
+            // etiketin dayanağı: gerekçe ya da kaynak adı
             source: { type: "string" },
+            // §6.2: "dogrulanmis" için ZORUNLU (audit.ts denetler); diğer etiketlerde boş kalır
+            url: { type: "string" },
           },
         },
       },

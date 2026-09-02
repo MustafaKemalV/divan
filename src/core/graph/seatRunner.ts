@@ -46,6 +46,7 @@ export const SMALL_IDEA_MAX_CHARS = 60;
  *   [TEST:nojudgment:always] -> hiçbir turda şema üretilmez (HUKUM_EKSIK Şah kapısı dalı)
  *   [TEST:drop]         -> itiraz bir tur blocking kalır, ikinci turda düşer (§6.4 düşen itiraz izi)
  *   [TEST:noaudit]      -> denetim premortemsiz döner (§6.3.1 eksik denetim işaretlenmesi)
+ *   [TEST:badurl]       -> "dogrulanmis" iddia URL'siz döner (§6.2 rozet kuralı reddetmeli)
  */
 export class StubSeatRunner implements SeatRunner {
   async run(seatId: string, input: SeatRunInput): Promise<SeatRunOutput> {
@@ -103,9 +104,15 @@ export class StubSeatRunner implements SeatRunner {
             summary: "Denetim (stub): premortem + 3 etiketli sınanmış iddia + en zayıf halka.",
             premortem: "Bir yıl sonra başarısız olduk: dağıtım maliyeti gelirden yüksek kaldı.",
             claims: [
-              { claim: "Dağıtım maliyeti gelirden yüksek.", evidence: "varsayim", source: "" },
-              { claim: "Benzer ürünler bu kanalda tutundu.", evidence: "model-bilgisi", source: "" },
-              { claim: "Hedef segment bu fiyata alışkın.", evidence: "dogrulanmis", source: "https://example.org/kaynak" },
+              { claim: "Dağıtım maliyeti gelirden yüksek.", evidence: "varsayim", source: "sınanmamış öngörü", url: "" },
+              { claim: "Benzer ürünler bu kanalda tutundu.", evidence: "model-bilgisi", source: "hafızadan", url: "" },
+              {
+                claim: "Hedef segment bu fiyata alışkın.",
+                evidence: "dogrulanmis",
+                source: "sektör raporu",
+                // [TEST:badurl]: rozet hak edilmeden verilir; §6.2 kod kuralı bunu reddetmeli
+                url: idea.includes("[TEST:badurl]") ? "" : "https://example.org/kaynak",
+              },
             ],
             weakestLink: "dağıtım kanalı",
           },

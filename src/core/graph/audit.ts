@@ -15,8 +15,15 @@ export const MIN_AUDIT_CLAIMS = 3;
 export interface AuditClaim {
   claim: string;
   evidence: EvidenceLabel;
-  /** URL ya da gerekçe; boş olabilir ama alan zorunludur (etiketin dayanağı görünür kalsın) */
+  /** etiketin dayanağı: gerekçe ya da kaynak adı */
   source: string;
+  /** §6.2: `dogrulanmis` için zorunlu; diğer etiketlerde boş kalabilir */
+  url: string;
+}
+
+/** §6.2 rozet kuralı: URL'siz hiçbir iddia "doğrulanmış" olamaz. Biçim kontrolü; İÇERİK M2-C'de. */
+export function isSourceUrl(v: unknown): boolean {
+  return typeof v === "string" && /^https?:\/\/\S+$/i.test(v.trim());
 }
 
 export interface AuditOutput {
@@ -60,7 +67,21 @@ export function validateAudit(data: unknown): AuditCheck {
         reason: `iddia etiketsiz veya tanınmayan etiket: "${String(c?.evidence)}" (§6.2: ${EVIDENCE_LABELS.join(" | ")})`,
       };
     }
-    claims.push({ claim: c.claim, evidence: c.evidence, source: typeof c.source === "string" ? c.source : "" });
+    const url = typeof c.url === "string" ? c.url.trim() : "";
+    // §6.2: rozet YAPISAL olarak hak edilir. URL'siz "dogrulanmis" geçersizdir; etiketi sessizce
+    // düşürmek de yasak, çünkü o zaman Denetçi'nin beyanını biz değiştirmiş oluruz.
+    if (c.evidence === "dogrulanmis" && !isSourceUrl(url)) {
+      return {
+        ok: false,
+        reason: `"dogrulanmis" etiketli iddia URL'siz olamaz (§6.2): "${c.claim.slice(0, 60)}"`,
+      };
+    }
+    claims.push({
+      claim: c.claim,
+      evidence: c.evidence,
+      source: typeof c.source === "string" ? c.source : "",
+      url,
+    });
   }
 
   return {

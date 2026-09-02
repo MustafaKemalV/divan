@@ -21,7 +21,7 @@ Son güncelleme: M2-A1 (prompt altyapısı + gerçek runner iskeleti + premortem
 | Erken uzlaşı kilidi | graf + test | `lock.ts` koşullu kenar, `lock.test.ts`, e2e S05/S06 |
 | Yargıçlık mekanik (blocking gömülemez) | kod + test | `bd_draft` ham metin kopyası, e2e S03 |
 | Topraklama (kanıt etiketi) | şema + kod + test | `schemas.ts` AUDIT.claims.evidence, `audit.ts`, `audit.test.ts` |
-| Topraklama (URL'siz "doğrulanmış" olamaz) | **YOK** | M2-C borcu: etiket zorunlu ama URL kuralı yok |
+| Topraklama (URL'siz "doğrulanmış" olamaz) | şema + kod + test | `audit.ts` `isSourceUrl`, `audit.test.ts`, e2e S12. **Kalan borç:** URL'nin İÇERİĞİ doğrulanmıyor (M2-C gerçek arama) |
 | Değişmemiş muhalefet notu | kod + test | `bd_draft`, e2e S03 |
 | Düşen itiraz izi | kod + test | `judgmentHistory`, e2e S04. **Borç:** eşleştirme kriter ADIYLA (M2 kapısı notu) |
 | Tam-uyum bayrağı | **YOK** | M4 borcu |
@@ -40,7 +40,7 @@ Son güncelleme: M2-A1 (prompt altyapısı + gerçek runner iskeleti + premortem
 | Re-table (tek hedefli yeniden koşum) | kod + test | `route.ts` getStateHistory, e2e S09 |
 | Bağlam sıkıştırması (ham taşınmaz) | graf + test | BD faz özetleri, e2e parmak-izi ölçümü (3 fazda 0 sızıntı) |
 | Faz kilidi (şapka disiplini) | **SADECE-PROMPT** | borç: fazın modu prompt metninde, yapıda değil |
-| §5.1 Triyaj: gözlem + kod sınıflandırması | **YOK** | M2-B borcu: şu an modelin `complexity` beyanı |
+| §5.1 Triyaj: gözlem + kod sınıflandırması | kısmi | sınıf hâlâ model beyanı (M2-B borcu), ama KAPI 1'de "kanaat" işaretiyle sunuluyor (e2e S01) |
 | §5.1 Kadro kilitleri (Denetçi kaldırılamaz, min 3 rol, çeşitlilik uyarısı) | **YOK** | M2-B borcu |
 | §5.1 Ölü-uç kuralı (BD şemayı geçemezse tam kurul) | **YOK** | M2-A2 borcu |
 
@@ -50,7 +50,7 @@ Son güncelleme: M2-A1 (prompt altyapısı + gerçek runner iskeleti + premortem
 |---|---|---|
 | 6.1 Anonimleştirme | **YOK** | M2-C borcu |
 | 6.2 Kanıt kapısı, üç durum etiketi | şema + kod + test | denetim şemasında zorunlu enum, `audit.test.ts` |
-| 6.2 URL zorunluluğu | **YOK** | M2-C borcu |
+| 6.2 URL zorunluluğu (rozet yapısal olarak hak edilir) | şema + kod + test | e2e S12; ilk gerçek çağrıda tetiklendi, kural öne çekildi |
 | 6.3.1 Zorunlu premortem + >=3 sınanmış iddia | şema + kod + test | `schemas.ts` AUDIT, `audit.ts`, `audit.test.ts`, e2e S11 |
 | 6.3.2 Tam-uyum bayrağı | **YOK** | M4 borcu |
 | 6.3.3 Hüküm turu tamamlanmadan F5 açılmaz | graf + test | `lock.ts`, e2e S05/S06 |
@@ -79,8 +79,9 @@ Son güncelleme: M2-A1 (prompt altyapısı + gerçek runner iskeleti + premortem
 
 ## Özet
 
-Zorlanan mekanizma sayısı 17, borç 16. Borçların dağılımı: M2-A2 beş, M2-B üç, M2-C dört,
-M2-D bir, M3 üç, M4 iki, M5 bir.
+Zorlanan mekanizma sayısı 19, borç 14. Borçların dağılımı: M2-A2 beş, M2-B üç, M2-C iki,
+M2-D bir, M3 üç, M4 iki, M5 bir. (Kanıt rozetinin URL kuralı M2-C'den M2-A'ya ÇEKİLDİ: ilk gerçek
+çağrıda bir iddia hak etmediği rozeti aldı, borcu ertelemek yerine kapatmak gerekti.)
 
 Tek **SADECE-PROMPT** satırı faz kilididir (şapka disiplini). Şu an fazın modu yalnız prompt
 metninde duruyor; bir koltuk yanlış modda konuşursa hiçbir yapı bunu durdurmaz. Bunun kodla

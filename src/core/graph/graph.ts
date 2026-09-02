@@ -92,6 +92,11 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
       const selected = interrupt({
         gate: "KAPI1",
         councilMode: state.councilMode,
+        // DESIGN §5.1 ara dönem: sınıf henüz modelin KANAATİ, ölçüm değil. Kanaatin kanaat
+        // olduğunu gizlemek, onu ölçüm sanmaktan daha büyük hatadır; bu yüzden kapıda işaretli.
+        councilModeSource: "model-kanaati",
+        councilModeNote:
+          "Kurul boyutu şu an Baş Danışman'ın kanaati (ölçüm değil, DESIGN §5.1 ara dönem). Değiştirebilirsiniz.",
         options: state.hmwOptions,
       }) as string;
       return { selectedHmw: selected };

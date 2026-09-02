@@ -118,6 +118,7 @@ async function run() {
     let s = stopEvent(ev);
     check(s.gate === "KAPI1", `KAPI1 bekleniyordu: ${s.gate ?? s.type}`);
     check(s.payload.councilMode === "full", "triyaj full olmaliydi");
+    check(s.payload.councilModeSource === "model-kanaati", "triyaj KANAAT olarak isaretlenmeli (§5.1 ara donem)");
     check(s.payload.options.length === 5, "tam kurulda 5 HMW bekleniyordu");
     check(nodesOf(ev).join(",") === "f0_briefing,f0_hmw", "F0 iki cagriya ayrilmali (DESIGN §5)");
 
@@ -284,6 +285,20 @@ async function run() {
     console.log(`  kanit: KAPI3'te auditComplete=false, sebep: ${s.payload.auditIssue}`);
     s = stopEvent(await post({ threadId: "e2e-s11", resume: "karar" }));
     check(s.metrics.auditComplete === false, "done olayinda da eksiklik gorunmeli");
+  });
+
+  // S12: §6.2 rozet kuralı, URL'siz "dogrulanmis" iddia denetimi geçersiz kılar
+  await scenario("S12", "URL'siz \"dogrulanmis\" rozet reddedilir (§6.2)", async () => {
+    await post({ threadId: "e2e-s12", idea: `${LONG} [TEST:badurl]` });
+    await post({ threadId: "e2e-s12", resume: "hmw" });
+    const s = stopEvent(await post({ threadId: "e2e-s12", resume: "cerceve onaylandi" }));
+    check(s.gate === "KAPI3", `KAPI3 bekleniyordu: ${s.gate ?? s.type}`);
+    check(s.payload.auditComplete === false, "URL'siz dogrulanmis iddia denetimi gecersiz kilmaliydi");
+    check(
+      String(s.payload.auditIssue).includes("URL'siz"),
+      `sebep §6.2 rozet kurali olmaliydi: ${s.payload.auditIssue}`,
+    );
+    console.log(`  kanit: ${s.payload.auditIssue}`);
   });
 
   await stopServer();
