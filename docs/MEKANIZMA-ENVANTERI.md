@@ -70,7 +70,7 @@ Son güncelleme: M2-A1 (prompt altyapısı + gerçek runner iskeleti + premortem
 | Koltuk probu (şema uyumu ölçümü) | kod | `probe.ts`, 7/7 canlı | M0 |
 | Şema-kritik çağrı yönlendirmesi (probu geçmeyene gitmez) | **YOK** | M2-A2 borcu: prob sonucu graf koşumuna bağlı değil | borç (M2-A2) |
 | Prob önbelleği (config-hash + TTL + asimetri) | kod + test | `probeCache.ts`, `probeCache.test.ts`; canlı: 2. koşum 0 ms / 0 çağrı (docs/M2-OLCUMLER.md) | M2-A2: borç kapandı |
-| Prob maliyetinin raporlanması | **YOK** | borç: prob grafın dışında koşuyor, sayaca girmiyor | borç (M2-A2, yeni görüldü) |
+| Prob maliyeti: sayaca girmez ama kayıtta taşınır | kod | `probe.ts` kayıt başına `costNanoUsd` + `probedAt`, `/api/seat-check` ayrı özet; canlı 7/7 kayıt | M2-A2: borç kapandı |
 | Prompt dosyaları (sessiz varsayılan yok) | kod + test | `prompts/load.ts` hata verir, e2e prompt kapsamı (36 çift, 0 eksik) | M2-A yeni |
 | Runner modu damgası | kod + test | done olayı `runnerMode`, e2e S01 | M2-A yeni |
 | Maliyet sayacı (bilinmeyen tahmin edilmez) | kod + test | `usage.ts`, `usage.test.ts`, e2e S01 (stub koşumda 27/27 çağrı "maliyeti bilinmiyor") | M2-A2: borç kapandı |
@@ -85,7 +85,7 @@ Son güncelleme: M2-A1 (prompt altyapısı + gerçek runner iskeleti + premortem
 
 ## Özet
 
-Zorlanan mekanizma sayısı 23, borç 13. Borçların dağılımı: M2-A2 dört, M2-B üç, M2-C iki,
+Zorlanan mekanizma sayısı 24, borç 12. Borçların dağılımı: M2-A2 üç, M2-B üç, M2-C iki,
 M2-D bir, M3 üç, M4 iki, M5 bir. (Kanıt rozetinin URL kuralı M2-C'den M2-A'ya ÇEKİLDİ: ilk gerçek
 çağrıda bir iddia hak etmediği rozeti aldı, borcu ertelemek yerine kapatmak gerekti.)
 

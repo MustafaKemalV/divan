@@ -66,9 +66,30 @@ izi yok (kontrol edildi).
 Bunun anlamı: prob artık oturum başına değil, config başına ve günde bir koşuyor. Yedi çağrılık
 bir maliyet her oturumda tekrarlanmıyor.
 
-**Açık kalem:** prob çağrılarının maliyeti oturum sayacına girmiyor. Sayaç graf içindeki koltuk
-çağrılarını topluyor, prob ise grafın dışında ve farklı bir ritimde koşuyor. Prob maliyetinin ayrı
-raporlanması gerekiyor; şu an ölçülmüyor.
+### Prob maliyeti ve koltuk fiyat farkı
+
+Prob maliyeti oturum sayacına **girmez** (hesap saflığı: prob grafın dışında ve farklı ritimde
+koşar), ama kayıtsız da kalmaz: her önbellek kaydı kendi maliyetini ve zaman damgasını taşır,
+koltuk kontrolü ekranında toplanır.
+
+Aynı küçük prob, yedi koltukta:
+
+| Koltuk | Model | Prob maliyeti |
+|---|---|---|
+| Vizyoner | x-ai/grok-4.6 | $0.002208 |
+| Mimar | anthropic/claude-opus-4.8 | $0.001915 |
+| Baş Danışman | anthropic/claude-sonnet-5 | $0.000848 |
+| Müh-1 | openai/gpt-5.1 | $0.000369 |
+| Pazar Sesi | google/gemini-3.7-flash | $0.000348 |
+| Denetçi | deepseek/deepseek-v4-pro | $0.000273 |
+| Müh-2 | qwen/qwen3-max | $0.000102 |
+| **Toplam** | | **$0.006063** |
+
+Bu tablo bir öngörüyü düzeltiyor: **koltuklar arası fiyat farkı yirmi bir kata çıkıyor** (Vizyoner
+ile Müh-2 arasında). Yani "çağrı başına ortalama × 27" biçimindeki projeksiyon yanıltıcıdır; gerçek
+maliyeti belirleyen şey çağrı sayısı değil, hangi koltuğun kaç kez ve ne kadar bağlamla konuştuğu.
+Pahalı koltuklar (Vizyoner, Mimar) üretim ve değerlendirme fazlarında çok konuşuyor, ucuz koltuklar
+(Müh-2) az. Tam oturum ölçümü bu yüzden tahminden ayrışabilir.
 
 ## Maliyet: ölçülen ve öngörülen
 

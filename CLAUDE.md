@@ -17,6 +17,7 @@ Self-hosted anti-yağcılık LLM konseyi; kullanıcı = "Şah". Tek gerçek kayn
 ## Süreç disiplini
 - Tasarımdan sapma gerekiyorsa: ÖNCE Şah onayıyla DESIGN.md güncellenir, SONRA kod yazılır. Ters sıra yasak.
 - Kanıtsız "bitti" yok: test çıktısı veya çalışan örnek gösterilmeden hiçbir iş tamam ilan edilmez; milestone kapısı bunsuz kapanmaz.
+- **Gerekçe-kanıtı testi (ev standardı):** bir kuralın NEDEN var olduğu testte gösterilir. Test önce kuralsız/naif halin bozulduğunu kanıtlar, sonra kuralın düzelttiğini. Böylece kural ileride gevşetilmek istendiğinde gerekçesi de kayıtta olur, tartışma hafızaya değil koda dayanır. (Örnek: `usage.test.ts` önce `0.1 + 0.2 !== 0.3` olduğunu gösterir, sonra tamsayı toplamanın sapmadığını.) Ayrıca testlerde yakınlık/epsilon karşılaştırması ya gerekçe yorumu taşır ya envantere borç olarak yazılır; tolerans, çözülmemiş bir sorunun yaması olabilir.
 - **Commit, test zincirinin çıkış koduna bağlıdır; test düşerse commit çalışmaz.** (Kural niyet olarak değil, komut olarak kurulur: `npm run e2e && git commit ...`. M2-A'da kırık testle commit atıldı, kural o yüzden yazıldı.)
 - `templates/` altındaki şablonlar bağlayıcıdır (hem spec hem runtime asset). Format değişikliği = DESIGN §9 değişikliği = Şah onayı gerektirir.
 - Dış iddialar (API davranışı, kütüphane özelliği, sürüm, fiyat) ya canlı doğrulanır ya açıkça "varsayım" etiketlenir; Divan'ın kanıt disiplini bu repoya da uygulanır.

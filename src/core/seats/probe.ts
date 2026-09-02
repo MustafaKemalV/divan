@@ -4,6 +4,7 @@
 
 import "server-only";
 import { chat, hasApiKey } from "../openrouter/client.ts";
+import { toNanoUsd } from "../graph/usage.ts";
 import { SEATS, type Seat } from "./seats.ts";
 import type { DivanConfig } from "../config/schema.ts";
 import {
@@ -27,6 +28,13 @@ export interface SeatProbeResult {
   detail?: string;
   /** sonuç bu koşumda mı alındı, yoksa önbellekten mi geldi (görünürlük; §7) */
   fromCache?: boolean;
+  /**
+   * Bu probun maliyeti (tamsayı nano-USD) ve zamanı. OTURUM SAYACINA GİRMEZ: prob grafın
+   * dışında ve farklı bir ritimde (config başına, günde bir) koşar; oturum maliyetine karışması
+   * hesabı kirletirdi. Kayıt kendi maliyetini taşır ve koltuk kontrolü ekranında görünür.
+   */
+  costNanoUsd?: number;
+  probedAt?: number;
 }
 
 // Probun beklediği minimal şema. Model bunu birebir döndürebiliyorsa structured-output stabil.
@@ -47,10 +55,11 @@ async function probeSeat(
   seat: Seat,
   model: string,
   models: string[],
+  now: number = Date.now(),
 ): Promise<SeatProbeResult> {
-  const base = { seatId: seat.id, title: seat.title, family: seat.family, model };
+  const base = { seatId: seat.id, title: seat.title, family: seat.family, model, probedAt: now };
   try {
-    const { content, servedModel } = await chat({
+    const { content, servedModel, usage } = await chat({
       model,
       models,
       messages: [
@@ -62,6 +71,7 @@ async function probeSeat(
       // deepseek ~63). Düşük tavan content'i aç bırakıp yanlış-negatif "fail" üretir; bol tut.
       maxTokens: 1024,
     });
+    const cost = usage?.cost === undefined ? {} : { costNanoUsd: toNanoUsd(usage.cost) };
     const parsed = JSON.parse(content) as { ok?: unknown; seat?: unknown };
     // Fable F-2: eko birebir doğrulanır; herhangi bir string değil, tam olarak seat.id beklenir.
     if (parsed.ok === true && typeof parsed.seat === "string" && parsed.seat === seat.id) {
@@ -69,15 +79,17 @@ async function probeSeat(
       if (servedModel && servedModel !== model) {
         return {
           ...base,
+          ...cost,
           servedModel,
           status: "pass-via-fallback",
           detail: `cevabı fallback verdi: ${servedModel}`,
         };
       }
-      return { ...base, servedModel, status: "pass" };
+      return { ...base, ...cost, servedModel, status: "pass" };
     }
     return {
       ...base,
+      ...cost,
       servedModel,
       status: "fail",
       detail:
@@ -129,7 +141,7 @@ export async function probeAllSeats(
   const fresh = await Promise.all(
     SEATS.filter((s) => !cachedById.has(s.id)).map((s) => {
       const sm = config.seats[s.id];
-      return probeSeat(s, sm.model, [sm.model, ...sm.fallbacks]);
+      return probeSeat(s, sm.model, [sm.model, ...sm.fallbacks], now);
     }),
   );
   const freshById = new Map(fresh.map((r) => [r.seatId, r]));
