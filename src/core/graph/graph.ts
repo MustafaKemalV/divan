@@ -59,6 +59,7 @@ function budgetStop(
   nextCost: number,
   at: string,
   seats: readonly string[],
+  node: string,
 ): { maxCalls?: number; abort?: boolean; abortReason?: string } {
   if (!isOverBudget(state, nextCost)) return {};
 
@@ -67,6 +68,7 @@ function budgetStop(
     gate: "BUTCE",
     at,
     kabulEdilen: ["devam", "<yeni tavan sayısı>", "iptal"],
+    kurtarma: `Akış durursa re-table ile "${node}" düğümünden devam edilebilir; durum korunur.`,
     kesin: { kosanCagri: state.callCount, fazCagriSayisi: nextCost, tavan: state.maxCalls },
     kestirim: {
       etiket: "KESTİRİM, ölçüm değil: bu oturumda gözlenen koltuk ortalamalarından türetildi",
@@ -97,7 +99,11 @@ function budgetStop(
   // kapıları gibi) envantere borç yazıldı; yeniden-sorma davranışı orada geri gelecek.
   return {
     abort: true,
-    abortReason: `Yanıt sözleşmeye uymadı ("${String(answer)}"), akış sürdürülmedi. Kabul edilenler: devam | bir sayı | iptal.`,
+    abortReason:
+      `Yanıt sözleşmeye uymadı ("${String(answer)}"), akış sürdürülmedi. ` +
+      `Kabul edilenler: devam | bir sayı | iptal. ` +
+      `KURTARMA: bu oturum kapanmadı, re-table ile "${node}" düğümünden devam edebilirsiniz; ` +
+      `durum ve çağrı sayacı korunur.`,
   };
 }
 
@@ -254,13 +260,14 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
     })
     // ---- F2: sessiz ideation (4 ideatör bağımsız) ----
     .addNode("f2_ideation", async (state: DivanStateType) => {
-      const budget = budgetStop(state, IDEATORS.length, "F2", IDEATORS);
+      const budget = budgetStop(state, IDEATORS.length, "F2", IDEATORS, "f2_ideation");
       if (budget.abort) {
         // Akış burada durur; çıkışı koşullu kenar END'e yönlendirir (Command goto END
         // denendi: update uygulanıyor ama graf normal kenardan devam ediyordu).
         return {
           endReason:
-            budget.abortReason ?? "Şah bütçe kapısında iptal etti (F2 girişi)",
+            budget.abortReason ??
+            "Şah bütçe kapısında iptal etti (F2 girişi). KURTARMA: re-table ile devam edilebilir, durum korunur.",
         };
       }
       const entries: TranscriptEntry[] = [];
@@ -284,13 +291,14 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
     })
     // ---- F3: çapraz-tozlaşma (SIKIŞTIRMA: ham değil, F2 özeti bağlam) ----
     .addNode("f3_cross", async (state: DivanStateType) => {
-      const budget = budgetStop(state, IDEATORS.length, "F3", IDEATORS);
+      const budget = budgetStop(state, IDEATORS.length, "F3", IDEATORS, "f3_cross");
       if (budget.abort) {
         // Akış burada durur; çıkışı koşullu kenar END'e yönlendirir (Command goto END
         // denendi: update uygulanıyor ama graf normal kenardan devam ediyordu).
         return {
           endReason:
-            budget.abortReason ?? "Şah bütçe kapısında iptal etti (F3 girişi)",
+            budget.abortReason ??
+            "Şah bütçe kapısında iptal etti (F3 girişi). KURTARMA: re-table ile devam edilebilir, durum korunur.",
         };
       }
       const f2Summary = summaryOf(state, "F2");
@@ -312,13 +320,14 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
     // ---- F4: fizibilite (Müh-1/Müh-2/Mimar) ----
     .addNode("f4_feasibility", async (state: DivanStateType) => {
       // F4'ün tam maliyeti: fizibilite + denetim + ilk revizyon turu + hüküm turu.
-      const budget = budgetStop(state, FEASIBILITY.length + 1 + DEFENDERS.length + 1, "F4", [...FEASIBILITY, "auditor", ...DEFENDERS]);
+      const budget = budgetStop(state, FEASIBILITY.length + 1 + DEFENDERS.length + 1, "F4", [...FEASIBILITY, "auditor", ...DEFENDERS], "f4_feasibility");
       if (budget.abort) {
         // Akış burada durur; çıkışı koşullu kenar END'e yönlendirir (Command goto END
         // denendi: update uygulanıyor ama graf normal kenardan devam ediyordu).
         return {
           endReason:
-            budget.abortReason ?? "Şah bütçe kapısında iptal etti (F4 girişi)",
+            budget.abortReason ??
+            "Şah bütçe kapısında iptal etti (F4 girişi). KURTARMA: re-table ile devam edilebilir, durum korunur.",
         };
       }
       const f3Summary = summaryOf(state, "F3");
@@ -336,13 +345,14 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
     // ---- F4: revizyon/savunma turu (DESIGN §5, <=3 tur; kapanış revision.ts'te MEKANİK) ----
     .addNode("f4_revision", async (state: DivanStateType) => {
       // Bir tur = savunma çağrıları + ardından gelen hüküm turu.
-      const budget = budgetStop(state, DEFENDERS.length + 1, "F4:revizyon", [...DEFENDERS, "auditor"]);
+      const budget = budgetStop(state, DEFENDERS.length + 1, "F4:revizyon", [...DEFENDERS, "auditor"], "f4_revision");
       if (budget.abort) {
         // Akış burada durur; çıkışı koşullu kenar END'e yönlendirir (Command goto END
         // denendi: update uygulanıyor ama graf normal kenardan devam ediyordu).
         return {
           endReason:
-            budget.abortReason ?? "Şah bütçe kapısında iptal etti (F4:revizyon girişi)",
+            budget.abortReason ??
+            "Şah bütçe kapısında iptal etti (F4:revizyon girişi). KURTARMA: re-table ile devam edilebilir, durum korunur.",
         };
       }
       const round = state.revisionRounds + 1;
@@ -391,13 +401,14 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
 
     // ================= KÜÇÜK KURUL (F1/F3 ve revizyon döngüsü yok) =================
     .addNode("f2s_ideation", async (state: DivanStateType) => {
-      const budget = budgetStop(state, SMALL_IDEATORS.length, "F2s", SMALL_IDEATORS);
+      const budget = budgetStop(state, SMALL_IDEATORS.length, "F2s", SMALL_IDEATORS, "f2s_ideation");
       if (budget.abort) {
         // Akış burada durur; çıkışı koşullu kenar END'e yönlendirir (Command goto END
         // denendi: update uygulanıyor ama graf normal kenardan devam ediyordu).
         return {
           endReason:
-            budget.abortReason ?? "Şah bütçe kapısında iptal etti (F2s girişi)",
+            budget.abortReason ??
+            "Şah bütçe kapısında iptal etti (F2s girişi). KURTARMA: re-table ile devam edilebilir, durum korunur.",
         };
       }
       const entries: TranscriptEntry[] = [];
@@ -421,13 +432,14 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
     })
     .addNode("f4s_feasibility", async (state: DivanStateType) => {
       // Küçük kurul F4: fizibilite + denetim + hüküm turu (revizyon döngüsü yok).
-      const budget = budgetStop(state, 3, "F4s", ["engineer1", "auditor"]);
+      const budget = budgetStop(state, 3, "F4s", ["engineer1", "auditor"], "f4s_feasibility");
       if (budget.abort) {
         // Akış burada durur; çıkışı koşullu kenar END'e yönlendirir (Command goto END
         // denendi: update uygulanıyor ama graf normal kenardan devam ediyordu).
         return {
           endReason:
-            budget.abortReason ?? "Şah bütçe kapısında iptal etti (F4s girişi)",
+            budget.abortReason ??
+            "Şah bütçe kapısında iptal etti (F4s girişi). KURTARMA: re-table ile devam edilebilir, durum korunur.",
         };
       }
       const out = await run("engineer1", {
@@ -471,13 +483,14 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
       return { ...flushUsage(), phaseSummaries: [{ phase: "F4", summary: out.content }], callCount: 1 };
     })
     .addNode("f5s_ranking", async (state: DivanStateType) => {
-      const budget = budgetStop(state, SMALL_RANKERS.length + 2, "F5s", [...SMALL_RANKERS, "chiefAdvisor", "auditor"]);
+      const budget = budgetStop(state, SMALL_RANKERS.length + 2, "F5s", [...SMALL_RANKERS, "chiefAdvisor", "auditor"], "f5s_ranking");
       if (budget.abort) {
         // Akış burada durur; çıkışı koşullu kenar END'e yönlendirir (Command goto END
         // denendi: update uygulanıyor ama graf normal kenardan devam ediyordu).
         return {
           endReason:
-            budget.abortReason ?? "Şah bütçe kapısında iptal etti (F5s girişi)",
+            budget.abortReason ??
+            "Şah bütçe kapısında iptal etti (F5s girişi). KURTARMA: re-table ile devam edilebilir, durum korunur.",
         };
       }
       const f4Summary = summaryOf(state, "F4");
@@ -525,13 +538,14 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
     // ---- F5: kriter bazlı sıralama (tam kurul) ----
     .addNode("f5_ranking", async (state: DivanStateType) => {
       // F5'in tam maliyeti: sıralama + BD taslak + final denetim.
-      const budget = budgetStop(state, RANKERS.length + 2, "F5", [...RANKERS, "chiefAdvisor", "auditor"]);
+      const budget = budgetStop(state, RANKERS.length + 2, "F5", [...RANKERS, "chiefAdvisor", "auditor"], "f5_ranking");
       if (budget.abort) {
         // Akış burada durur; çıkışı koşullu kenar END'e yönlendirir (Command goto END
         // denendi: update uygulanıyor ama graf normal kenardan devam ediyordu).
         return {
           endReason:
-            budget.abortReason ?? "Şah bütçe kapısında iptal etti (F5 girişi)",
+            budget.abortReason ??
+            "Şah bütçe kapısında iptal etti (F5 girişi). KURTARMA: re-table ile devam edilebilir, durum korunur.",
         };
       }
       const f4Summary = summaryOf(state, "F4");

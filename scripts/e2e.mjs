@@ -303,6 +303,45 @@ async function run() {
     console.log(`  kanit (iptal): cagri ${s.metrics.callCount}'te durdu | ${s.reason}`);
   });
 
+  // S15: KURTARMA ZİNCİRİ. Güvenli duruş bir çıkmaz sokak olmamalı: ihlal -> sebepli duruş ->
+  // re-table -> durum ve sayaç intakt -> devam -> tamamlanma.
+  await scenario("S15", "Guvenli durus kurtarilabilir: ihlal -> re-table -> tamamlanma", async () => {
+    await post({ threadId: "e2e-s15", idea: LONG, maxCalls: 5 });
+    await post({ threadId: "e2e-s15", resume: "hmw" });
+    let s = stopEvent(await post({ threadId: "e2e-s15", resume: "cerceve onaylandi" }));
+    check(s.gate === "BUTCE", `BUTCE bekleniyordu: ${s.gate ?? s.type}`);
+    check(String(s.payload.kurtarma).includes("re-table"), "kapi payload'i kurtarma yolunu ilan etmeli");
+
+    // 1) ihlal -> sebepli durus, kurtarma yolu mesajda
+    s = stopEvent(await post({ threadId: "e2e-s15", resume: "gecersiz-yanit" }));
+    check(s.type === "done", `ihlal akisi durdurmaliydi: ${s.type}`);
+    check(String(s.reason).includes("KURTARMA"), `durus mesaji kurtarma yolunu icermeli: ${s.reason}`);
+    check(String(s.reason).includes("f2_ideation"), "kurtarma mesaji hedef dugumu adiyla soylemeli");
+    const durusCagri = s.metrics.callCount;
+    check(durusCagri === 3, `duruşta cagri sayaci 3 olmali: ${durusCagri}`);
+    console.log(`  kanit (durus): cagri ${durusCagri} | ${String(s.reason).slice(0, 80)}...`);
+
+    // 2) re-table -> durum ve sayac INTAKT, kapi yeniden aciliyor
+    const ev = await post({ threadId: "e2e-s15", reTableToNode: "f2_ideation" });
+    s = stopEvent(ev);
+    check(s.gate === "BUTCE", `re-table sonrasi kapi yeniden acilmali: ${s.gate ?? s.type}`);
+    check(
+      s.payload.kesin.kosanCagri === durusCagri,
+      `sayac korunmali: duruşta ${durusCagri}, re-table sonrasi ${s.payload.kesin.kosanCagri}`,
+    );
+    check(s.payload.kesin.tavan === 5, "tavan korunmali");
+    console.log(`  kanit (re-table): sayac ${s.payload.kesin.kosanCagri} intakt, kapi yeniden acildi`);
+
+    // 3) devam -> tamamlanma
+    s = stopEvent(await post({ threadId: "e2e-s15", resume: 40 }));
+    check(s.gate === "KAPI3", `tavan yukseltilince akis surmeli: ${s.gate ?? s.type}`);
+    s = stopEvent(await post({ threadId: "e2e-s15", resume: "karar" }));
+    check(s.type === "done", "oturum tamamlanmali");
+    check(!s.reason, `tamamlanan oturumda durus sebebi olmamali: ${s.reason}`);
+    check(s.metrics.callCount === 27, `tam oturum 27 cagri: ${s.metrics.callCount}`);
+    console.log(`  kanit (tamamlanma): ${s.metrics.callCount} cagri, durus sebebi yok`);
+  });
+
   // S09: re-table, checkpoint'ten tek-hedefli yeniden koşum
   await scenario("S09", "Re-table: f1_frame checkpoint'ten yeniden kosar", async () => {
     const ev = await post({ threadId: "e2e-s01", reTableToNode: "f1_frame" });
