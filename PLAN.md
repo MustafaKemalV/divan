@@ -54,6 +54,7 @@ Tek gerçek kaynak `DESIGN.md`; bu plan onun inşa sırasıdır. Model stratejis
 - Anonimleştirme: F3/F5 çağrı payload'larında ajan kimliği YOK (log kanıtı).
 - URL'siz iddia "Doğrulanmış" etiketi alamıyor (negatif test).
 - Blocking "karşılanmadı" maddesi muhalefet notunda HAM duruyor (test).
+- **Beyan bütünlüğü:** geçersiz şema çıktısı düzeltilmiyor; bir kez gerekçesiyle iade ediliyor, ikinci kez de geçersizse Şah kapısı açılıyor. İlk denemenin ham hali transkriptte kalıyor ve iade çağrısı bütçeye yazılıyor (test).
 - Kadro KAPI 1'de değiştirilebiliyor; Denetçi çıkarılamıyor ve üç rolün altına inilemiyor (negatif test); iki aileden az kadroda uyarı çıkıyor.
 - **Türkçe prompt varsayımı ölçüldü:** şema-kritik koltuklar (Denetçi, Baş Danışman) Türkçe sistem promptu altında şema disiplinini koruyor mu? Sallantı varsa ilk çare karma yapı (içerik Türkçe, şema iskeleti İngilizce). Prompt dili GERİ ALINABİLİR bir varsayımdır, ölçülmeden kalıcı sayılmaz.
 - Triyaj sınıflandırması KODDAN geliyor: aynı gözlem seti her koşumda aynı sonucu veriyor, model beyanı sınıfı belirlemiyor (test).

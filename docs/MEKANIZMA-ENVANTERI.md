@@ -33,7 +33,7 @@ Son güncelleme: M2-A1 (prompt altyapısı + gerçek runner iskeleti + premortem
 | Mekanizma | Zorlayan katman | Kanıt |
 |---|---|---|
 | 3 planlı kapı (Şah kararı) | graf + test | `interrupt`, e2e S01/S02 |
-| 3 olay-tetikli dönüş | graf + test | e2e S03 (erken brifing), S06 (hüküm eksik), S08 (bütçe) |
+| 4 olay-tetikli dönüş | graf + test | e2e S03 (erken brifing), S06 (hüküm eksik), S08 (bütçe), S12 (denetim eksik) |
 | F4 revizyon döngüsü, mekanik kapanma | kod + test | `revision.ts` sayı karşılaştırması, `revision.test.ts`, e2e S03 |
 | Bütçe: "aşılacak mı" + faz girişi | kod + test | `budget.ts`, `budget.test.ts`, e2e S08 |
 | Bütçe yanıt sözleşmesi (devam / sayı / iptal) | **YOK** | M2-A2 borcu: şu an sayı dışı her yanıt "devam" |
@@ -48,6 +48,8 @@ Son güncelleme: M2-A1 (prompt altyapısı + gerçek runner iskeleti + premortem
 
 | Mekanizma | Zorlayan katman | Kanıt |
 |---|---|---|
+| Beyan bütünlüğü (değiştirme yok: taşı ya da iade et) | graf + kod + test | `runAuditWithReturn`, e2e S12/S13 |
+| İade semantiği (tek iade, ham iz kalır, iade bütçeye yazılır) | graf + kod + test | e2e S12 (retries=1, 28 çağrı), S13 (iadede düzelme) |
 | 6.1 Anonimleştirme | **YOK** | M2-C borcu |
 | 6.2 Kanıt kapısı, üç durum etiketi | şema + kod + test | denetim şemasında zorunlu enum, `audit.test.ts` |
 | 6.2 URL zorunluluğu (rozet yapısal olarak hak edilir) | şema + kod + test | e2e S12; ilk gerçek çağrıda tetiklendi, kural öne çekildi |
@@ -79,7 +81,7 @@ Son güncelleme: M2-A1 (prompt altyapısı + gerçek runner iskeleti + premortem
 
 ## Özet
 
-Zorlanan mekanizma sayısı 19, borç 14. Borçların dağılımı: M2-A2 beş, M2-B üç, M2-C iki,
+Zorlanan mekanizma sayısı 21, borç 14. Borçların dağılımı: M2-A2 beş, M2-B üç, M2-C iki,
 M2-D bir, M3 üç, M4 iki, M5 bir. (Kanıt rozetinin URL kuralı M2-C'den M2-A'ya ÇEKİLDİ: ilk gerçek
 çağrıda bir iddia hak etmediği rozeti aldı, borcu ertelemek yerine kapatmak gerekti.)
 

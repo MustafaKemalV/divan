@@ -61,6 +61,55 @@ function modeRouter(state: DivanStateType): "full" | "small" {
   return state.councilMode === "small" ? "small" : "full";
 }
 
+/**
+ * Denetim çağrısı + §6 İADE SEMANTİĞİ. Beyan bütünlüğü ilkesi gereği geçersiz bir çıktıyı
+ * DÜZELTMEYİZ: aynı koltuğa reddin gerekçesiyle bir kez iade ederiz. İlk denemenin HAM hali
+ * transkriptte kalır (silinmez), ve iade çağrısı bütçe sayacına yazılır: iade bedavaya gelmez.
+ * İkinci çıktı da geçersizse akış durur ve DENETIM_EKSIK kapısıyla Şah'a çıkar.
+ */
+async function runAuditWithReturn(
+  runner: SeatRunner,
+  state: DivanStateType,
+  phase: string,
+  context: string,
+) {
+  const entries: TranscriptEntry[] = [];
+  const first = await runner.run("auditor", { phase, idea: state.idea, context, retry: 0 });
+  let check = validateAudit(first.data);
+  entries.push({
+    phase,
+    seatId: "auditor",
+    content: check.ok ? first.content : `[GEÇERSİZ: ${check.reason}] ${first.content}`,
+  });
+  let calls = 1;
+
+  if (!check.ok) {
+    const second = await runner.run("auditor", {
+      phase,
+      idea: state.idea,
+      context: `${context}\n\nİADE GEREKÇESİ (çıktın reddedildi, aynı denetimi bu eksiği gidererek yeniden ver): ${check.reason}`,
+      retry: 1,
+    });
+    calls = 2;
+    check = validateAudit(second.data);
+    entries.push({
+      phase,
+      seatId: "auditor",
+      content: check.ok
+        ? `[İADE SONRASI] ${second.content}`
+        : `[İADE SONRASI DA GEÇERSİZ: ${check.reason}] ${second.content}`,
+    });
+  }
+
+  return {
+    auditComplete: check.ok,
+    auditIssue: check.ok ? "" : check.reason,
+    auditRetries: calls - 1,
+    transcript: entries,
+    callCount: calls,
+  };
+}
+
 export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
   const graph = new StateGraph(DivanState)
     // ================= F0: brifing + triyaj + HMW (DESIGN §5: 2 çağrı) =================
@@ -175,27 +224,9 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
       return { ...budget, transcript: entries, callCount: FEASIBILITY.length };
     })
     // ---- F4: Denetçi denetim (premortem zorunlu) ----
-    .addNode("f4_audit", async (state: DivanStateType) => {
-      const out = await runner.run("auditor", {
-        phase: "F4:audit",
-        idea: state.idea,
-        context: rawOfPhase(state, "F4:feasibility"),
-      });
-      // §6.3.1 zorunlu premortem + §6.2 etiketli iddialar: şema zorlar, burada da KOD denetler.
-      const check = validateAudit(out.data);
-      return {
-        auditComplete: check.ok,
-        auditIssue: check.ok ? "" : check.reason,
-        transcript: [
-          {
-            phase: "F4:audit",
-            seatId: "auditor",
-            content: check.ok ? out.content : `[DENETİM EKSİK: ${check.reason}] ${out.content}`,
-          },
-        ],
-        callCount: 1,
-      };
-    })
+    .addNode("f4_audit", async (state: DivanStateType) =>
+      runAuditWithReturn(runner, state, "F4:audit", rawOfPhase(state, "F4:feasibility")),
+    )
     // ---- F4: revizyon/savunma turu (DESIGN §5, <=3 tur; kapanış revision.ts'te MEKANİK) ----
     .addNode("f4_revision", async (state: DivanStateType) => {
       // Bir tur = savunma çağrıları + ardından gelen hüküm turu.
@@ -279,26 +310,9 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
         callCount: 1,
       };
     })
-    .addNode("f4s_audit", async (state: DivanStateType) => {
-      const out = await runner.run("auditor", {
-        phase: "F4s:audit",
-        idea: state.idea,
-        context: rawOfPhase(state, "F4s:feasibility"),
-      });
-      const check = validateAudit(out.data);
-      return {
-        auditComplete: check.ok,
-        auditIssue: check.ok ? "" : check.reason,
-        transcript: [
-          {
-            phase: "F4s:audit",
-            seatId: "auditor",
-            content: check.ok ? out.content : `[DENETİM EKSİK: ${check.reason}] ${out.content}`,
-          },
-        ],
-        callCount: 1,
-      };
-    })
+    .addNode("f4s_audit", async (state: DivanStateType) =>
+      runAuditWithReturn(runner, state, "F4s:audit", rawOfPhase(state, "F4s:feasibility")),
+    )
     .addNode("f4s_judgment", async (state: DivanStateType) => {
       const out = await runner.run("auditor", {
         phase: "F4s:judgment",
@@ -344,6 +358,16 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
         interrupt({ gate: "ERKEN_BRIFING", blocking: unmet.map((u) => u.rawText) });
       }
       return {};
+    })
+    // OLAY-TETİKLİ DÖNÜŞ (d): iadeye rağmen denetim mekanik şartları taşımıyor (§6.3.1).
+    .addNode("gate_audit_missing", async (state: DivanStateType) => {
+      const action = interrupt({
+        gate: "DENETIM_EKSIK",
+        reason: state.auditIssue,
+        retries: state.auditRetries,
+        kabulEdilen: ["devam", "iptal"],
+      }) as string;
+      return { auditGateAction: action };
     })
     // Kilit blok dalı, 1. kez: hüküm turunu yeniden koştur (sayaç; çağrı harcamaz).
     .addNode("judgment_retry", async () => ({ judgmentRetries: 1 }))
@@ -436,7 +460,11 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
     .addEdge("bd_summary_f2s", "f4s_feasibility")
     // F4 tam kurul: fizibilite -> denetim -> [revizyon -> hüküm] döngüsü -> özet
     .addEdge("f4_feasibility", "f4_audit")
-    .addEdge("f4_audit", "f4_revision")
+    // Denetim geçersizse revizyon turuna GEÇİLMEZ: eksik denetime savunma yazmak anlamsızdır.
+    .addConditionalEdges("f4_audit", (state: DivanStateType) => (state.auditComplete ? "devam" : "kapi"), {
+      devam: "f4_revision",
+      kapi: "gate_audit_missing",
+    })
     .addEdge("f4_revision", "f4_judgment")
     .addConditionalEdges("f4_judgment", revisionLoopRouter, {
       f4_revision: "f4_revision",
@@ -445,7 +473,10 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
     .addEdge("bd_summary_f4", "blocking_check")
     // F4 küçük kurul: revizyon döngüsü yok
     .addEdge("f4s_feasibility", "f4s_audit")
-    .addEdge("f4s_audit", "f4s_judgment")
+    .addConditionalEdges("f4s_audit", (state: DivanStateType) => (state.auditComplete ? "devam" : "kapi"), {
+      devam: "f4s_judgment",
+      kapi: "gate_audit_missing",
+    })
     .addEdge("f4s_judgment", "bd_summary_f4s")
     .addEdge("bd_summary_f4s", "blocking_check")
     // ERKEN-UZLAŞI KİLİDİ (§6.3): hüküm turu tamam + blocking listeli değilse F5 açılmaz.
@@ -456,6 +487,11 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
       judgment_retry: "judgment_retry",
       gate_judgment_missing: "gate_judgment_missing",
     })
+    .addConditionalEdges(
+      "gate_audit_missing",
+      (state: DivanStateType) => (state.auditGateAction === "iptal" ? "abort" : modeRouter(state)),
+      { full: "f4_revision", small: "f4s_judgment", abort: END },
+    )
     .addConditionalEdges("judgment_retry", modeRouter, {
       full: "f4_judgment",
       small: "f4s_judgment",

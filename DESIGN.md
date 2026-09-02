@@ -51,7 +51,7 @@ Gerekçe notları:
 - Anthropic x2 (Mimar + Baş Danışman): güç pozisyonları ayrık; yargıçlık mekanikleştirildiği için moderatör dar boğaz değil.
 - Koltuklar config'de model-pin'li; tek satırla değiştirilebilir.
 
-## 5. Akış: 6 faz, 3 planlı kapı, 3 olay-tetikli dönüş
+## 5. Akış: 6 faz, 3 planlı kapı, 4 olay-tetikli dönüş
 
 Şapka-kilidi faz-kilidi olarak uygulanır (herkes aynı anda aynı modda).
 
@@ -66,7 +66,7 @@ Gerekçe notları:
 
 - **Bütçe:** tam kurul tipik **26-28 çağrı, tavan 30**; küçük kurul (3 ajan: Öneren=Vizyoner, Ölçen=Müh-1, İtiraz eden=Denetçi; F0+F2+F4+F5 kısaltılmış, F1/F3 ve F4 revizyon döngüsü atlanır) **~13**. **Küçük kurulda Denetçi üretim turuna girmez** (§3'teki erken-eleştiri mekanizması HER İKİ yolda da açıktır): kurul üç kişidir, üretimi Öneren + Ölçen yapar; Denetçi denetim, hüküm ve sıralama turlarında konuşur. (İlk taslakta 20-24, küçük kurul için önce ~10 sonra ~14 denmişti; düğüm bazlı sayım ve §3 hizalaması ikisini de düzeltti.) Kesim adayları, istenirse: F2/F3'te Müh-1'i çıkarmak (-2), F5 puanlayıcıyı 3'e indirmek (-1).
 - **Bütçe kontrolü nerede:** tavan kontrolü her PAHALI fazın girişinde yapılır (F2, F3, F4, revizyon turu, F5) ve "aşıldı mı" değil "aşılacak mı" sorusunu sorar: `koşan çağrı + fazın maliyeti > tavan` ise faz BAŞLAMADAN Şah'a dönülür. Kapının yanıt sözleşmesi ÜÇ seçenekten ibarettir ve kapı payload'ı bunları açıkça listeler: `devam` (aynı tavanla sürdür), bir SAYI (tavanı bu değere yükselt ve sürdür), `iptal` (oturumu burada bitir). Tanınmayan yanıt akışı SÜRDÜRMEZ, kapı yeniden açılır: yazım hatası bir onay yerine geçemez. `iptal` sessiz bir sonlanma değildir; sebebi yazılı bir `done` olayı üretir.
-- **Olay-tetikli Şah dönüşleri:** (a) bütçe tavanı aşılacaksa; (b) hüküm turunda blocking "karşılanmadı" kalırsa erken brifing; (c) hüküm turu bir kez yeniden koşturulmasına rağmen eksik kalırsa (§6.3 kilidi), oturum sessizce bitmez: `HUKUM_EKSIK` kapısıyla Şah'a çıkar.
+- **Olay-tetikli Şah dönüşleri:** (a) bütçe tavanı aşılacaksa; (b) hüküm turunda blocking "karşılanmadı" kalırsa erken brifing; (c) hüküm turu bir kez yeniden koşturulmasına rağmen eksik kalırsa (§6.3 kilidi), oturum sessizce bitmez: `HUKUM_EKSIK` kapısıyla Şah'a çıkar; (d) denetim mekanik şartları taşımıyorsa (§6.3.1), çıktı bir kez gerekçesiyle iade edilir ve ikinci kez de geçersizse `DENETIM_EKSIK` kapısıyla Şah'a çıkar.
 - **F4 revizyon döngüsü, mekanik kapanma:** denetimden sonra savunma/revizyon turu koşar, ardından hüküm turu yeniden alınır. Döngü ancak şu üç koşuldan biriyle kapanır: blocking "karşılanmadı" sayısı 0'a indi, 3 tur doldu, ya da sayı bir önceki tura göre azalmadı (ilerleme yok). Kapanma kararı hiçbir ajanın beyanına bağlı değildir; Denetçi'nin "çözüldü" demesi kapıyı açamaz.
 - **M3 bütçe uyarısı:** F5 kuyruğu M1'de 6 çağrıdır (sıralama + BD taslak + Denetçi final denetimi). §9.2 kod promptu üretimi (Müh-1) ve çapraz denetimi (Müh-2) M3'te eklenince tam kurul tipik toplamı ~29'a çıkar ve 30 tavanına yaslanır. M3'e girerken tavan ya da §5'teki kesim adayları yeniden değerlendirilir; bant sessizce delinmez.
 - **Re-table:** Şah her kapıda tek-hedefli geri gönderebilir (hangi fazın yeniden koşulacağı belirtilir; checkpointer'dan resume).
@@ -105,6 +105,10 @@ Baş Danışman fikrin eksenini bildirir, eşleştirmeyi config tablosu yapar. H
 Bunun yapısal sonucu: **kadro veridir.** Graf, hangi fazda kimin konuşacağını koddaki sabit listelerden değil, config + KAPI 1 seçiminden alır. (M1'de listeler sabittir; M2'de dinamikleştirilir, PLAN M2.)
 
 ## 6. Anti-yağcılık mekanikleri (detay)
+
+**Beyan bütünlüğü (temel ilke).** Sistem hiçbir ajanın beyanını değiştirmez: ya olduğu gibi taşır, ya gerekçesiyle iade eder. Bir çıktı mekanik şartları taşımıyorsa düzeltilmez, yumuşatılmaz, etiketi sessizce çevrilmez; ilgili koltuğa reddin gerekçesiyle geri gönderilir. Aşağıdaki mekaniklerin hepsi bu ilkenin uygulamasıdır.
+
+**İade semantiği.** Şema reddi TEK bir iade hakkı doğurur: aynı koltuğa, gerekçesiyle birlikte. İkinci çıktı da geçersizse akış durur ve Şah'a çıkar. İlk denemenin HAM hali transkriptte kalır (silinmez, düzeltilmez), ve iade çağrısı bütçe sayacına dahildir: iade bedavaya gelmez.
 
 ### 6.1 Anonimleştirme
 F3 ve F5'te ajanlar birbirinin görüşlerini kimliksiz görür; kendi eski çıktısını da tanıyamaz. Tek maskeleme katmanı; kimlik-yağcılığı + self-bias + ilk-konuşan çıpalaması aynı anda hedeflenir.

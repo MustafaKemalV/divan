@@ -46,7 +46,8 @@ export const SMALL_IDEA_MAX_CHARS = 60;
  *   [TEST:nojudgment:always] -> hiçbir turda şema üretilmez (HUKUM_EKSIK Şah kapısı dalı)
  *   [TEST:drop]         -> itiraz bir tur blocking kalır, ikinci turda düşer (§6.4 düşen itiraz izi)
  *   [TEST:noaudit]      -> denetim premortemsiz döner (§6.3.1 eksik denetim işaretlenmesi)
- *   [TEST:badurl]       -> "dogrulanmis" iddia URL'siz döner (§6.2 rozet kuralı reddetmeli)
+ *   [TEST:badurl]       -> "dogrulanmis" iddia hep URL'siz döner (red -> iade -> red -> Şah kapısı)
+ *   [TEST:badurl1]      -> ilk çıktı URL'siz, İADE turunda düzelir (§6 iade semantiği mutlu yol)
  */
 export class StubSeatRunner implements SeatRunner {
   async run(seatId: string, input: SeatRunInput): Promise<SeatRunOutput> {
@@ -111,7 +112,13 @@ export class StubSeatRunner implements SeatRunner {
                 evidence: "dogrulanmis",
                 source: "sektör raporu",
                 // [TEST:badurl]: rozet hak edilmeden verilir; §6.2 kod kuralı bunu reddetmeli
-                url: idea.includes("[TEST:badurl]") ? "" : "https://example.org/kaynak",
+                // [TEST:badurl] inatçı: iadeden sonra da URL vermez (kapıya kadar gider).
+                // [TEST:badurl1] iade turunda düzelir: red -> iade -> geçerli.
+                url:
+                  idea.includes("[TEST:badurl]") ||
+                  (idea.includes("[TEST:badurl1]") && (input.retry ?? 0) < 1)
+                    ? ""
+                    : "https://example.org/kaynak",
               },
             ],
             weakestLink: "dağıtım kanalı",

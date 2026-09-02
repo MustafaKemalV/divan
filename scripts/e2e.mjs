@@ -276,29 +276,54 @@ async function run() {
     await post({ threadId: "e2e-s11", idea: `${LONG} [TEST:noaudit]` });
     await post({ threadId: "e2e-s11", resume: "hmw" });
     let s = stopEvent(await post({ threadId: "e2e-s11", resume: "cerceve onaylandi" }));
-    check(s.gate === "KAPI3", `KAPI3 bekleniyordu: ${s.gate ?? s.type}`);
-    check(s.payload.auditComplete === false, "premortemsiz denetim tam sayilmamaliydi");
+    // İade semantiği devreye girer: premortemsiz çıktı bir kez iade edilir, yine gelmezse kapı.
+    check(s.gate === "DENETIM_EKSIK", `DENETIM_EKSIK kapisi bekleniyordu: ${s.gate ?? s.type}`);
     check(
-      String(s.payload.auditIssue).includes("premortem"),
-      `eksiklik sebebi premortem olmaliydi: ${s.payload.auditIssue}`,
+      String(s.payload.reason).includes("premortem"),
+      `eksiklik sebebi premortem olmaliydi: ${s.payload.reason}`,
     );
-    console.log(`  kanit: KAPI3'te auditComplete=false, sebep: ${s.payload.auditIssue}`);
+    check(s.payload.retries === 1, `bir iade hakki kullanilmaliydi: ${s.payload.retries}`);
+    console.log(`  kanit: iade sonrasi kapi, sebep: ${s.payload.reason}`);
+    s = stopEvent(await post({ threadId: "e2e-s11", resume: "devam" }));
+    check(s.gate === "KAPI3", `devam sonrasi KAPI3 bekleniyordu: ${s.gate ?? s.type}`);
+    check(s.payload.auditComplete === false, "eksiklik karar ekranina tasinmali");
     s = stopEvent(await post({ threadId: "e2e-s11", resume: "karar" }));
     check(s.metrics.auditComplete === false, "done olayinda da eksiklik gorunmeli");
   });
 
-  // S12: §6.2 rozet kuralı, URL'siz "dogrulanmis" iddia denetimi geçersiz kılar
-  await scenario("S12", "URL'siz \"dogrulanmis\" rozet reddedilir (§6.2)", async () => {
+  // S12: ZİNCİR KANITI (§6 beyan bütünlüğü) -> red -> gerekçeli iade -> yine red -> Şah kapısı -> ham iz
+  await scenario("S12", "Rozet reddi zinciri: red -> iade -> DENETIM_EKSIK kapisi", async () => {
     await post({ threadId: "e2e-s12", idea: `${LONG} [TEST:badurl]` });
     await post({ threadId: "e2e-s12", resume: "hmw" });
-    const s = stopEvent(await post({ threadId: "e2e-s12", resume: "cerceve onaylandi" }));
+    let ev = await post({ threadId: "e2e-s12", resume: "cerceve onaylandi" });
+    let s = stopEvent(ev);
+    check(s.gate === "DENETIM_EKSIK", `DENETIM_EKSIK kapisi bekleniyordu: ${s.gate ?? s.type}`);
+    check(String(s.payload.reason).includes("URL'siz"), `sebep §6.2 olmaliydi: ${s.payload.reason}`);
+    check(s.payload.retries === 1, `tam BIR iade hakki kullanilmaliydi: ${s.payload.retries}`);
+    check(!nodesOf(ev).includes("f4_revision"), "gecersiz denetimle revizyon turuna GECILMEMELI");
+    console.log(`  kanit: red -> iade (retries=${s.payload.retries}) -> kapi | sebep: ${s.payload.reason}`);
+    // Şah devam derse akış sürer ama eksiklik karar ekranına kadar taşınır
+    s = stopEvent(await post({ threadId: "e2e-s12", resume: "devam" }));
+    check(s.gate === "KAPI3", `devam sonrasi KAPI3 bekleniyordu: ${s.gate ?? s.type}`);
+    check(s.payload.auditComplete === false, "eksiklik karar ekranina tasinmali");
+    s = stopEvent(await post({ threadId: "e2e-s12", resume: "karar" }));
+    // iade cagrisi butceye yazilir: normal 27 + 1 iade
+    check(s.metrics.callCount === 28, `iade cagrisi butceye yazilmaliydi (28): ${s.metrics.callCount}`);
+    console.log(`  kanit: iade butcede sayildi, toplam ${s.metrics.callCount} cagri`);
+  });
+
+  // S13: iade semantiğinin mutlu yolu -> ilk çıktı reddedilir, İADE turunda düzelir, akış sürer
+  await scenario("S13", "Iade turunda duzelen denetim akisi surdurur (§6 iade semantigi)", async () => {
+    await post({ threadId: "e2e-s13", idea: `${LONG} [TEST:badurl1]` });
+    await post({ threadId: "e2e-s13", resume: "hmw" });
+    const ev = await post({ threadId: "e2e-s13", resume: "cerceve onaylandi" });
+    const s = stopEvent(ev);
     check(s.gate === "KAPI3", `KAPI3 bekleniyordu: ${s.gate ?? s.type}`);
-    check(s.payload.auditComplete === false, "URL'siz dogrulanmis iddia denetimi gecersiz kilmaliydi");
-    check(
-      String(s.payload.auditIssue).includes("URL'siz"),
-      `sebep §6.2 rozet kurali olmaliydi: ${s.payload.auditIssue}`,
-    );
-    console.log(`  kanit: ${s.payload.auditIssue}`);
+    check(s.payload.auditComplete === true, "iade turunda duzelen denetim GECERLI sayilmali");
+    check(nodesOf(ev).includes("f4_revision"), "denetim gecerli olunca revizyon turu kosmali");
+    const done = stopEvent(await post({ threadId: "e2e-s13", resume: "karar" }));
+    check(done.metrics.callCount === 28, `iade cagrisi sayilmaliydi (28): ${done.metrics.callCount}`);
+    console.log(`  kanit: auditComplete=true, iade dahil ${done.metrics.callCount} cagri`);
   });
 
   await stopServer();

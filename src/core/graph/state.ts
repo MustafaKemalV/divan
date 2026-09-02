@@ -71,6 +71,16 @@ export const DivanState = Annotation.Root({
     reducer: (_prev, next) => next,
     default: () => "",
   }),
+  // §6 iade semantiği: şema reddi TEK iade hakkı doğurur. Sayaç, iadenin gerçekten bir kez
+  // kullanıldığını ve bütçeye yazıldığını görünür kılar.
+  auditRetries: Annotation<number>({
+    reducer: (_prev, next) => next,
+    default: () => 0,
+  }),
+  auditGateAction: Annotation<string | null>({
+    reducer: (_prev, next) => next,
+    default: () => null,
+  }),
 
   // BİRİKEN: her hüküm turunun tam çıktısı (§6.4). Son tur `judgment`e yazılır, geçmiş burada
   // durur; revizyonla DÜŞEN itiraz ancak bu iz sayesinde görünür kalabilir.
