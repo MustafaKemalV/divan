@@ -83,7 +83,7 @@ Gerekçe notları:
 
 Bu dört gözlem şema-bağlı döndüğü için F0 çağrısı da şema-kritik sınıftadır (§7). **Ölü-uç kuralı:** Baş Danışman'ın pin'i ve TÜM fallback'leri şema probunu geçemiyorsa gözlem çağrısı hiç yapılmaz; doğrudan tam kurula düşülür ve Şah'a uyarı gösterilir. Bozuk şemadan sınıf tahmin etmeye çalışmak, aşağıdaki asimetri kuralının ihlalidir.
 
-Sınıflandırmayı KOD yapar; eşikler `divan.config.json`'dadır, Şah ayarlar. **Asimetri kuralı: şüphede tam kurul.** Yanlış küçültme kalite kaybettirir, yanlış büyütme para kaybettirir; Divan'ın vaadi kalite üzerine kurulu olduğundan varsayılan güvenli taraf büyük kuruldur.
+Sınıflandırmayı KOD yapar; eşikler `divan.config.json`'dadır, Şah ayarlar. **Ara dönem (M2-B'ye kadar):** sınıf hâlâ modelin tek alanlık KANAATİDİR; bu yüzden KAPI 1'de "kanaat" işaretiyle sunulur, Şah'ın değiştirmesi için orada durur ve asimetri kuralı yürürlüktedir. Kanaatin kanaat olduğunu gizlemek, onu ölçüm sanmaktan daha büyük hatadır. **Asimetri kuralı: şüphede tam kurul.** Yanlış küçültme kalite kaybettirir, yanlış büyütme para kaybettirir; Divan'ın vaadi kalite üzerine kurulu olduğundan varsayılan güvenli taraf büyük kuruldur.
 
 **Kadro = üç rol; koltuklar değişken.** Küçük kurul sabit bir üçlü değildir. Doldurulan şey, en küçük TAM müzakerenin üç rolüdür: öneri üretmek, yapılabilirliği ölçmek, itiraz etmek. Biri eksikse geriye müzakere kalmaz (öneri yoksa tartışılacak şey yok, ölçüm yoksa hayal, itiraz yoksa Divan'ın kuruluş sebebi yok).
 
@@ -113,7 +113,7 @@ F3 ve F5'te ajanlar birbirinin görüşlerini kimliksiz görür; kendi eski çı
 - `Doğrulanmış`: URL zorunlu, web aramasıyla bulunmuş.
 - `Model-bilgisi`: kaynaksız beyan, düşük-güven etiketiyle görünür.
 - `Varsayım`: açıkça varsayım.
-URL'siz hiçbir iddia `Doğrulanmış` rozetini alamaz. Web: OpenRouter web plugin (Exa, ~$0.007/arama), faz başına kap (varsayılan 3). Kapsam: Denetçi (her denetim) + Müh-1/Müh-2 (F4).
+URL'siz hiçbir iddia `Doğrulanmış` rozetini alamaz. Bu YAPISAL kural M2-A'da öne çekilmiştir: denetim şemasında `dogrulanmis` etiketi `url` alanını zorunlu kılar, URL'siz doğrulanmış iddia şema ve kod düzeyinde geçersizdir ve denetim eksik sayılır (§6.3.1). Bilinen sınır: URL'nin VARLIĞI, içeriğinin iddiayı desteklediğini kanıtlamaz; uydurma URL riski ancak gerçek arama ile kapanır ve o doğrulama M2-C'dedir. Yani bugün rozet, kaynak GÖSTERME disiplinini zorlar, kaynağın doğruluğunu değil. Web: OpenRouter web plugin (Exa, ~$0.007/arama), faz başına kap (varsayılan 3). Kapsam: Denetçi (her denetim) + Müh-1/Müh-2 (F4).
 
 ### 6.3 Erken uzlaşı kilidi
 1. Denetçi denetimi, uyum derecesinden bağımsız **zorunlu premortem** içerir: en az 1 "bu neden başarısız olur" senaryosu + en az 3 sınanmış iddia. Bu zorunluluk PROMPTTA RİCA EDİLMEZ, ŞEMADA ZORLANIR: denetim çıktısı `json_schema`'ya bağlıdır (§7 şema-kritik çağrı), premortem senaryosu ve en az üç sınanmış iddia alanları zorunludur, eksik çıktı geçersizdir ve denetim eksik olarak işaretlenir. Ayrıca her sınanmış iddia §6.2'nin üç durumundan birini etiket olarak TAŞIMAK ZORUNDADIR; etiketsiz iddia şemada geçersizdir. Böylece kanıt disiplini denetimin içine ilk günden gömülür, sonradan eklenen bir katman olmaz.
@@ -137,6 +137,7 @@ Mutlak skor yok; kriter başına sıralama. Anlaşmazlık = sıralama ters-dönm
 - Model-pin + koltuk başına fallback listesi (OpenRouter `models` dizisi).
 - **Promptlar:** koltuk+faz sistem promptları `prompts/<koltuk>-<faz>.md` dosyalarındadır. `templates/`ten farkı önemlidir: şablonlar bağlayıcı spec'tir (format değişikliği = §9 değişikliği = Şah onayı), promptlar ise ayarlanabilir malzemedir ve düzenlenmesi Şah onayı gerektirmez. Güvence promptun metninde değil iki yerdedir: git geçmişi (her değişiklik izlenir) ve mekanizma testleri. İlke şudur: bir mekanik yalnızca promptta duruyorsa zaten zorlanmıyor demektir; §6 mekanikleri şemayla ve graf kenarıyla zorlanır, prompt onları yalnız açıklar.
 - **Runner modu damgası:** oturumun gerçek modellerle mi yoksa stub'larla mı koştuğu karar belgesine ve UI'ya damgalanır. Sahte bir oturum gerçek sanılamaz.
+- **Faz-içi paralellik:** Aynı fazdaki birbirine bağlı OLMAYAN koltuk çağrıları paralel koşar (F2/F3 üretim, F4 fizibilite, F5 sıralama). Gerekçe tasarım sadakatidir, hız değil: §5 bu ajanların birbirini görmediğini zaten söylüyor, sıralı koşum bir kural değil bir yavaşlıktı. Üç korkuluk bağlayıcıdır: (a) paralellik YALNIZ faz içidir, fazlar arası sıra ve kapılar değişmez; (b) sonuçlar kanonik koltuk sırasına göre yazılır, yani transkript deterministik kalır; (c) bir koltuk cevap veremezse SESSİZ GEÇİLMEZ: bir kez yeniden denenir, yine gelmezse "koltuk sustu" kaydıyla transkripte girer ve Şah'ın görünürlüğüne çıkar. Eksik ses, eksik olduğu bilinerek taşınır.
 - **Canlı maliyet sayacı:** OpenRouter usage alanından, UI'da oturum toplamı.
 
 ## 8. Eval modu (measure-before-claiming)

@@ -29,7 +29,9 @@ kanıt kalıcı hüküm değildir, tam oturumda tekrar bakılacak.
 **Denetim mekaniği gerçek modelde çalıştı.** Denetçi'nin çıktısı zorunlu premortemi somut bir
 senaryoyla doldurdu, üç sınanmış iddia verdi ve üç iddianın üçünde de farklı kanıt etiketi kullandı
 (`model-bilgisi`, `dogrulanmis`, `varsayim`). Canlı çıktı `validateAudit` denetiminden geçti.
-Tonu da doğru yerde: "Fikir ham. Mimari kararlar oturmamış." Yağcılık izi yok.
+Tonu da doğru yerde: "Fikir ham. Mimari kararlar oturmamış." Bu tek koşumda yağcılık izi görülmedi;
+**n=1**, yani bir gözlem, bir bulgu değil. Yağcılık iddiası ancak kör karşılaştırmanın verisiyle (§8, M5)
+kurulabilir; buradaki not sadece "ilk temasta ton doğru yerdeydi" demektir.
 
 **§6.2 borcu ilk çağrıda kendini gösterdi.** Denetçi bir iddiaya `dogrulanmis` etiketi verdi ama
 kaynak alanına URL değil gerekçe yazdı ("Node.js dokümantasyonu ve topluluk deneyimi"). Tasarım
@@ -48,9 +50,19 @@ sürer. F2 fazı tanımı gereği "birbirini görmeden" üretim yapıyor, yani o
 bağımlılık yok ve paralel koşabilirler; aynısı F3, F4 fizibilite ve F5 sıralama için de geçerli.
 Paralelleştirme bir hız iyileştirmesi değil, kullanılabilirlik şartı olabilir. M2-A2'de tartışılacak.
 
-## Maliyet tahmini (kaba)
+## Maliyet: ölçülen ve öngörülen
 
-İki çağrının ortalaması yaklaşık $0.0033. Tam kurul 27 çağrı ise bir oturum kabaca **$0.09**
-civarında görünüyor, ama bu sayı iyimser: geç fazlarda bağlam büyür ve koltukların fiyatları
-farklıdır (Mimar Opus, Vizyoner Grok). Gerçek rakam ilk tam oturumda ölçülecek; o ölçüm bu
-dosyaya eklenecek.
+Ölçülen (kesin, sağlayıcının bildirdiği rakamlar):
+
+| | USD |
+|---|---|
+| Baş Danışman, F0 brifing | 0.003926 |
+| Denetçi, F4 denetim | 0.002648802 |
+| **İki çağrı toplamı** | **0.006574802** |
+| Çağrı başına ortalama | 0.003287401 |
+
+Tam kurul projeksiyonu, 27 çağrı × ölçülen ortalama = **$0.0888**. Bu sayı bir ALT SINIR tahminidir
+ve iki yönden sapar: geç fazlarda taşınan bağlam büyüdüğü için girdi token'ı artar, ve kadronun
+fiyatları eşit değildir (Mimar Opus sınıfı, Denetçi ve Pazar Sesi daha ucuz). Yani gerçek rakamın
+bu tahminin üstünde çıkmasını bekliyoruz. Kesin sayı ilk tam oturumda ölçülüp buraya yazılacak;
+o ölçüm gelene kadar $0.0888 bir tahmindir, bir vaat değildir.
