@@ -24,6 +24,11 @@ export type DivanEvent =
         judgmentRetries: number;
         /** §6.3.1: denetim mekanik şartları taşıdı mı (premortem + >=3 etiketli iddia) */
         auditComplete: boolean;
+        /** §7 maliyet sayacı: sağlayıcının bildirdiği USD toplamı */
+        costUsd: number;
+        totalTokens: number;
+        /** maliyeti bildirilmeyen çağrı sayısı; tahmin YAPILMAZ, bilinmezlik gösterilir */
+        costUnknownCalls: number;
       };
     }
   | { type: "error"; message: string };

@@ -143,6 +143,22 @@ export const DivanState = Annotation.Root({
     default: () => [],
   }),
 
+  // --- SAYAÇ: maliyet (DESIGN §7 canlı maliyet sayacı). Sağlayıcının bildirdiği USD toplanır.
+  // costUnknownCalls: maliyeti BİLDİRİLMEYEN çağrı sayısı. Tahmin yapılmaz; bilinmeyen, bilinmiyor
+  // olarak sayılır (uydurma rakam, rakam olmamasından kötüdür).
+  costUsd: Annotation<number>({
+    reducer: (prev, next) => prev + next,
+    default: () => 0,
+  }),
+  totalTokens: Annotation<number>({
+    reducer: (prev, next) => prev + next,
+    default: () => 0,
+  }),
+  costUnknownCalls: Annotation<number>({
+    reducer: (prev, next) => prev + next,
+    default: () => 0,
+  }),
+
   // --- SAYAÇ: model çağrı sayısı (bütçe tavanı için); add reducer ---
   callCount: Annotation<number>({
     reducer: (prev, next) => prev + next,

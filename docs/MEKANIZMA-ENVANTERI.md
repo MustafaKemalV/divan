@@ -10,78 +10,81 @@ kanıtı vardır: kanıtsız satır bu tabloya giremez.
 
 `SADECE-PROMPT` ve `YOK` satırları **borç listesidir** ve M2 kapısında koda karşı denetlenecektir.
 
+**Köken** sütunu trend içindir: bir satır o milestone'da yeni mi doğdu, yoksa önceki listede borç
+olan bir kalem mi kapandı? M2 kapısı bu sütundan borç eğrisini okuyacak.
+
 Son güncelleme: M2-A1 (prompt altyapısı + gerçek runner iskeleti + premortem şeması).
 
 ## §3 Arıza modu tablosu
 
-| Mekanizma | Zorlayan katman | Kanıt |
-|---|---|---|
-| Heterojen aileler (6 aile / 7 koltuk) | config | `divan.config.json`, 7/7 canlı probe (M0) |
-| Anonimleştirme (F3/F5 kimliksiz) | **YOK** | M2-C borcu |
-| Erken uzlaşı kilidi | graf + test | `lock.ts` koşullu kenar, `lock.test.ts`, e2e S05/S06 |
-| Yargıçlık mekanik (blocking gömülemez) | kod + test | `bd_draft` ham metin kopyası, e2e S03 |
-| Topraklama (kanıt etiketi) | şema + kod + test | `schemas.ts` AUDIT.claims.evidence, `audit.ts`, `audit.test.ts` |
-| Topraklama (URL'siz "doğrulanmış" olamaz) | şema + kod + test | `audit.ts` `isSourceUrl`, `audit.test.ts`, e2e S12. **Kalan borç:** URL'nin İÇERİĞİ doğrulanmıyor (M2-C gerçek arama) |
-| Değişmemiş muhalefet notu | kod + test | `bd_draft`, e2e S03 |
-| Düşen itiraz izi | kod + test | `judgmentHistory`, e2e S04. **Borç:** eşleştirme kriter ADIYLA (M2 kapısı notu) |
-| Tam-uyum bayrağı | **YOK** | M4 borcu |
-| Kör A/B (ölçüm) | **YOK** | M5 borcu |
-| Denetçi divergent fazlarda sessiz | graf + test | kadro listeleri, prompt kapsamı testi (sapmayı bu test yakaladı) |
+| Mekanizma | Zorlayan katman | Kanıt | Köken |
+|---|---|---|---|
+| Heterojen aileler (6 aile / 7 koltuk) | config | `divan.config.json`, 7/7 canlı probe (M0) | M0 |
+| Anonimleştirme (F3/F5 kimliksiz) | **YOK** | M2-C borcu | borç (M2-C) |
+| Erken uzlaşı kilidi | graf + test | `lock.ts` koşullu kenar, `lock.test.ts`, e2e S05/S06 | M1 |
+| Yargıçlık mekanik (blocking gömülemez) | kod + test | `bd_draft` ham metin kopyası, e2e S03 | M1 |
+| Topraklama (kanıt etiketi) | şema + kod + test | `schemas.ts` AUDIT.claims.evidence, `audit.ts`, `audit.test.ts` | M2-A yeni |
+| Topraklama (URL'siz "doğrulanmış" olamaz) | şema + kod + test | `audit.ts` `isSourceUrl`, `audit.test.ts`, e2e S12. **Kalan borç:** URL'nin İÇERİĞİ doğrulanmıyor (M2-C gerçek arama) | M2-A: borç kapandı |
+| Değişmemiş muhalefet notu | kod + test | `bd_draft`, e2e S03 | M1 |
+| Düşen itiraz izi | kod + test | `judgmentHistory`, e2e S04. **Borç:** eşleştirme kriter ADIYLA (M2 kapısı notu) | M1 |
+| Tam-uyum bayrağı | **YOK** | M4 borcu | borç (M4) |
+| Kör A/B (ölçüm) | **YOK** | M5 borcu | borç (M5) |
+| Denetçi divergent fazlarda sessiz | graf + test | kadro listeleri, prompt kapsamı testi (sapmayı bu test yakaladı) | M2-A: sapma düzeltildi |
 
 ## §5 Akış
 
-| Mekanizma | Zorlayan katman | Kanıt |
-|---|---|---|
-| 3 planlı kapı (Şah kararı) | graf + test | `interrupt`, e2e S01/S02 |
-| 4 olay-tetikli dönüş | graf + test | e2e S03 (erken brifing), S06 (hüküm eksik), S08 (bütçe), S12 (denetim eksik) |
-| F4 revizyon döngüsü, mekanik kapanma | kod + test | `revision.ts` sayı karşılaştırması, `revision.test.ts`, e2e S03 |
-| Bütçe: "aşılacak mı" + faz girişi | kod + test | `budget.ts`, `budget.test.ts`, e2e S08 |
-| Bütçe yanıt sözleşmesi (devam / sayı / iptal) | **YOK** | M2-A2 borcu: şu an sayı dışı her yanıt "devam" |
-| Re-table (tek hedefli yeniden koşum) | kod + test | `route.ts` getStateHistory, e2e S09 |
-| Bağlam sıkıştırması (ham taşınmaz) | graf + test | BD faz özetleri, e2e parmak-izi ölçümü (3 fazda 0 sızıntı) |
-| Faz kilidi (şapka disiplini) | **SADECE-PROMPT** | borç: fazın modu prompt metninde, yapıda değil |
-| §5.1 Triyaj: gözlem + kod sınıflandırması | kısmi | sınıf hâlâ model beyanı (M2-B borcu), ama KAPI 1'de "kanaat" işaretiyle sunuluyor (e2e S01) |
-| §5.1 Kadro kilitleri (Denetçi kaldırılamaz, min 3 rol, çeşitlilik uyarısı) | **YOK** | M2-B borcu |
-| §5.1 Ölü-uç kuralı (BD şemayı geçemezse tam kurul) | **YOK** | M2-A2 borcu |
+| Mekanizma | Zorlayan katman | Kanıt | Köken |
+|---|---|---|---|
+| 3 planlı kapı (Şah kararı) | graf + test | `interrupt`, e2e S01/S02 | M1 |
+| 4 olay-tetikli dönüş | graf + test | e2e S03 (erken brifing), S06 (hüküm eksik), S08 (bütçe), S12 (denetim eksik) | M1 (+1 M2-A) |
+| F4 revizyon döngüsü, mekanik kapanma | kod + test | `revision.ts` sayı karşılaştırması, `revision.test.ts`, e2e S03 | M1 |
+| Bütçe: "aşılacak mı" + faz girişi | kod + test | `budget.ts`, `budget.test.ts`, e2e S08 | M1 |
+| Bütçe yanıt sözleşmesi (devam / sayı / iptal) | **YOK** | M2-A2 borcu: şu an sayı dışı her yanıt "devam" | borç (M2-A2) |
+| Re-table (tek hedefli yeniden koşum) | kod + test | `route.ts` getStateHistory, e2e S09 | M1 |
+| Bağlam sıkıştırması (ham taşınmaz) | graf + test | BD faz özetleri, e2e parmak-izi ölçümü (3 fazda 0 sızıntı) | M1 |
+| Faz kilidi (şapka disiplini) | **SADECE-PROMPT** | borç: fazın modu prompt metninde, yapıda değil | borç (sadece-prompt) |
+| §5.1 Triyaj: gözlem + kod sınıflandırması | kısmi | sınıf hâlâ model beyanı (M2-B borcu), ama KAPI 1'de "kanaat" işaretiyle sunuluyor (e2e S01) | kısmen M2-A |
+| §5.1 Kadro kilitleri (Denetçi kaldırılamaz, min 3 rol, çeşitlilik uyarısı) | **YOK** | M2-B borcu | borç (M2-B) |
+| §5.1 Ölü-uç kuralı (BD şemayı geçemezse tam kurul) | **YOK** | M2-A2 borcu | borç (M2-A2) |
 
 ## §6 Anti-yağcılık mekanikleri
 
-| Mekanizma | Zorlayan katman | Kanıt |
-|---|---|---|
-| Beyan bütünlüğü (değiştirme yok: taşı ya da iade et) | graf + kod + test | `runAuditWithReturn`, e2e S12/S13 |
-| İade semantiği (tek iade, ham iz kalır, iade bütçeye yazılır) | graf + kod + test | e2e S12 (retries=1, 28 çağrı), S13 (iadede düzelme) |
-| 6.1 Anonimleştirme | **YOK** | M2-C borcu |
-| 6.2 Kanıt kapısı, üç durum etiketi | şema + kod + test | denetim şemasında zorunlu enum, `audit.test.ts` |
-| 6.2 URL zorunluluğu (rozet yapısal olarak hak edilir) | şema + kod + test | e2e S12; ilk gerçek çağrıda tetiklendi, kural öne çekildi |
-| 6.3.1 Zorunlu premortem + >=3 sınanmış iddia | şema + kod + test | `schemas.ts` AUDIT, `audit.ts`, `audit.test.ts`, e2e S11 |
-| 6.3.2 Tam-uyum bayrağı | **YOK** | M4 borcu |
-| 6.3.3 Hüküm turu tamamlanmadan F5 açılmaz | graf + test | `lock.ts`, e2e S05/S06 |
-| 6.4 Gömülemez muhalefet | kod + test | e2e S03 (ham metin KAPI 3'te) |
-| 6.5 Anlaşmazlık sinyali (Kendall tau) | **YOK** | M2-D borcu |
+| Mekanizma | Zorlayan katman | Kanıt | Köken |
+|---|---|---|---|
+| Beyan bütünlüğü (değiştirme yok: taşı ya da iade et) | graf + kod + test | `runAuditWithReturn`, e2e S12/S13 | M2-A yeni |
+| İade semantiği (tek iade, ham iz kalır, iade bütçeye yazılır) | graf + kod + test | e2e S12 (retries=1, 28 çağrı), S13 (iadede düzelme) | M2-A yeni |
+| 6.1 Anonimleştirme | **YOK** | M2-C borcu | borç (M2-C) |
+| 6.2 Kanıt kapısı, üç durum etiketi | şema + kod + test | denetim şemasında zorunlu enum, `audit.test.ts` | M2-A yeni |
+| 6.2 URL zorunluluğu (rozet yapısal olarak hak edilir) | şema + kod + test | e2e S12; ilk gerçek çağrıda tetiklendi, kural öne çekildi | M2-A: borç kapandı |
+| 6.3.1 Zorunlu premortem + >=3 sınanmış iddia | şema + kod + test | `schemas.ts` AUDIT, `audit.ts`, `audit.test.ts`, e2e S11 | M2-A: borç kapandı |
+| 6.3.2 Tam-uyum bayrağı | **YOK** | M4 borcu | borç (M4) |
+| 6.3.3 Hüküm turu tamamlanmadan F5 açılmaz | graf + test | `lock.ts`, e2e S05/S06 | M1 |
+| 6.4 Gömülemez muhalefet | kod + test | e2e S03 (ham metin KAPI 3'te) | M1 |
+| 6.5 Anlaşmazlık sinyali (Kendall tau) | **YOK** | M2-D borcu | borç (M2-D) |
 
 ## §7 Orkestrasyon ve operasyon
 
-| Mekanizma | Zorlayan katman | Kanıt |
-|---|---|---|
-| Anahtar istemciye sızmaz | kod (mühür) | `server-only`, M0 bundle kanıtı |
-| Koltuk probu (şema uyumu ölçümü) | kod | `probe.ts`, 7/7 canlı |
-| Şema-kritik çağrı yönlendirmesi (probu geçmeyene gitmez) | **YOK** | M2-A2 borcu: prob sonucu graf koşumuna bağlı değil |
-| Prob önbelleği (config-hash + TTL) | **YOK** | M2-A2 borcu |
-| Prompt dosyaları (sessiz varsayılan yok) | kod + test | `prompts/load.ts` hata verir, e2e prompt kapsamı (36 çift, 0 eksik) |
-| Runner modu damgası | kod + test | done olayı `runnerMode`, e2e S01 |
-| Maliyet sayacı | **YOK** | M2-A2 borcu: `usage` taşınıyor ama toplanmıyor |
+| Mekanizma | Zorlayan katman | Kanıt | Köken |
+|---|---|---|---|
+| Anahtar istemciye sızmaz | kod (mühür) | `server-only`, M0 bundle kanıtı | M0 |
+| Koltuk probu (şema uyumu ölçümü) | kod | `probe.ts`, 7/7 canlı | M0 |
+| Şema-kritik çağrı yönlendirmesi (probu geçmeyene gitmez) | **YOK** | M2-A2 borcu: prob sonucu graf koşumuna bağlı değil | borç (M2-A2) |
+| Prob önbelleği (config-hash + TTL) | **YOK** | M2-A2 borcu | borç (M2-A2) |
+| Prompt dosyaları (sessiz varsayılan yok) | kod + test | `prompts/load.ts` hata verir, e2e prompt kapsamı (36 çift, 0 eksik) | M2-A yeni |
+| Runner modu damgası | kod + test | done olayı `runnerMode`, e2e S01 | M2-A yeni |
+| Maliyet sayacı (bilinmeyen tahmin edilmez) | kod + test | `usage.ts`, `usage.test.ts`, e2e S01 (stub koşumda 27/27 çağrı "maliyeti bilinmiyor") | M2-A2: borç kapandı |
 
 ## §9 Çıktılar
 
-| Mekanizma | Zorlayan katman | Kanıt |
-|---|---|---|
-| Şablon sadakati (`templates/` birebir) | **YOK** | M3 borcu |
-| Listede olmayan bağımlılık prompta giremez | **YOK** | M3 borcu |
-| Oturum künyesi (stub oturumu rozeti) | kod | done olayı `runnerMode`; belgeye basımı M3 |
+| Mekanizma | Zorlayan katman | Kanıt | Köken |
+|---|---|---|---|
+| Şablon sadakati (`templates/` birebir) | **YOK** | M3 borcu | borç (M3) |
+| Listede olmayan bağımlılık prompta giremez | **YOK** | M3 borcu | borç (M3) |
+| Oturum künyesi (stub oturumu rozeti) | kod | done olayı `runnerMode`; belgeye basımı M3 | M2-A yeni |
 
 ## Özet
 
-Zorlanan mekanizma sayısı 21, borç 14. Borçların dağılımı: M2-A2 beş, M2-B üç, M2-C iki,
+Zorlanan mekanizma sayısı 22, borç 13. Borçların dağılımı: M2-A2 dört, M2-B üç, M2-C iki,
 M2-D bir, M3 üç, M4 iki, M5 bir. (Kanıt rozetinin URL kuralı M2-C'den M2-A'ya ÇEKİLDİ: ilk gerçek
 çağrıda bir iddia hak etmediği rozeti aldı, borcu ertelemek yerine kapatmak gerekti.)
 

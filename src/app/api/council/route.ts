@@ -110,6 +110,9 @@ export async function POST(req: Request) {
               revisionRounds: v.revisionRounds ?? 0,
               judgmentRetries: v.judgmentRetries ?? 0,
               auditComplete: v.auditComplete ?? false,
+              costUsd: v.costUsd ?? 0,
+              totalTokens: v.totalTokens ?? 0,
+              costUnknownCalls: v.costUnknownCalls ?? 0,
             },
           });
         }

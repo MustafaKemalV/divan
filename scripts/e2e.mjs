@@ -135,6 +135,13 @@ async function run() {
     check(s.type === "done", `done bekleniyordu: ${s.type}`);
     check(s.runnerMode === "stub", `stub kosumu damgalanmali, gelen: ${s.runnerMode}`);
     check(s.metrics.callCount === 27, `27 cagri bekleniyordu, gelen ${s.metrics.callCount}`);
+    // Maliyet sayacı: stub sağlayıcı maliyet bildirmez, bu SESSİZ geçilmez.
+    check(s.metrics.costUsd === 0, "stub kosumda bildirilmis maliyet olmamali");
+    check(
+      s.metrics.costUnknownCalls === s.metrics.callCount,
+      `maliyeti bilinmeyen cagri sayisi toplamla esit olmali: ${s.metrics.costUnknownCalls}/${s.metrics.callCount}`,
+    );
+    console.log(`  kanit: maliyet bilinmeyen ${s.metrics.costUnknownCalls}/${s.metrics.callCount} cagri (stub)`);
     check(s.metrics.callCount >= 26 && s.metrics.callCount <= 28, "DESIGN §5 tipik bant 26-28 disinda");
     console.log(`  kanit: callCount=${s.metrics.callCount}, revizyonTuru=${s.metrics.revisionRounds}`);
   });
