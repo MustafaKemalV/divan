@@ -7,6 +7,7 @@ import { createRunner, resolveRunnerMode } from "@/core/graph/runner";
 import { encodeSSE, type DivanEvent } from "@/core/graph/events";
 import type { DivanStateType } from "@/core/graph/state";
 import { loadConfig } from "@/core/config/load";
+import { formatUsd } from "@/core/graph/usage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -110,7 +111,8 @@ export async function POST(req: Request) {
               revisionRounds: v.revisionRounds ?? 0,
               judgmentRetries: v.judgmentRetries ?? 0,
               auditComplete: v.auditComplete ?? false,
-              costUsd: v.costUsd ?? 0,
+              costNanoUsd: v.costNanoUsd ?? 0,
+              costUsd: formatUsd(v.costNanoUsd ?? 0),
               totalTokens: v.totalTokens ?? 0,
               costUnknownCalls: v.costUnknownCalls ?? 0,
             },

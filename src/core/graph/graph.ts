@@ -13,7 +13,7 @@ import { revisionLoopRouter, countBlockingUnmet } from "./revision.ts";
 import { isOverBudget } from "./budget.ts";
 import { validateAudit } from "./audit.ts";
 import type { SeatRunInput, SeatRunOutput } from "./seatRunner.ts";
-import { usageOf } from "./usage.ts";
+import { usageOf, formatUsd } from "./usage.ts";
 
 // DESIGN §4/§5 koltuk rolleri per faz (tam kurul).
 const IDEATORS = ["visionary", "market", "engineer1", "architect"] as const; // F2/F3
@@ -459,7 +459,8 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
         auditComplete: state.auditComplete,
         auditIssue: state.auditIssue,
         // Karar anında maliyet de görünür: onay bedelini bilerek verilir.
-        costUsd: state.costUsd,
+        costNanoUsd: state.costNanoUsd,
+        costUsd: formatUsd(state.costNanoUsd),
         costUnknownCalls: state.costUnknownCalls,
         callCount: state.callCount,
       }) as string;

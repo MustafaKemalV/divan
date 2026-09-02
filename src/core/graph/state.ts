@@ -143,10 +143,11 @@ export const DivanState = Annotation.Root({
     default: () => [],
   }),
 
-  // --- SAYAÇ: maliyet (DESIGN §7 canlı maliyet sayacı). Sağlayıcının bildirdiği USD toplanır.
+  // --- SAYAÇ: maliyet (DESIGN §7). Toplama TAMSAYI nano-USD'de yapılır (para float yaşamaz;
+  // maliyet M3'te karar.json'a girecek, orada kayan nokta sürüklenmesi yasak).
   // costUnknownCalls: maliyeti BİLDİRİLMEYEN çağrı sayısı. Tahmin yapılmaz; bilinmeyen, bilinmiyor
   // olarak sayılır (uydurma rakam, rakam olmamasından kötüdür).
-  costUsd: Annotation<number>({
+  costNanoUsd: Annotation<number>({
     reducer: (prev, next) => prev + next,
     default: () => 0,
   }),

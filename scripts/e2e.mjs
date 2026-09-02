@@ -136,7 +136,8 @@ async function run() {
     check(s.runnerMode === "stub", `stub kosumu damgalanmali, gelen: ${s.runnerMode}`);
     check(s.metrics.callCount === 27, `27 cagri bekleniyordu, gelen ${s.metrics.callCount}`);
     // Maliyet sayacı: stub sağlayıcı maliyet bildirmez, bu SESSİZ geçilmez.
-    check(s.metrics.costUsd === 0, "stub kosumda bildirilmis maliyet olmamali");
+    check(s.metrics.costNanoUsd === 0, "stub kosumda bildirilmis maliyet olmamali");
+    check(s.metrics.costUsd === "0.000000", `maliyet metni bicimlendirilmis gelmeli: ${s.metrics.costUsd}`);
     check(
       s.metrics.costUnknownCalls === s.metrics.callCount,
       `maliyeti bilinmeyen cagri sayisi toplamla esit olmali: ${s.metrics.costUnknownCalls}/${s.metrics.callCount}`,
