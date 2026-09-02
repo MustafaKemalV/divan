@@ -39,7 +39,9 @@ Son güncelleme: M2-A1 (prompt altyapısı + gerçek runner iskeleti + premortem
 | 4 olay-tetikli dönüş | graf + test | e2e S03 (erken brifing), S06 (hüküm eksik), S08 (bütçe), S12 (denetim eksik) | M1 (+1 M2-A) |
 | F4 revizyon döngüsü, mekanik kapanma | kod + test | `revision.ts` sayı karşılaştırması, `revision.test.ts`, e2e S03 | M1 |
 | Bütçe: "aşılacak mı" + faz girişi | kod + test | `budget.ts`, `budget.test.ts`, e2e S08 | M1 |
-| Bütçe yanıt sözleşmesi (devam / sayı / iptal) | **YOK** | M2-A2 borcu: şu an sayı dışı her yanıt "devam" | borç (M2-A2) |
+| Bütçe yanıt sözleşmesi (devam / sayı / iptal) | graf + kod + test | kapı payload'ı sözleşmeyi ilan eder; e2e S08 (devam tavanı değiştirmez, sayı yükseltir), S14 (sözleşme dışı yanıt ve iptal akışı durdurur, çağrı sayacı sabit kalır) | M2-A2: borç kapandı |
+| Bütçe kapısı payload'ı: kesin ölçüm / kestirim ayrımı | kod + test | `estimate.ts` koltuk bazlı kestirim, `estimate.test.ts`, e2e S08 (kestirim açıkça etiketli, gözlemsiz koltuk sayılır) | M2-A2 yeni |
+| Bütçe kapısının sözleşme dışı yanıtta YENİDEN AÇILMASI | **YOK** | borç: LangGraph resume semantiği tek düğüm içinde yeniden sormaya izin vermedi; şu an güvenli duruş var, yeniden sorma yok. Kapının ayrı düğüme çıkarılması gerekiyor | borç (M2-B) |
 | Re-table (tek hedefli yeniden koşum) | kod + test | `route.ts` getStateHistory, e2e S09 | M1 |
 | Bağlam sıkıştırması (ham taşınmaz) | graf + test | BD faz özetleri, e2e parmak-izi ölçümü (3 fazda 0 sızıntı) | M1 |
 | Faz kilidi (şapka disiplini) | **SADECE-PROMPT** | borç: fazın modu prompt metninde, yapıda değil | borç (sadece-prompt) |
@@ -85,7 +87,7 @@ Son güncelleme: M2-A1 (prompt altyapısı + gerçek runner iskeleti + premortem
 
 ## Özet
 
-Zorlanan mekanizma sayısı 24, borç 12. Borçların dağılımı: M2-A2 üç, M2-B üç, M2-C iki,
+Zorlanan mekanizma sayısı 26, borç 12. Borçların dağılımı: M2-A2 iki, M2-B dört, M2-C iki,
 M2-D bir, M3 üç, M4 iki, M5 bir. (Kanıt rozetinin URL kuralı M2-C'den M2-A'ya ÇEKİLDİ: ilk gerçek
 çağrıda bir iddia hak etmediği rozeti aldı, borcu ertelemek yerine kapatmak gerekti.)
 

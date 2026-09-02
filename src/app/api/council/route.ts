@@ -103,6 +103,7 @@ export async function POST(req: Request) {
             selectedHmw: v.selectedHmw ?? null,
             councilMode: v.councilMode ?? "full",
             runnerMode,
+            reason: v.endReason || undefined,
             metrics: {
               callCount: v.callCount ?? 0,
               transcriptEntries: (v.transcript ?? []).length,

@@ -242,20 +242,65 @@ async function run() {
     console.log(`  kanit: mode=${s.councilMode}, callCount=${s.metrics.callCount}`);
   });
 
-  // S08: bütçe kapısı faz BAŞLAMADAN açılır; Şah tavanı yükseltir
-  await scenario("S08", "Butce kapisi faz baslamadan + Sah tavani yukseltir", async () => {
+  // S08: bütçe sözleşmesi -> kapı faz BAŞLAMADAN açılır, "devam" tavanı değiştirmez, sayı yükseltir
+  await scenario("S08", "Butce sozlesmesi: kesin+kestirim payload, devam ve sayi", async () => {
     await post({ threadId: "e2e-s08", idea: LONG, maxCalls: 5 });
     await post({ threadId: "e2e-s08", resume: "hmw" });
     let s = stopEvent(await post({ threadId: "e2e-s08", resume: "cerceve onaylandi" }));
     check(s.gate === "BUTCE", `BUTCE bekleniyordu: ${s.gate ?? s.type}`);
     check(s.payload.at === "F2", `kapi F2 girisinde acilmaliydi: ${s.payload.at}`);
-    check(s.payload.callCount === 3 && s.payload.nextCost === 4, "kosan/maliyet sayilari beklenenden farkli");
-    check(s.payload.callCount + s.payload.nextCost > s.payload.maxCalls, "kapi 'asilacak mi' mantigiyla acilmali");
+    // sözleşme payload'da ilan edilir
+    check(
+      Array.isArray(s.payload.kabulEdilen) && s.payload.kabulEdilen.includes("iptal"),
+      "kabul edilen yanitlar payload'da listelenmeli",
+    );
+    // kesin ve kestirim AYRI bloklar, kestirim etiketli
+    check(s.payload.kesin.kosanCagri === 3 && s.payload.kesin.fazCagriSayisi === 4, "kesin sayilar beklenenden farkli");
+    check(
+      s.payload.kesin.kosanCagri + s.payload.kesin.fazCagriSayisi > s.payload.kesin.tavan,
+      "kapi 'asilacak mi' mantigiyla acilmali",
+    );
+    check(String(s.payload.kestirim.etiket).includes("KESTİRİM"), "kestirim acikca etiketlenmeli");
+    check(s.payload.kestirim.gozlemsizKoltuk === 4, `stub'da hicbir koltuk maliyet bildirmez: ${s.payload.kestirim.gozlemsizKoltuk}`);
+    console.log(`  kanit: kesin(${s.payload.kesin.kosanCagri}+${s.payload.kesin.fazCagriSayisi}>${s.payload.kesin.tavan}) | kestirim gozlemsiz ${s.payload.kestirim.gozlemsizKoltuk} koltuk`);
+    // "devam" tavani DEGISTIRMEZ: bir sonraki pahali fazda kapi yeniden acilir
+    s = stopEvent(await post({ threadId: "e2e-s08", resume: "devam" }));
+    check(s.gate === "BUTCE" && s.payload.at === "F3", `devam sonrasi F3'te tekrar sorulmali: ${s.gate}/${s.payload?.at}`);
+    check(s.payload.kesin.tavan === 5, `devam tavani degistirmemeli: ${s.payload.kesin.tavan}`);
+    // sayi tavani yukseltir ve akis tamamlanir
     s = stopEvent(await post({ threadId: "e2e-s08", resume: 40 }));
     check(s.gate === "KAPI3", "tavan yukseltilince akis tamamlanmaliydi");
     s = stopEvent(await post({ threadId: "e2e-s08", resume: "karar" }));
     check(s.metrics.callCount === 27, `27 cagri bekleniyordu: ${s.metrics.callCount}`);
-    console.log(`  kanit: kapi F2 girisinde (3+4>5), tavan 40'a cikti, toplam ${s.metrics.callCount}`);
+    console.log(`  kanit: devam -> tavan 5 kaldi, sayi -> 40, toplam ${s.metrics.callCount} cagri`);
+  });
+
+  // S14: sözleşme dışı yanıt akışı SÜRDÜRMEZ; "iptal" sebepli bitiş üretir
+  await scenario("S14", "Sozlesme disi yanit ve iptal: akis surmez, sebep yazilir", async () => {
+    await post({ threadId: "e2e-s14", idea: LONG, maxCalls: 5 });
+    await post({ threadId: "e2e-s14", resume: "hmw" });
+    let s = stopEvent(await post({ threadId: "e2e-s14", resume: "cerceve onaylandi" }));
+    check(s.gate === "BUTCE", `BUTCE bekleniyordu: ${s.gate ?? s.type}`);
+    // Yazim hatasi bir onay yerine GECEMEZ: akis surmez, oturum sebebi yazili olarak durur.
+    let ev = await post({ threadId: "e2e-s14", resume: "devamm" });
+    s = stopEvent(ev);
+    check(s.type === "done", `sozlesme disi yanit akisi surdurmemeli: ${s.type}`);
+    check(String(s.reason).includes("sözleşmeye uymadı"), `sebep yazili olmali: ${s.reason}`);
+    // Düğüm çalışır ama kapı ilk satırda olduğu için HİÇ model çağrısı yapılmaz: sayaç sabit kalır.
+    check(s.metrics.callCount === 3, `sozlesme disi yanittan sonra cagri yapilmamali: ${s.metrics.callCount}`);
+    console.log(`  kanit (taninmayan): cagri ${s.metrics.callCount}'te durdu | ${s.reason}`);
+
+    // Acik "iptal" de ayni sekilde sebepli bitirir
+    await post({ threadId: "e2e-s14b", idea: LONG, maxCalls: 5 });
+    await post({ threadId: "e2e-s14b", resume: "hmw" });
+    s = stopEvent(await post({ threadId: "e2e-s14b", resume: "cerceve onaylandi" }));
+    check(s.gate === "BUTCE", `BUTCE bekleniyordu: ${s.gate ?? s.type}`);
+    ev = await post({ threadId: "e2e-s14b", resume: "iptal" });
+    s = stopEvent(ev);
+    check(s.type === "done", `iptal oturumu bitirmeliydi: ${s.type}`);
+    check(String(s.reason).includes("iptal"), `bitis sebebi yazili olmali: ${s.reason}`);
+    check(s.metrics.callCount === 3, `iptalden sonra cagri yapilmamali: ${s.metrics.callCount}`);
+    console.log(`  kanit (iptal): cagri ${s.metrics.callCount}'te durdu | ${s.reason}`);
   });
 
   // S09: re-table, checkpoint'ten tek-hedefli yeniden koşum

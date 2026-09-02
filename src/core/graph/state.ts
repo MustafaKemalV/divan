@@ -5,6 +5,13 @@
 
 import { Annotation } from "@langchain/langgraph";
 
+/** Koltuk bazlı sayaçları toplayarak birleştirir (reducer yardımcısı). */
+function mergeAdd(prev: Record<string, number>, next: Record<string, number>): Record<string, number> {
+  const out = { ...prev };
+  for (const [k, v] of Object.entries(next)) out[k] = (out[k] ?? 0) + v;
+  return out;
+}
+
 export interface TranscriptEntry {
   phase: string;
   seatId: string;
@@ -158,6 +165,21 @@ export const DivanState = Annotation.Root({
   costUnknownCalls: Annotation<number>({
     reducer: (prev, next) => prev + next,
     default: () => 0,
+  }),
+  // Koltuk bazlı birikim: bütçe kapısındaki KESTİRİM bundan türetilir (koltuk fiyatları 21 kata
+  // varan farklar gösteriyor, düz ortalama yanıltır; docs/M2-OLCUMLER.md).
+  seatCostNano: Annotation<Record<string, number>>({
+    reducer: (prev, next) => mergeAdd(prev, next),
+    default: () => ({}),
+  }),
+  seatCalls: Annotation<Record<string, number>>({
+    reducer: (prev, next) => mergeAdd(prev, next),
+    default: () => ({}),
+  }),
+  // Oturum neden bitti: normal akış mı, Şah'ın açık iptali mi (§5 bütçe sözleşmesi).
+  endReason: Annotation<string>({
+    reducer: (_prev, next) => next,
+    default: () => "",
   }),
 
   // --- SAYAÇ: model çağrı sayısı (bütçe tavanı için); add reducer ---

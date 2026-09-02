@@ -13,7 +13,8 @@ import { revisionLoopRouter, countBlockingUnmet } from "./revision.ts";
 import { isOverBudget } from "./budget.ts";
 import { validateAudit } from "./audit.ts";
 import type { SeatRunInput, SeatRunOutput } from "./seatRunner.ts";
-import { usageOf, formatUsd } from "./usage.ts";
+import { usageOf, formatUsd, toNanoUsd } from "./usage.ts";
+import { estimatePhaseCost } from "./estimate.ts";
 
 // DESIGN §4/§5 koltuk rolleri per faz (tam kurul).
 const IDEATORS = ["visionary", "market", "engineer1", "architect"] as const; // F2/F3
@@ -43,19 +44,69 @@ function summaryOf(state: DivanStateType, phase: string): string {
 
 /**
  * Bütçe kapısı (DESIGN §5 dönüş a): PAHALI fazın İLK satırında çağrılır, faz daha başlamadan
- * "bu faz koşarsa tavan aşılacak mı" diye sorar. Şah kapıda sayı verirse tavan yükselir.
- * Not: interrupt sonrası düğüm baştan koşar; kontrol düğümün ilk işi olduğu için yan etki tekrarı yok.
+ * "bu faz koşarsa tavan aşılacak mı" diye sorar.
+ *
+ * Yanıt sözleşmesi ÜÇ seçenektir ve payload bunları listeler: `devam`, bir SAYI (yeni tavan),
+ * `iptal`. Tanınmayan yanıt akışı SÜRDÜRMEZ, kapı gerekçesiyle yeniden açılır: yazım hatası bir
+ * onay yerine geçemez.
+ *
+ * Payload iki ayrı blok taşır ve ikisi ASLA aynı statüde sunulmaz: `kesin` (çağrı sayıları, ölçülen)
+ * ve `kestirim` (koltuk ortalamalarından türetilen para tahmini). Çağrı adedi tavanı yapısal frendir
+ * ve para tavanına çevrilmez; kestirim yalnız Şah'ın kapıda gördüğü bilgidir.
  */
-function budgetStop(state: DivanStateType, nextCost: number, at: string): { maxCalls?: number } {
+function budgetStop(
+  state: DivanStateType,
+  nextCost: number,
+  at: string,
+  seats: readonly string[],
+): { maxCalls?: number; abort?: boolean; abortReason?: string } {
   if (!isOverBudget(state, nextCost)) return {};
-  const raised = interrupt({
+
+  const est = estimatePhaseCost(seats, state.seatCostNano, state.seatCalls);
+  const payload = {
     gate: "BUTCE",
     at,
-    nextCost,
-    callCount: state.callCount,
-    maxCalls: state.maxCalls,
-  });
-  return typeof raised === "number" && raised > 0 ? { maxCalls: raised } : {};
+    kabulEdilen: ["devam", "<yeni tavan sayısı>", "iptal"],
+    kesin: { kosanCagri: state.callCount, fazCagriSayisi: nextCost, tavan: state.maxCalls },
+    kestirim: {
+      etiket: "KESTİRİM, ölçüm değil: bu oturumda gözlenen koltuk ortalamalarından türetildi",
+      fazMaliyetiUsd: formatUsd(est.nanoUsd),
+      gozlenenKoltuk: est.observedSeats,
+      gozlemsizKoltuk: est.unobservedSeats,
+      oturumMaliyetiUsd: formatUsd(state.costNanoUsd),
+    },
+  };
+
+  const answer: unknown = interrupt(payload);
+
+  if (typeof answer === "number" && Number.isFinite(answer) && answer > 0) {
+    return { maxCalls: Math.floor(answer) };
+  }
+  const text = String(answer ?? "").trim().toLowerCase();
+  if (text === "devam") return {};
+  if (text === "iptal") return { abort: true };
+  const parsed = Number(text);
+  if (Number.isFinite(parsed) && parsed > 0) return { maxCalls: Math.floor(parsed) };
+
+  // Sözleşme dışı yanıt akışı SÜRDÜRMEZ: oturum güvenli tarafta, SEBEBİ YAZILI olarak durur.
+  //
+  // Neden kapı yeniden açılmıyor: denendi, LangGraph'ın resume semantiğiyle çalışmadı. Düğüm
+  // kendine döndürüldüğünde kapı gerçekten yeniden açılıyor, ama Şah'ın İKİNCİ yanıtı bekleyen
+  // interrupt'a ulaşmıyor ve akış sürüyordu; yani "iptal" denmesine rağmen fazlar koşuyordu.
+  // Sessiz sürdürme, kaba durdurmadan kötüdür. Kapının ayrı bir düğüme çıkarılması (kilit
+  // kapıları gibi) envantere borç yazıldı; yeniden-sorma davranışı orada geri gelecek.
+  return {
+    abort: true,
+    abortReason: `Yanıt sözleşmeye uymadı ("${String(answer)}"), akış sürdürülmedi. Kabul edilenler: devam | bir sayı | iptal.`,
+  };
+}
+
+/**
+ * Bütçe kapısında akış durduruldu mu? Durduysa faz çıkışı END'e gider. Tek yazma noktası
+ * budgetStop'tur; endReason dolu ise oturum Şah'ın kararıyla kapanmış demektir.
+ */
+function abortRouter(state: DivanStateType): "abort" | "devam" {
+  return state.endReason ? "abort" : "devam";
 }
 
 /** F0 triyajının kurduğu yol ayrımı; iki yerde kullanılır (kapı 1 sonrası, kilit retry). */
@@ -120,16 +171,23 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
   // Her koltuk çağrısı buradan geçer; düğüm dönüşünde flushUsage() ile maliyet state'e yazılır.
   // Tampon düğüm-yereldir (graf düğümleri sırayla koşar); bir düğüm boşaltmayı atlarsa maliyet
   // kaybolmaz, yalnız bir sonraki düğüme yazılır.
-  const buffer: SeatRunOutput[] = [];
+  const buffer: Array<{ seatId: string; out: SeatRunOutput }> = [];
   const run = async (seatId: string, input: SeatRunInput): Promise<SeatRunOutput> => {
     const out = await runner.run(seatId, input);
-    buffer.push(out);
+    buffer.push({ seatId, out });
     return out;
   };
   const flushUsage = () => {
-    const u = usageOf(buffer);
+    const totals = usageOf(buffer.map((b) => b.out));
+    const seatCostNano: Record<string, number> = {};
+    const seatCalls: Record<string, number> = {};
+    for (const b of buffer) {
+      seatCalls[b.seatId] = (seatCalls[b.seatId] ?? 0) + 1;
+      const c = b.out.usage?.cost;
+      if (c !== undefined) seatCostNano[b.seatId] = (seatCostNano[b.seatId] ?? 0) + toNanoUsd(c);
+    }
     buffer.length = 0;
-    return u;
+    return { ...totals, seatCostNano, seatCalls };
   };
 
   const graph = new StateGraph(DivanState)
@@ -196,7 +254,15 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
     })
     // ---- F2: sessiz ideation (4 ideatör bağımsız) ----
     .addNode("f2_ideation", async (state: DivanStateType) => {
-      const budget = budgetStop(state, IDEATORS.length, "F2");
+      const budget = budgetStop(state, IDEATORS.length, "F2", IDEATORS);
+      if (budget.abort) {
+        // Akış burada durur; çıkışı koşullu kenar END'e yönlendirir (Command goto END
+        // denendi: update uygulanıyor ama graf normal kenardan devam ediyordu).
+        return {
+          endReason:
+            budget.abortReason ?? "Şah bütçe kapısında iptal etti (F2 girişi)",
+        };
+      }
       const entries: TranscriptEntry[] = [];
       for (const seat of IDEATORS) {
         const out = await run(seat, {
@@ -218,7 +284,15 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
     })
     // ---- F3: çapraz-tozlaşma (SIKIŞTIRMA: ham değil, F2 özeti bağlam) ----
     .addNode("f3_cross", async (state: DivanStateType) => {
-      const budget = budgetStop(state, IDEATORS.length, "F3");
+      const budget = budgetStop(state, IDEATORS.length, "F3", IDEATORS);
+      if (budget.abort) {
+        // Akış burada durur; çıkışı koşullu kenar END'e yönlendirir (Command goto END
+        // denendi: update uygulanıyor ama graf normal kenardan devam ediyordu).
+        return {
+          endReason:
+            budget.abortReason ?? "Şah bütçe kapısında iptal etti (F3 girişi)",
+        };
+      }
       const f2Summary = summaryOf(state, "F2");
       const entries: TranscriptEntry[] = [];
       for (const seat of IDEATORS) {
@@ -238,7 +312,15 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
     // ---- F4: fizibilite (Müh-1/Müh-2/Mimar) ----
     .addNode("f4_feasibility", async (state: DivanStateType) => {
       // F4'ün tam maliyeti: fizibilite + denetim + ilk revizyon turu + hüküm turu.
-      const budget = budgetStop(state, FEASIBILITY.length + 1 + DEFENDERS.length + 1, "F4");
+      const budget = budgetStop(state, FEASIBILITY.length + 1 + DEFENDERS.length + 1, "F4", [...FEASIBILITY, "auditor", ...DEFENDERS]);
+      if (budget.abort) {
+        // Akış burada durur; çıkışı koşullu kenar END'e yönlendirir (Command goto END
+        // denendi: update uygulanıyor ama graf normal kenardan devam ediyordu).
+        return {
+          endReason:
+            budget.abortReason ?? "Şah bütçe kapısında iptal etti (F4 girişi)",
+        };
+      }
       const f3Summary = summaryOf(state, "F3");
       const entries: TranscriptEntry[] = [];
       for (const seat of FEASIBILITY) {
@@ -254,7 +336,15 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
     // ---- F4: revizyon/savunma turu (DESIGN §5, <=3 tur; kapanış revision.ts'te MEKANİK) ----
     .addNode("f4_revision", async (state: DivanStateType) => {
       // Bir tur = savunma çağrıları + ardından gelen hüküm turu.
-      const budget = budgetStop(state, DEFENDERS.length + 1, "F4:revizyon");
+      const budget = budgetStop(state, DEFENDERS.length + 1, "F4:revizyon", [...DEFENDERS, "auditor"]);
+      if (budget.abort) {
+        // Akış burada durur; çıkışı koşullu kenar END'e yönlendirir (Command goto END
+        // denendi: update uygulanıyor ama graf normal kenardan devam ediyordu).
+        return {
+          endReason:
+            budget.abortReason ?? "Şah bütçe kapısında iptal etti (F4:revizyon girişi)",
+        };
+      }
       const round = state.revisionRounds + 1;
       const auditText = rawOfPhase(state, "F4:audit");
       const entries: TranscriptEntry[] = [];
@@ -301,7 +391,15 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
 
     // ================= KÜÇÜK KURUL (F1/F3 ve revizyon döngüsü yok) =================
     .addNode("f2s_ideation", async (state: DivanStateType) => {
-      const budget = budgetStop(state, SMALL_IDEATORS.length, "F2s");
+      const budget = budgetStop(state, SMALL_IDEATORS.length, "F2s", SMALL_IDEATORS);
+      if (budget.abort) {
+        // Akış burada durur; çıkışı koşullu kenar END'e yönlendirir (Command goto END
+        // denendi: update uygulanıyor ama graf normal kenardan devam ediyordu).
+        return {
+          endReason:
+            budget.abortReason ?? "Şah bütçe kapısında iptal etti (F2s girişi)",
+        };
+      }
       const entries: TranscriptEntry[] = [];
       for (const seat of SMALL_IDEATORS) {
         const out = await run(seat, {
@@ -323,7 +421,15 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
     })
     .addNode("f4s_feasibility", async (state: DivanStateType) => {
       // Küçük kurul F4: fizibilite + denetim + hüküm turu (revizyon döngüsü yok).
-      const budget = budgetStop(state, 3, "F4s");
+      const budget = budgetStop(state, 3, "F4s", ["engineer1", "auditor"]);
+      if (budget.abort) {
+        // Akış burada durur; çıkışı koşullu kenar END'e yönlendirir (Command goto END
+        // denendi: update uygulanıyor ama graf normal kenardan devam ediyordu).
+        return {
+          endReason:
+            budget.abortReason ?? "Şah bütçe kapısında iptal etti (F4s girişi)",
+        };
+      }
       const out = await run("engineer1", {
         phase: "F4s:feasibility",
         idea: state.idea,
@@ -365,7 +471,15 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
       return { ...flushUsage(), phaseSummaries: [{ phase: "F4", summary: out.content }], callCount: 1 };
     })
     .addNode("f5s_ranking", async (state: DivanStateType) => {
-      const budget = budgetStop(state, SMALL_RANKERS.length + 2, "F5s");
+      const budget = budgetStop(state, SMALL_RANKERS.length + 2, "F5s", [...SMALL_RANKERS, "chiefAdvisor", "auditor"]);
+      if (budget.abort) {
+        // Akış burada durur; çıkışı koşullu kenar END'e yönlendirir (Command goto END
+        // denendi: update uygulanıyor ama graf normal kenardan devam ediyordu).
+        return {
+          endReason:
+            budget.abortReason ?? "Şah bütçe kapısında iptal etti (F5s girişi)",
+        };
+      }
       const f4Summary = summaryOf(state, "F4");
       const entries: TranscriptEntry[] = [];
       const ranks: string[] = [];
@@ -411,7 +525,15 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
     // ---- F5: kriter bazlı sıralama (tam kurul) ----
     .addNode("f5_ranking", async (state: DivanStateType) => {
       // F5'in tam maliyeti: sıralama + BD taslak + final denetim.
-      const budget = budgetStop(state, RANKERS.length + 2, "F5");
+      const budget = budgetStop(state, RANKERS.length + 2, "F5", [...RANKERS, "chiefAdvisor", "auditor"]);
+      if (budget.abort) {
+        // Akış burada durur; çıkışı koşullu kenar END'e yönlendirir (Command goto END
+        // denendi: update uygulanıyor ama graf normal kenardan devam ediyordu).
+        return {
+          endReason:
+            budget.abortReason ?? "Şah bütçe kapısında iptal etti (F5 girişi)",
+        };
+      }
       const f4Summary = summaryOf(state, "F4");
       const entries: TranscriptEntry[] = [];
       const ranks: string[] = [];
@@ -485,28 +607,28 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
     // tam kurul omurgası
     .addEdge("f1_frame", "gate2_frame")
     .addEdge("gate2_frame", "f2_ideation")
-    .addEdge("f2_ideation", "bd_summary_f2")
+    .addConditionalEdges("f2_ideation", abortRouter, { devam: "bd_summary_f2", abort: END })
     .addEdge("bd_summary_f2", "f3_cross")
-    .addEdge("f3_cross", "bd_summary_f3")
+    .addConditionalEdges("f3_cross", abortRouter, { devam: "bd_summary_f3", abort: END })
     .addEdge("bd_summary_f3", "f4_feasibility")
     // küçük kurul omurgası
-    .addEdge("f2s_ideation", "bd_summary_f2s")
+    .addConditionalEdges("f2s_ideation", abortRouter, { devam: "bd_summary_f2s", abort: END })
     .addEdge("bd_summary_f2s", "f4s_feasibility")
     // F4 tam kurul: fizibilite -> denetim -> [revizyon -> hüküm] döngüsü -> özet
-    .addEdge("f4_feasibility", "f4_audit")
+    .addConditionalEdges("f4_feasibility", abortRouter, { devam: "f4_audit", abort: END })
     // Denetim geçersizse revizyon turuna GEÇİLMEZ: eksik denetime savunma yazmak anlamsızdır.
     .addConditionalEdges("f4_audit", (state: DivanStateType) => (state.auditComplete ? "devam" : "kapi"), {
       devam: "f4_revision",
       kapi: "gate_audit_missing",
     })
-    .addEdge("f4_revision", "f4_judgment")
+    .addConditionalEdges("f4_revision", abortRouter, { devam: "f4_judgment", abort: END })
     .addConditionalEdges("f4_judgment", revisionLoopRouter, {
       f4_revision: "f4_revision",
       bd_summary_f4: "bd_summary_f4",
     })
     .addEdge("bd_summary_f4", "blocking_check")
     // F4 küçük kurul: revizyon döngüsü yok
-    .addEdge("f4s_feasibility", "f4s_audit")
+    .addConditionalEdges("f4s_feasibility", abortRouter, { devam: "f4s_audit", abort: END })
     .addConditionalEdges("f4s_audit", (state: DivanStateType) => (state.auditComplete ? "devam" : "kapi"), {
       devam: "f4s_judgment",
       kapi: "gate_audit_missing",
@@ -537,8 +659,8 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
       { full: "f4_judgment", small: "f4s_judgment", abort: END },
     )
     // F5 ortak kuyruk
-    .addEdge("f5_ranking", "bd_draft")
-    .addEdge("f5s_ranking", "bd_draft")
+    .addConditionalEdges("f5_ranking", abortRouter, { devam: "bd_draft", abort: END })
+    .addConditionalEdges("f5s_ranking", abortRouter, { devam: "bd_draft", abort: END })
     .addEdge("bd_draft", "gate3_decision")
     .addEdge("gate3_decision", "f5_output")
     .addEdge("f5_output", END);

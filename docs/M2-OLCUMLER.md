@@ -85,8 +85,13 @@ Aynı küçük prob, yedi koltukta:
 | Müh-2 | qwen/qwen3-max | $0.000102 |
 | **Toplam** | | **$0.006063** |
 
-Bu tablo bir öngörüyü düzeltiyor: **koltuklar arası fiyat farkı yirmi bir kata çıkıyor** (Vizyoner
-ile Müh-2 arasında). Yani "çağrı başına ortalama × 27" biçimindeki projeksiyon yanıltıcıdır; gerçek
+**Kalibrasyon uyarısı:** buradaki 21 kat, bu prob iş yükünün oranıdır, evrensel bir sabit
+DEĞİLDİR. Prob küçük ve tek biçimli bir çağrıdır; gerçek fazlarda girdi bağlamı, çıktı uzunluğu ve
+akıl yürütme token'ları koltuktan koltuğa başka türlü dağılır. Oranı gerçek haliyle ancak ilk tam
+oturum verecek. Bu sayı bir yön göstergesidir, bir katsayı değil.
+
+Bu tablo yine de bir öngörüyü düzeltiyor: **koltuklar arası fiyat farkı bu ölçümde yirmi bir kata
+çıktı** (Vizyoner ile Müh-2 arasında). Yani "çağrı başına ortalama × 27" biçimindeki projeksiyon yanıltıcıdır; gerçek
 maliyeti belirleyen şey çağrı sayısı değil, hangi koltuğun kaç kez ve ne kadar bağlamla konuştuğu.
 Pahalı koltuklar (Vizyoner, Mimar) üretim ve değerlendirme fazlarında çok konuşuyor, ucuz koltuklar
 (Müh-2) az. Tam oturum ölçümü bu yüzden tahminden ayrışabilir.
