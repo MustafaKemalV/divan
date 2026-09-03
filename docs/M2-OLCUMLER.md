@@ -1,5 +1,12 @@
 # M2 canlı ölçümler
 
+> **Bu koşumlarda EKSİK olan mekanizmalar.** Buradaki sayılar M2-A aşamasında alındı ve o
+> aşamada şunlar henüz yok: **anonimleştirme** (ajanlar F3/F5'te birbirinin kim olduğunu görüyor),
+> **web doğrulaması** (kaynak gösterme zorunlu ama gösterilen kaynağın içeriği kontrol edilmiyor),
+> ve **belge üretimi** (çıktı ham transkript, §9 şablonuna basılmış karar belgesi değil). Yani
+> aşağıdaki n=1 gözlemler "Divan böyle çalışıyor" değil, "Divan'ın bu aşaması böyle çalışıyor"
+> diye okunmalı. Tam mekanizma seti M2-C ve M3 sonunda kurulur; ölçümler o zaman tekrarlanacak.
+
 Bu dosya tahminleri değil, gerçek koşumların bıraktığı sayıları tutar. Her satırın tarihi ve
 koşulduğu koltuk bellidir; bir sayı burada yoksa henüz ölçülmemiş demektir.
 

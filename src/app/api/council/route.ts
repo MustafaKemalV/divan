@@ -1,6 +1,7 @@
 // Konsey oturumu: graf koşumu -> SSE (ReadableStream). Kapı onayları da bu POST'a `resume` ile
 // gelir (DESIGN §10). Anahtar/graf sunucuda; tarayıcı yalnız olay akışını tüketir (M4).
 
+import { NextResponse } from "next/server";
 import { Command } from "@langchain/langgraph";
 import { getCouncilGraph } from "@/core/graph/graph";
 import { createRunner, resolveRunnerMode } from "@/core/graph/runner";
@@ -11,6 +12,19 @@ import { formatUsd } from "@/core/graph/usage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+/**
+ * Oturum durumunu döker (sürücünün oturum sonunda transkript ve künye yazabilmesi için).
+ * Salt okunur: hiçbir çağrı yapmaz, hiçbir şeyi değiştirmez.
+ */
+export async function GET(req: Request) {
+  const threadId = new URL(req.url).searchParams.get("threadId");
+  if (!threadId) return NextResponse.json({ ok: false, error: "threadId gerekli" }, { status: 400 });
+  const runnerMode = resolveRunnerMode();
+  const graph = getCouncilGraph(runnerMode, await createRunner(runnerMode));
+  const snap = await graph.getState({ configurable: { thread_id: threadId } });
+  return NextResponse.json({ ok: true, runnerMode, next: snap.next ?? [], values: snap.values });
+}
 
 export async function POST(req: Request) {
   const body = (await req.json()) as {

@@ -31,3 +31,8 @@ next-env.d.ts
 
 # koltuk probu onbellegi (M2-A2)
 .divan-probe-cache.json
+
+# Opus muhurlu tahmini (capstone karsilastirmasi icin; commit EDILMEZ)
+docs/internal-opus-tahmin.md
+# oturum ciktilari (kisisel karar icerigi)
+oturum-ciktisi/
