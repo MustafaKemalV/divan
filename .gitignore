@@ -36,3 +36,6 @@ next-env.d.ts
 docs/internal-opus-tahmin.md
 # oturum ciktilari (kisisel karar icerigi)
 oturum-ciktisi/
+
+# Sah'in gercek karar metni (kisisel; surucu herhangi bir dosya yolu kabul eder)
+fikir.txt

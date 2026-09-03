@@ -1,0 +1,11 @@
+Buraya kurula götürmek istediğin fikri KENDİ CÜMLELERİNLE yaz. Özetleme, kısaltma, maddelemeye
+çevirme: metin Baş Danışman'a kelimesi kelimesine gider ve onu özetlemek F0 fazının işidir.
+
+İyi bir girdi şunları içerir: durumun ne olduğu, elinde neyin hazır neyin eksik olduğu, kararın
+seni nereye bağlayacağı, ve cevaplanmasını istediğin somut soru(lar).
+
+Kullanım:
+  npm run oturum -- fikir.txt
+
+Sahte koşum (para harcamaz, mekanikleri görmek için):
+  DIVAN_RUNNER=stub npm run oturum -- fikir.ornek.txt
