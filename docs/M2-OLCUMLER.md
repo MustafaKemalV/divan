@@ -96,6 +96,20 @@ maliyeti belirleyen şey çağrı sayısı değil, hangi koltuğun kaç kez ve n
 Pahalı koltuklar (Vizyoner, Mimar) üretim ve değerlendirme fazlarında çok konuşuyor, ucuz koltuklar
 (Müh-2) az. Tam oturum ölçümü bu yüzden tahminden ayrışabilir.
 
+## Faz içi paralellik (2026-09-03, M2-A2)
+
+Aynı fazda birbirini görmeyen koltuklar artık paralel koşuyor (üretim, çapraz tozlaşma,
+fizibilite, savunma, sıralama turları). Hız kazancı **henüz ölçülmedi**: sahte koşumda çağrılar
+zaten anlık döndüğü için ölçüm anlamsız olurdu. Gerçek kazanç ilk tam oturumda ölçülecek.
+
+Beklenti, ölçülen tek çağrı sürelerinden: en yavaş koltuk 30 saniye sürüyordu ve dört koltuklu
+bir faz sırayla koşarken yaklaşık bu sürelerin toplamı kadar, paralel koşarken yaklaşık en
+yavaşı kadar sürer. Bu bir beklentidir, ölçüm değil.
+
+Paralelliğin ön koşulu olarak çağrı zaman aşımı eklendi: `timeouts.perCallMs = 120000`, yani
+ölçülen en yavaş çağrının dört katı. Gerekçe: sıralı koşumda asılı bir üye yalnız yavaşlatır,
+paralel koşumda bütün oturumu asar.
+
 ## Maliyet: ölçülen ve öngörülen
 
 Ölçülen (kesin, sağlayıcının bildirdiği rakamlar):

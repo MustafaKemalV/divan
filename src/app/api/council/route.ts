@@ -18,6 +18,7 @@ export async function POST(req: Request) {
     idea?: string;
     resume?: unknown;
     maxCalls?: number;
+    perCallTimeoutMs?: number;
     reTableToNode?: string;
   };
 
@@ -48,7 +49,15 @@ export async function POST(req: Request) {
 
         // Girdi + config'i moda göre kur: yeni oturum / resume / re-table (checkpoint'ten).
         let streamConfig: Record<string, unknown> = config;
-        let streamInput: unknown = { idea: body.idea ?? "", maxCalls };
+        let perCallTimeoutMs = 120_000;
+        try {
+          perCallTimeoutMs = loadConfig().timeouts.perCallMs;
+        } catch {
+          // config yoksa varsayılan tavan
+        }
+        if (typeof body.perCallTimeoutMs === "number") perCallTimeoutMs = body.perCallTimeoutMs;
+
+        let streamInput: unknown = { idea: body.idea ?? "", maxCalls, perCallTimeoutMs };
         if (reTableTo) {
           // Re-table (§5): hedef fazın hemen ÖNCEKİ checkpoint'ini bul, oradan yeniden koştur.
           let forkConfig: unknown;
@@ -117,6 +126,7 @@ export async function POST(req: Request) {
               totalTokens: v.totalTokens ?? 0,
               costUnknownCalls: v.costUnknownCalls ?? 0,
             },
+            silentSeats: v.silentSeats ?? [],
           });
         }
       } catch (e) {

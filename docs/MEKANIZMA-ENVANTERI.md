@@ -46,6 +46,10 @@ Son güncelleme: M2-A1 (prompt altyapısı + gerçek runner iskeleti + premortem
 | Re-table (tek hedefli yeniden koşum) | kod + test | `route.ts` getStateHistory, e2e S09 | M1 |
 | Bağlam sıkıştırması (ham taşınmaz) | graf + test | BD faz özetleri, e2e parmak-izi ölçümü (3 fazda 0 sızıntı) | M1 |
 | Faz kilidi (şapka disiplini) | **SADECE-PROMPT** | borç: fazın modu prompt metninde, yapıda değil | borç (sadece-prompt) |
+| Faz içi paralellik: kanonik sıra | kod + test | `phaseRun.ts` (Promise.all girdi sırasını korur), `phaseRun.test.ts` (tamamlanma sırası bilerek ters çevrilir), e2e KANIT bloğu: gecikme iki farklı koltukta, transkript kanonik ve bayt-özdeş | M2-A2 yeni |
+| Çağrı zaman aşımı (paralelliğin ön koşulu) | config + kod + test | `timeouts.perCallMs` (ölçülen 30 sn'nin 4 katı), `phaseRun.test.ts` zaman aşımı dalı | M2-A2 yeni |
+| Eksik ses sessiz geçilmez (koltuk sustu) | kod + test | iki deneme sonra `faz/koltuk` kaydı; e2e S16: KAPI 3 ve done'da görünür, susan koltuk için sıralama UYDURULMAZ, yeniden denemeler sayaca yazılır | M2-A2 yeni |
+| Cevapsız denemenin maliyeti "bilinmiyor" | kod + test | e2e S16: 30 çağrının 30'u bilinmeyen maliyet; başarısız deneme sıfır sayılmaz | M2-A2 yeni |
 | §5.1 Triyaj: gözlem + kod sınıflandırması | kısmi | sınıf hâlâ model beyanı (M2-B borcu), ama KAPI 1'de "kanaat" işaretiyle sunuluyor (e2e S01) | kısmen M2-A |
 | §5.1 Kadro kilitleri (Denetçi kaldırılamaz, min 3 rol, çeşitlilik uyarısı) | **YOK** | M2-B borcu | borç (M2-B) |
 | §5.1 Ölü-uç kuralı (BD şemayı geçemezse tam kurul) | **YOK** | M2-A2 borcu | borç (M2-A2) |
@@ -88,7 +92,7 @@ Son güncelleme: M2-A1 (prompt altyapısı + gerçek runner iskeleti + premortem
 
 ## Özet
 
-Zorlanan mekanizma sayısı 27, borç 12. Borçların dağılımı: M2-A2 iki, M2-B dört, M2-C iki,
+Zorlanan mekanizma sayısı 31, borç 12. Borçların dağılımı: M2-A2 iki, M2-B dört, M2-C iki,
 M2-D bir, M3 üç, M4 iki, M5 bir. (Kanıt rozetinin URL kuralı M2-C'den M2-A'ya ÇEKİLDİ: ilk gerçek
 çağrıda bir iddia hak etmediği rozeti aldı, borcu ertelemek yerine kapatmak gerekti.)
 

@@ -32,6 +32,8 @@ export type DivanEvent =
         /** maliyeti bildirilmeyen çağrı sayısı; tahmin YAPILMAZ, bilinmezlik gösterilir */
         costUnknownCalls: number;
       };
+      /** iki denemede de cevap vermeyen koltuklar (§7 eksik ses sessiz geçilmez) */
+      silentSeats: string[];
     }
   | { type: "error"; message: string };
 

@@ -48,10 +48,24 @@ export const SMALL_IDEA_MAX_CHARS = 60;
  *   [TEST:noaudit]      -> denetim premortemsiz döner (§6.3.1 eksik denetim işaretlenmesi)
  *   [TEST:badurl]       -> "dogrulanmis" iddia hep URL'siz döner (red -> iade -> red -> Şah kapısı)
  *   [TEST:badurl1]      -> ilk çıktı URL'siz, İADE turunda düzelir (§6 iade semantiği mutlu yol)
+ *   [TEST:slow:<koltuk>]   -> o koltuk gecikir (paralel tamamlanma sırası bozulur)
+ *   [TEST:silent:<koltuk>] -> o koltuk hiç cevap vermez (koltuk sustu dalı)
  */
 export class StubSeatRunner implements SeatRunner {
   async run(seatId: string, input: SeatRunInput): Promise<SeatRunOutput> {
     const { phase, idea } = input;
+
+    // Paralellik testleri için iki işaret (yalnız stub'a özgü, M2'de gerçek runner ile kalkar):
+    //   [TEST:slow:<koltuk>]   -> o koltuk gecikir; tamamlanma sırası bilerek bozulur.
+    //   [TEST:silent:<koltuk>] -> o koltuk hiç cevap vermez; "koltuk sustu" dalı tetiklenir.
+    const slow = idea.match(/\[TEST:slow:(\w+)\]/);
+    if (slow && slow[1] === seatId) {
+      await new Promise((r) => setTimeout(r, 250));
+    }
+    const silent = idea.match(/\[TEST:silent:(\w+)\]/);
+    if (silent && silent[1] === seatId) {
+      throw new Error(`stub: "${seatId}" koltugu cevap vermiyor`);
+    }
 
     // --- Baş Danışman: brifing + triyaj, HMW, faz özetleri, taslak karar ---
     if (seatId === "chiefAdvisor") {

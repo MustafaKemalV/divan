@@ -303,6 +303,33 @@ async function run() {
     console.log(`  kanit (iptal): cagri ${s.metrics.callCount}'te durdu | ${s.reason}`);
   });
 
+  // S16: eksik ses sessiz geçilmez -> iki denemede de cevap vermeyen koltuk işaretlenir
+  await scenario("S16", "Koltuk sustu: iki deneme, sonra isaretlenir (sessiz gecilmez)", async () => {
+    await post({ threadId: "e2e-s16", idea: `${LONG} [TEST:silent:market]` });
+    await post({ threadId: "e2e-s16", resume: "hmw" });
+    let s = stopEvent(await post({ threadId: "e2e-s16", resume: "cerceve onaylandi" }));
+    check(s.gate === "KAPI3", `KAPI3 bekleniyordu: ${s.gate ?? s.type}`);
+    check(
+      Array.isArray(s.payload.silentSeats) && s.payload.silentSeats.some((x) => x.endsWith("/market")),
+      `susan koltuk karar ekraninda gorunmeli: ${JSON.stringify(s.payload.silentSeats)}`,
+    );
+    // Susan koltuk F5 siralamasinda YOK: eksik ses uydurulmaz
+    check(
+      !s.payload.rankings.some((r) => r.startsWith("market:")),
+      "susan koltuk icin siralama UYDURULMAMALI",
+    );
+    s = stopEvent(await post({ threadId: "e2e-s16", resume: "karar" }));
+    check(s.silentSeats.length > 0, "done olayinda da susan koltuklar gorunmeli");
+    // market F2/F3/F5'te 3 kez cagriliyor, her biri 2 deneme: 27 + 3 ek deneme
+    check(s.metrics.callCount === 30, `yeniden denemeler sayaca yazilmali: ${s.metrics.callCount}`);
+    // Cevapsiz denemenin maliyeti BILINMIYOR, asla sifir
+    check(
+      s.metrics.costUnknownCalls === s.metrics.callCount,
+      `cevapsiz denemeler de bilinmeyen maliyet sayilmali: ${s.metrics.costUnknownCalls}/${s.metrics.callCount}`,
+    );
+    console.log(`  kanit: susan=${JSON.stringify(s.silentSeats)} | cagri ${s.metrics.callCount} (3 ek deneme) | bilinmeyen maliyet ${s.metrics.costUnknownCalls}`);
+  });
+
   // S15: KURTARMA ZİNCİRİ. Güvenli duruş bir çıkmaz sokak olmamalı: ihlal -> sebepli duruş ->
   // re-table -> durum ve sayaç intakt -> devam -> tamamlanma.
   await scenario("S15", "Guvenli durus kurtarilabilir: ihlal -> re-table -> tamamlanma", async () => {
@@ -498,6 +525,52 @@ async function run() {
     console.log(`  GECTI (F2 ham -> F3 baglami sikistirma ~${(f2Raw.length / Math.max(1, f3Ctx.length)).toFixed(1)}x, sizinti 0)`);
   } catch (e) {
     results.push({ id: "KANIT", ok: false, err: e.message });
+    console.log(`  DUSTU: ${e.message}`);
+  }
+
+  // ------------------------------------------------ paralellik determinizmi (in-process)
+  // Faz içi paralellikte tamamlanma sırası değişkendir; transkript DEĞİLDİR. Bu kanıt, gecikme
+  // işaretiyle tamamlanma sırasını bilerek bozar ve transkriptin kanonik koltuk sırasında
+  // kaldığını, aynı girdinin bayt-özdeş transkript ürettiğini gösterir.
+  console.log(`\n[KANIT] Paralellik determinizmi: tamamlanma sirasi bozuldugunda transkript ne oluyor?`);
+  try {
+    const { buildCouncilGraph } = await import("../src/core/graph/graph.ts");
+    const { StubSeatRunner } = await import("../src/core/graph/seatRunner.ts");
+    const { Command } = await import("@langchain/langgraph");
+    const KANONIK = ["visionary", "market", "engineer1", "architect"];
+
+    const kosum = async (threadId, idea) => {
+      const graph = buildCouncilGraph(new StubSeatRunner());
+      const cfg = { configurable: { thread_id: threadId } };
+      const drain = async (input) => {
+        for await (const _ of await graph.stream(input, { ...cfg, streamMode: "updates" })) void _;
+      };
+      await drain({ idea, maxCalls: 100 });
+      await drain(new Command({ resume: "hmw" }));
+      await drain(new Command({ resume: "cerceve" }));
+      const st = await graph.getState(cfg);
+      return st.values.transcript.filter((t) => t.phase === "F2:idea");
+    };
+
+    // Gecikme HER İKİ koşumda farklı koltukta: tamamlanma sırası iki kez, iki farklı biçimde bozulur.
+    const a = await kosum("det-a", `${LONG} [TEST:slow:visionary]`);
+    const b = await kosum("det-b", `${LONG} [TEST:slow:architect]`);
+    const siraA = a.map((t) => t.seatId);
+    const siraB = b.map((t) => t.seatId);
+    console.log(`  gecikme visionary'de -> transkript sirasi: ${siraA.join(",")}`);
+    console.log(`  gecikme architect'te  -> transkript sirasi: ${siraB.join(",")}`);
+    check(JSON.stringify(siraA) === JSON.stringify(KANONIK), "transkript kanonik sirada olmali (A)");
+    check(JSON.stringify(siraB) === JSON.stringify(KANONIK), "transkript kanonik sirada olmali (B)");
+
+    // Aynı girdi -> BAYT-ÖZDEŞ transkript
+    const c1 = await kosum("det-c1", `${LONG} [TEST:slow:market]`);
+    const c2 = await kosum("det-c2", `${LONG} [TEST:slow:market]`);
+    check(JSON.stringify(c1) === JSON.stringify(c2), "ayni girdi bayt-ozdes transkript uretmeli");
+    console.log(`  ayni girdi iki kez -> transkript bayt-ozdes (${JSON.stringify(c1).length} bayt)`);
+    results.push({ id: "PARALEL", ok: true });
+    console.log(`  GECTI`);
+  } catch (e) {
+    results.push({ id: "PARALEL", ok: false, err: e.message });
     console.log(`  DUSTU: ${e.message}`);
   }
 

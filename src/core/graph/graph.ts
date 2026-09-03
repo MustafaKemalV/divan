@@ -15,6 +15,7 @@ import { validateAudit } from "./audit.ts";
 import type { SeatRunInput, SeatRunOutput } from "./seatRunner.ts";
 import { usageOf, formatUsd, toNanoUsd } from "./usage.ts";
 import { estimatePhaseCost } from "./estimate.ts";
+import { runPhaseSeats, type SeatOutcome } from "./phaseRun.ts";
 
 // DESIGN §4/§5 koltuk rolleri per faz (tam kurul).
 const IDEATORS = ["visionary", "market", "engineer1", "architect"] as const; // F2/F3
@@ -183,6 +184,38 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
     buffer.push({ seatId, out });
     return out;
   };
+  /**
+   * Bir fazın koltuklarını PARALEL koşturur ve state güncellemesini hazırlar (DESIGN §7).
+   * Sonuçlar kanonik sırada gelir; susan koltuk transkripte "KOLTUK SUSTU" olarak yazılır,
+   * çıktısı UYDURULMAZ. Başarısız deneme "maliyeti bilinmeyen çağrı" olarak sayılır.
+   */
+  const runPhase = async (
+    state: DivanStateType,
+    phase: string,
+    seats: readonly string[],
+    inputFor: (seat: string) => SeatRunInput,
+  ): Promise<{ outcomes: SeatOutcome[]; update: Record<string, unknown> }> => {
+    const outcomes = await runPhaseSeats(run, seats, inputFor, state.perCallTimeoutMs);
+    const usage = flushUsage();
+    // Cevapsız denemenin maliyeti BİLİNMİYORDUR, asla sıfır: sağlayıcı iş yapıp bildirmemiş olabilir.
+    const failedAttempts = outcomes.reduce((n, o) => n + (o.out ? o.attempts - 1 : o.attempts), 0);
+    return {
+      outcomes,
+      update: {
+        ...usage,
+        costUnknownCalls: usage.costUnknownCalls + failedAttempts,
+        transcript: outcomes.map((o) => ({
+          phase,
+          seatId: o.seatId,
+          content: o.out ? o.out.content : `[KOLTUK SUSTU: ${o.reason ?? "cevap yok"}]`,
+        })),
+        callCount: outcomes.reduce((n, o) => n + o.attempts, 0),
+        // Faz adıyla birlikte: aynı koltuk farklı fazlarda sustuysa ikisi de görünür kalır.
+        silentSeats: outcomes.filter((o) => o.silent).map((o) => `${phase}/${o.seatId}`),
+      },
+    };
+  };
+
   const flushUsage = () => {
     const totals = usageOf(buffer.map((b) => b.out));
     const seatCostNano: Record<string, number> = {};
@@ -270,16 +303,12 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
             "Şah bütçe kapısında iptal etti (F2 girişi). KURTARMA: re-table ile devam edilebilir, durum korunur.",
         };
       }
-      const entries: TranscriptEntry[] = [];
-      for (const seat of IDEATORS) {
-        const out = await run(seat, {
-          phase: "F2:idea",
-          idea: state.idea,
-          context: state.approvedFrame ?? undefined,
-        });
-        entries.push({ phase: "F2:idea", seatId: seat, content: out.content });
-      }
-      return { ...flushUsage(), ...budget, transcript: entries, callCount: IDEATORS.length };
+      const { update } = await runPhase(state, "F2:idea", IDEATORS, () => ({
+        phase: "F2:idea",
+        idea: state.idea,
+        context: state.approvedFrame ?? undefined,
+      }));
+      return { ...budget, ...update };
     })
     .addNode("bd_summary_f2", async (state: DivanStateType) => {
       const out = await run("chiefAdvisor", {
@@ -302,12 +331,12 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
         };
       }
       const f2Summary = summaryOf(state, "F2");
-      const entries: TranscriptEntry[] = [];
-      for (const seat of IDEATORS) {
-        const out = await run(seat, { phase: "F3:cross", idea: state.idea, context: f2Summary });
-        entries.push({ phase: "F3:cross", seatId: seat, content: out.content });
-      }
-      return { ...flushUsage(), ...budget, transcript: entries, callCount: IDEATORS.length };
+      const { update } = await runPhase(state, "F3:cross", IDEATORS, () => ({
+        phase: "F3:cross",
+        idea: state.idea,
+        context: f2Summary,
+      }));
+      return { ...budget, ...update };
     })
     .addNode("bd_summary_f3", async (state: DivanStateType) => {
       const out = await run("chiefAdvisor", {
@@ -331,12 +360,12 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
         };
       }
       const f3Summary = summaryOf(state, "F3");
-      const entries: TranscriptEntry[] = [];
-      for (const seat of FEASIBILITY) {
-        const out = await run(seat, { phase: "F4:feasibility", idea: state.idea, context: f3Summary });
-        entries.push({ phase: "F4:feasibility", seatId: seat, content: out.content });
-      }
-      return { ...flushUsage(), ...budget, transcript: entries, callCount: FEASIBILITY.length };
+      const { update } = await runPhase(state, "F4:feasibility", FEASIBILITY, () => ({
+        phase: "F4:feasibility",
+        idea: state.idea,
+        context: f3Summary,
+      }));
+      return { ...budget, ...update };
     })
     // ---- F4: Denetçi denetim (premortem zorunlu) ----
     .addNode("f4_audit", async (state: DivanStateType) =>
@@ -357,17 +386,13 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
       }
       const round = state.revisionRounds + 1;
       const auditText = rawOfPhase(state, "F4:audit");
-      const entries: TranscriptEntry[] = [];
-      for (const seat of DEFENDERS) {
-        const out = await run(seat, {
-          phase: "F4:revision",
-          idea: state.idea,
-          context: auditText,
-          round,
-        });
-        entries.push({ phase: "F4:revision", seatId: seat, content: out.content });
-      }
-      return { ...flushUsage(), ...budget, transcript: entries, revisionRounds: 1, callCount: DEFENDERS.length };
+      const { update } = await runPhase(state, "F4:revision", DEFENDERS, () => ({
+        phase: "F4:revision",
+        idea: state.idea,
+        context: auditText,
+        round,
+      }));
+      return { ...budget, ...update, revisionRounds: 1 };
     })
     // ---- F4: Denetçi hüküm turu (şema-bağlı). prevUnmetCount = döngünün ilerleme ölçüsü. ----
     .addNode("f4_judgment", async (state: DivanStateType) => {
@@ -411,16 +436,12 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
             "Şah bütçe kapısında iptal etti (F2s girişi). KURTARMA: re-table ile devam edilebilir, durum korunur.",
         };
       }
-      const entries: TranscriptEntry[] = [];
-      for (const seat of SMALL_IDEATORS) {
-        const out = await run(seat, {
-          phase: "F2s:idea",
-          idea: state.idea,
-          context: state.selectedHmw ?? undefined,
-        });
-        entries.push({ phase: "F2s:idea", seatId: seat, content: out.content });
-      }
-      return { ...flushUsage(), ...budget, transcript: entries, callCount: SMALL_IDEATORS.length };
+      const { update } = await runPhase(state, "F2s:idea", SMALL_IDEATORS, () => ({
+        phase: "F2s:idea",
+        idea: state.idea,
+        context: state.selectedHmw ?? undefined,
+      }));
+      return { ...budget, ...update };
     })
     .addNode("bd_summary_f2s", async (state: DivanStateType) => {
       const out = await run("chiefAdvisor", {
@@ -494,14 +515,13 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
         };
       }
       const f4Summary = summaryOf(state, "F4");
-      const entries: TranscriptEntry[] = [];
-      const ranks: string[] = [];
-      for (const seat of SMALL_RANKERS) {
-        const out = await run(seat, { phase: "F5s:ranking", idea: state.idea, context: f4Summary });
-        entries.push({ phase: "F5s:ranking", seatId: seat, content: out.content });
-        ranks.push(`${seat}: ${out.content}`);
-      }
-      return { ...flushUsage(), ...budget, rankings: ranks, transcript: entries, callCount: SMALL_RANKERS.length };
+      const { outcomes, update } = await runPhase(state, "F5s:ranking", SMALL_RANKERS, () => ({
+        phase: "F5s:ranking",
+        idea: state.idea,
+        context: f4Summary,
+      }));
+      const ranks = outcomes.filter((o) => o.out).map((o) => `${o.seatId}: ${o.out?.content}`);
+      return { ...budget, ...update, rankings: ranks };
     })
 
     // ================= ORTAK: kilit, dönüşler, F5 çıkışı =================
@@ -549,14 +569,14 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
         };
       }
       const f4Summary = summaryOf(state, "F4");
-      const entries: TranscriptEntry[] = [];
-      const ranks: string[] = [];
-      for (const seat of RANKERS) {
-        const out = await run(seat, { phase: "F5:ranking", idea: state.idea, context: f4Summary });
-        entries.push({ phase: "F5:ranking", seatId: seat, content: out.content });
-        ranks.push(`${seat}: ${out.content}`);
-      }
-      return { ...flushUsage(), ...budget, rankings: ranks, transcript: entries, callCount: RANKERS.length };
+      const { outcomes, update } = await runPhase(state, "F5:ranking", RANKERS, () => ({
+        phase: "F5:ranking",
+        idea: state.idea,
+        context: f4Summary,
+      }));
+      // Susan koltuk sıralamaya GİRMEZ: eksik ses uydurulmaz, silentSeats'te görünür.
+      const ranks = outcomes.filter((o) => o.out).map((o) => `${o.seatId}: ${o.out?.content}`);
+      return { ...budget, ...update, rankings: ranks };
     })
     // ---- F5: BD taslak karar + muhalefet notu (§6.4: blocking "karsilanmadi" HAM metin) ----
     .addNode("bd_draft", async (state: DivanStateType) => {
@@ -594,6 +614,8 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
         // Denetim mekanik şartları taşımıyorsa Şah bunu karar anında GÖRÜR (§6.3.1).
         auditComplete: state.auditComplete,
         auditIssue: state.auditIssue,
+        // Susan koltuklar karar anında görünür: eksik ses gizlenmez (§7).
+        silentSeats: state.silentSeats,
         // Karar anında maliyet de görünür: onay bedelini bilerek verilir.
         costNanoUsd: state.costNanoUsd,
         costUsd: formatUsd(state.costNanoUsd),

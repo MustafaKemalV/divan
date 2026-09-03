@@ -21,6 +21,15 @@ export const ConfigSchema = z.object({
   search: z.object({
     perPhaseCap: z.number().int().nonnegative(),
   }),
+  /**
+   * Çağrı zaman aşımı (DESIGN §7, faz-içi paralelliğin ön koşulu). Ölçüme yaslanır: M2-A'da en
+   * yavaş koltuk 30 sn sürdü, varsayılan bunun dört katıdır. Asılı bir üye asılı bir oturumdur.
+   */
+  timeouts: z
+    .object({
+      perCallMs: z.number().int().positive(),
+    })
+    .default({ perCallMs: 120_000 }),
 });
 
 export type DivanConfig = z.infer<typeof ConfigSchema>;

@@ -45,6 +45,17 @@ export const DivanState = Annotation.Root({
     reducer: (_prev, next) => next,
     default: () => "full",
   }),
+  // Çağrı zaman aşımı (DESIGN §7): config'ten gelir, faz-içi paralelliğin ön koşuludur.
+  perCallTimeoutMs: Annotation<number>({
+    reducer: (_prev, next) => next,
+    default: () => 120_000,
+  }),
+  // İki denemede de cevap vermeyen koltuklar, "faz/koltuk" biçiminde. Eksik ses sessiz geçilmez:
+  // transkripte "koltuk sustu" olarak yazılır ve Şah'ın görünürlüğüne çıkar.
+  silentSeats: Annotation<string[]>({
+    reducer: (prev, next) => [...prev, ...next],
+    default: () => [],
+  }),
   hmwOptions: Annotation<string[]>(),
   selectedHmw: Annotation<string | null>({
     reducer: (_prev, next) => next,
