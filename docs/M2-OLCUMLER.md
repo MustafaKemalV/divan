@@ -164,6 +164,13 @@ Paralelliğin ön koşulu olarak çağrı zaman aşımı eklendi: `timeouts.perC
 ölçülen en yavaş çağrının dört katı. Gerekçe: sıralı koşumda asılı bir üye yalnız yavaşlatır,
 paralel koşumda bütün oturumu asar.
 
+## Sağlayıcı kararı (kapandı, 2026-09-04)
+
+OpenRouter'da kalınıyor. Kredi komisyonu bu ölçekte ihmal edilebilir (yüz oturumda birkaç dolar),
+buna karşılık maliyet sayacı, fallback dizisi, web eklentisi ve tek anahtarla BYOK deneyimi zaten
+onun üzerine kurulu. Konu ancak aylık harcama gerçek paraya dönüşürse yeniden açılır; o gün ilk
+bakılacak yer sağlayıcı komisyonu değil, **yirmi bir kata çıkan koltuk fiyat farkı** olur.
+
 ## Maliyet: tahmin nasıl yanıldı
 
 **Eski tahmin: $0.0888.** İki tek çağrının ortalaması (F0 brifingi ve bir denetim) alınıp 27 ile
