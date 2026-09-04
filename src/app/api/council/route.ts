@@ -45,6 +45,7 @@ export async function POST(req: Request) {
     resume?: unknown;
     maxCalls?: number;
     perCallTimeoutMs?: number;
+    attachments?: { name: string; content: string }[];
     reTableToNode?: string;
   };
 
@@ -83,7 +84,12 @@ export async function POST(req: Request) {
         }
         if (typeof body.perCallTimeoutMs === "number") perCallTimeoutMs = body.perCallTimeoutMs;
 
-        let streamInput: unknown = { idea: body.idea ?? "", maxCalls, perCallTimeoutMs };
+        let streamInput: unknown = {
+          idea: body.idea ?? "",
+          maxCalls,
+          perCallTimeoutMs,
+          attachments: body.attachments ?? [],
+        };
         if (reTableTo) {
           // Re-table (§5): hedef fazın hemen ÖNCEKİ checkpoint'ini bul, oradan yeniden koştur.
           let forkConfig: unknown;

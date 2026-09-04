@@ -44,6 +44,7 @@ Son güncelleme: M2-A1 (prompt altyapısı + gerçek runner iskeleti + premortem
 | Güvenli duruşun KURTARILABİLİR olması | graf + test | e2e S15 zinciri: ihlal -> sebepli duruş -> re-table -> durum ve sayaç intakt -> devam -> tamamlanma. Duruş mesajı kurtarma yolunu hedef düğüm adıyla söyler | M2-A2 yeni |
 | Bütçe kapısının sözleşme dışı yanıtta YENİDEN AÇILMASI | **YOK** | borç: LangGraph resume semantiği tek düğüm içinde yeniden sormaya izin vermedi (iki deney, koda yorum olarak yazıldı). Şu an güvenli duruş var ve KURTARILABİLİR; eksik olan yalnız yerinde yeniden sorma. Ödemeden önce ayrı-kapı-düğümü deseni için upstream doküman/issue taraması yapılacak; önceliği M4 düğmelerinden sonra yeniden tartılacak | borç (M2-B) |
 | Re-table (tek hedefli yeniden koşum) | kod + test | `route.ts` getStateHistory, e2e S09 | M1 |
+| Ek bağlam: bütçe bilinçli enjeksiyon | graf + test | tam metin yalnız F0-BD ve F4 (değerlendirenler + Denetçi); e2e KANIT bloğu izinsiz faza sızıntıyı sayıyla gösteriyor (0) | M2-A yeni |
 | Bağlam sıkıştırması (ham taşınmaz) | graf + test | BD faz özetleri, e2e parmak-izi ölçümü (3 fazda 0 sızıntı) | M1 |
 | Faz kilidi (şapka disiplini) | **SADECE-PROMPT** | borç: fazın modu prompt metninde, yapıda değil | borç (sadece-prompt) |
 | Faz içi paralellik: kanonik sıra | kod + test | `phaseRun.ts` (Promise.all girdi sırasını korur), `phaseRun.test.ts` (tamamlanma sırası bilerek ters çevrilir), e2e KANIT bloğu: gecikme iki farklı koltukta, transkript kanonik ve bayt-özdeş | M2-A2 yeni |
@@ -97,7 +98,7 @@ Son güncelleme: M2-A1 (prompt altyapısı + gerçek runner iskeleti + premortem
 
 ## Özet
 
-Zorlanan mekanizma sayısı 36, borç 12. Borçların dağılımı: M2-A2 iki, M2-B dört, M2-C iki,
+Zorlanan mekanizma sayısı 37, borç 12. Borçların dağılımı: M2-A2 iki, M2-B dört, M2-C iki,
 M2-D bir, M3 üç, M4 iki, M5 bir. (Kanıt rozetinin URL kuralı M2-C'den M2-A'ya ÇEKİLDİ: ilk gerçek
 çağrıda bir iddia hak etmediği rozeti aldı, borcu ertelemek yerine kapatmak gerekti.)
 

@@ -15,9 +15,17 @@ import type { SeatRunInput, SeatRunOutput, SeatRunner } from "./seatRunner.ts";
 /** Kullanıcı mesajı: fikir + ileri taşınan bağlam + tur bilgisi. Ham transkript BURADAN geçmez. */
 function buildUserMessage(input: SeatRunInput): string {
   const parts = [`FİKİR:\n${input.idea}`];
+  // Ek belgeler: TAM METİN yalnız verildiği fazlarda; diğer fazlar özet görür (DESIGN §5).
+  for (const ek of input.attachments ?? []) {
+    parts.push(`EK BELGE (${ek.name}):\n${ek.content}`);
+  }
+  if (!input.attachments?.length && input.attachmentSummary?.trim()) {
+    parts.push(`EK BELGELERİN ÖZETİ:\n${input.attachmentSummary.trim()}`);
+  }
   if (input.context && input.context.trim()) {
     parts.push(`BAĞLAM (önceki fazın özeti veya bu faz içi metin):\n${input.context.trim()}`);
   }
+  if (input.seats?.length) parts.push(`BU FAZDA KONUŞAN KOLTUKLAR: ${input.seats.join(", ")}`);
   if (input.round && input.round > 0) parts.push(`REVİZYON TURU: ${input.round}`);
   if (input.retry && input.retry > 0) parts.push(`YENİDEN KOŞUM: ${input.retry}`);
   return parts.join("\n\n");

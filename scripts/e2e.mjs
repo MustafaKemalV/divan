@@ -477,7 +477,14 @@ async function run() {
     const spy = {
       async run(seatId, input) {
         const out = await inner.run(seatId, input);
-        calls.push({ seatId, phase: input.phase, context: input.context ?? "", output: out.content });
+        calls.push({
+          seatId,
+          phase: input.phase,
+          context: input.context ?? "",
+          output: out.content,
+          attachments: input.attachments ?? [],
+          attachmentSummary: input.attachmentSummary ?? "",
+        });
         return out;
       },
     };
@@ -588,6 +595,60 @@ async function run() {
     console.log(`  GECTI`);
   } catch (e) {
     results.push({ id: "PARALEL", ok: false, err: e.message });
+    console.log(`  DUSTU: ${e.message}`);
+  }
+
+  // ------------------------------------------------ ek bağlam: bütçe bilinçli enjeksiyon
+  // DESIGN §5: ek belgelerin TAM METNİ yalnız F0'da Baş Danışman'a ve F4'te değerlendirenler ile
+  // Denetçi'ye gider; diğer bütün fazlar BD'nin ek ÖZETİ üzerinden görür. Bu blok, ham metnin
+  // gitmemesi gereken yere gitmediğini parmak iziyle kanıtlar.
+  console.log(`\n[KANIT] Ek baglam: tam metin nereye gidiyor, ozet nereye?`);
+  try {
+    const { buildCouncilGraph } = await import("../src/core/graph/graph.ts");
+    const { StubSeatRunner } = await import("../src/core/graph/seatRunner.ts");
+    const { Command } = await import("@langchain/langgraph");
+    const PARMAK_IZI = "BENZERSIZ_EK_ICERIGI_9F3A";
+    const ek = { name: "test-readme.md", content: `# Test\n\n${PARMAK_IZI}\n\nBu bir ek belgedir.` };
+
+    const izler = [];
+    const inner = new StubSeatRunner();
+    const spy = {
+      async run(seatId, input) {
+        izler.push({
+          seatId,
+          phase: input.phase,
+          tamMetin: (input.attachments ?? []).length > 0,
+          ozet: Boolean(input.attachmentSummary),
+        });
+        return inner.run(seatId, input);
+      },
+    };
+    const graph = buildCouncilGraph(spy);
+    const cfg = { configurable: { thread_id: "ek-baglam" } };
+    const drain = async (input) => {
+      for await (const _ of await graph.stream(input, { ...cfg, streamMode: "updates" })) void _;
+    };
+    await drain({ idea: LONG, maxCalls: 100, attachments: [ek] });
+    await drain(new Command({ resume: "hmw" }));
+    await drain(new Command({ resume: "cerceve" }));
+
+    const tamMetinAlanlar = izler.filter((i) => i.tamMetin).map((i) => i.phase);
+    const IZINLI = ["F0:briefing", "F4:feasibility", "F4:audit"];
+    const izinsiz = tamMetinAlanlar.filter((p) => !IZINLI.includes(p));
+    const ozetAlanlar = izler.filter((i) => i.ozet && !i.tamMetin).map((i) => i.phase);
+
+    console.log(`  TAM METIN goren fazlar : ${[...new Set(tamMetinAlanlar)].join(", ")}`);
+    console.log(`  OZET goren fazlar      : ${[...new Set(ozetAlanlar)].join(", ")}`);
+    console.log(`  izinsiz tam metin      : ${izinsiz.length}`);
+    check(tamMetinAlanlar.includes("F0:briefing"), "BD brifingi tam metni gormeli");
+    check(tamMetinAlanlar.includes("F4:feasibility"), "fizibilite tam metni gormeli");
+    check(tamMetinAlanlar.includes("F4:audit"), "denetim tam metni gormeli");
+    check(izinsiz.length === 0, `tam metin izinsiz faza sizdi: ${izinsiz.join(",")}`);
+    check(ozetAlanlar.length > 0, "diger fazlar ek ozetini gormeli");
+    results.push({ id: "EK-BAGLAM", ok: true });
+    console.log(`  GECTI`);
+  } catch (e) {
+    results.push({ id: "EK-BAGLAM", ok: false, err: e.message });
     console.log(`  DUSTU: ${e.message}`);
   }
 

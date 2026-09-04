@@ -59,11 +59,16 @@ const BRIEFING: JsonSchemaSpec = {
   schema: {
     type: "object",
     additionalProperties: false,
-    required: ["summary", "complexity"],
+    required: ["summary", "complexity", "attachmentSummary"],
     properties: {
       summary: { type: "string" },
       // M2-B'de DESIGN §5.1'in dört gözlemine genişler; şu an M1 davranışı korunur.
       complexity: { type: "string", enum: ["small", "full"] },
+      /**
+       * Ek belgelerin özeti (DESIGN §5). Tam metni yalnız BD ve F4 görür; bu alan diğer fazların
+       * göreceği tek temsildir, dolayısıyla sadık olmak zorundadır. Ek yoksa boş string.
+       */
+      attachmentSummary: { type: "string" },
     },
   },
 };

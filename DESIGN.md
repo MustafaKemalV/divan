@@ -71,6 +71,7 @@ Gerekçe notları:
 - **M3 bütçe uyarısı:** F5 kuyruğu M1'de 6 çağrıdır (sıralama + BD taslak + Denetçi final denetimi). §9.2 kod promptu üretimi (Müh-1) ve çapraz denetimi (Müh-2) M3'te eklenince tam kurul tipik toplamı ~29'a çıkar ve 30 tavanına yaslanır. M3'e girerken tavan ya da §5'teki kesim adayları yeniden değerlendirilir; bant sessizce delinmez.
 - **Re-table:** Şah her kapıda tek-hedefli geri gönderebilir (hangi fazın yeniden koşulacağı belirtilir; checkpointer'dan resume).
 - **Bağlam mimarisi:** fazlar arası ham transkript taşınmaz; BD'nin token-kapaklı faz özetleri taşınır. Ham transkript audit için state'te durur. (Karesel bağlam büyümesini öldürür.)
+- **Ek bağlam (topraklama):** Şah fikrin yanına dosya iliştirebilir (README, şema, örnek kod). Gerekçe: kurul bir şey hakkında karar verirken onu TARİFİNDEN değil KENDİSİNDEN okumalı; topraklamanın (§6.2) girdi tarafı budur. Enjeksiyon BÜTÇE BİLİNÇLİDİR ve üç kuraldan oluşur: (a) tam metin yalnız F0'da Baş Danışman'a ve F4'te değerlendirenler ile Denetçi'ye gider, çünkü fizibilite ve denetim gerçek metni okumadan yapılamaz; (b) diğer bütün fazlar BD'nin ek ÖZETİ üzerinden görür, ham metin oralara taşınmaz; (c) ek metinler faz özetlerinin yerine geçmez, onların yanına eklenir. Eklerin maliyet etkisi ölçülür ve kaydedilir; ölçülmeden "ucuz" varsayılmaz.
 
 ### 5.1 Kurul boyutu ve kadro seçimi [M2'de kurulur; M1'de sabit kadro + stub triyajı]
 

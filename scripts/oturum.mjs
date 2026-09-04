@@ -21,7 +21,7 @@
 import { spawn } from "node:child_process";
 import { createInterface } from "node:readline/promises";
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { stdin, stdout } from "node:process";
 
 const PORT = Number(process.env.DIVAN_PORT ?? 3200);
@@ -40,6 +40,11 @@ if (devamThread && !/^[\w.-]+$/.test(devamThread)) {
   console.error(`Gecersiz threadId: ${devamThread}`);
   process.exit(2);
 }
+// Ek belgeler: fikrin yanina ilistirilen dosyalar (README, sema, ornek kod).
+// npm run oturum -- fikir.txt --ek README.md --ek baska.md
+const ekYollari = process.argv.reduce((acc, arg, i) => (arg === "--ek" && process.argv[i + 1] ? [...acc, process.argv[i + 1]] : acc), []);
+const ekler = ekYollari.map((y) => ({ name: basename(y), content: readFileSync(y, "utf8") }));
+
 const fikir = dosya ? readFileSync(dosya, "utf8").trim() : "";
 if (dosya && !fikir) {
   console.error(`Fikir dosyasi bos: ${dosya}`);
@@ -267,6 +272,11 @@ async function main() {
   );
   console.log(`  thread        : ${threadId}`);
   console.log(`  runner        : ${process.env.DIVAN_RUNNER ?? "openrouter (gercek)"}`);
+  if (ekler.length) {
+    const toplam = ekler.reduce((n, e) => n + e.content.length, 0);
+    console.log(`  ek belgeler   : ${ekler.map((e) => e.name).join(", ")} (toplam ${toplam} karakter)`);
+    console.log(`                  tam metin yalniz F0-BD ve F4'e gider; diger fazlar ozet gorur`);
+  }
   console.log(`  olay gunlugu  : ${gunlukYolu}\n`);
   gunlukYaz({
     type: devamThread ? "oturum-devam" : "oturum-basladi",
@@ -297,7 +307,7 @@ async function main() {
     console.log(`  bekleyen kapi : ${st.bekleyenKapi.gate}\n`);
     durak = { type: "gate", gate: st.bekleyenKapi.gate, payload: st.bekleyenKapi.payload, threadId };
   } else {
-    durak = await gonder({ threadId, idea: fikir });
+    durak = await gonder({ threadId, idea: fikir, attachments: ekler });
   }
 
   while (durak && durak.type === "gate") {

@@ -137,9 +137,11 @@ async function runAuditWithReturn(
 ) {
   const entries: TranscriptEntry[] = [];
   const outs: SeatRunOutput[] = [];
+  // Denetim de gerçek metni okur (DESIGN §5): kaynağı görmeden topraklama denetlenemez.
+  const attachments = state.attachments;
   let first: SeatRunOutput;
   try {
-    first = await run("auditor", { phase, idea: state.idea, context, retry: 0 });
+    first = await run("auditor", { phase, idea: state.idea, context, attachments, retry: 0 });
   } catch (e) {
     // ALTYAPI ARIZASI (kesilme) ise İADE İŞLEMEZ: iade, koltuğu kendi çıktısını düzeltmeye
     // çağırmaktır; kesilmiş bir cevapta düzeltilecek bir çıktı yoktur ve aynı tavanla yeniden
@@ -171,6 +173,7 @@ async function runAuditWithReturn(
       phase,
       idea: state.idea,
       context: `${context}\n\nİADE GEREKÇESİ (çıktın reddedildi, aynı denetimi bu eksiği gidererek yeniden ver): ${check.reason}`,
+      attachments,
       retry: 1,
     });
     calls = 2;
@@ -320,12 +323,20 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
   const graph = new StateGraph(DivanState)
     // ================= F0: brifing + triyaj + HMW (DESIGN §5: 2 çağrı) =================
     .addNode("f0_briefing", async (state: DivanStateType) => {
-      const out = await run("chiefAdvisor", { phase: "F0:briefing", idea: state.idea });
+      // Ek belgeler BD'ye TAM METİN gider (DESIGN §5): diğer fazların göreceği özeti o üretir.
+      const out = await run("chiefAdvisor", {
+        phase: "F0:briefing",
+        idea: state.idea,
+        attachments: state.attachments,
+      });
       // Karmaşıklık triyajı: küçük fikir -> küçük kurul yolu (§5 F0).
       const councilMode: "full" | "small" = out.data?.complexity === "small" ? "small" : "full";
+      const attachmentSummary =
+        typeof out.data?.attachmentSummary === "string" ? out.data.attachmentSummary : "";
       return {
         ...flushUsage(),
         councilMode,
+        attachmentSummary,
         transcript: [{ phase: "F0:briefing", seatId: "chiefAdvisor", content: out.content }],
         callCount: 1,
       };
@@ -394,6 +405,7 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
       const { update } = await runPhase(state, "F2:idea", IDEATORS, () => ({
         phase: "F2:idea",
         idea: state.idea,
+        attachmentSummary: state.attachmentSummary,
         context: state.approvedFrame ?? undefined,
       }));
       return { ...budget, ...update };
@@ -416,6 +428,7 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
       const { update } = await runPhase(state, "F3:cross", IDEATORS, () => ({
         phase: "F3:cross",
         idea: state.idea,
+        attachmentSummary: state.attachmentSummary,
         context: f2Summary,
       }));
       return { ...budget, ...update };
@@ -440,6 +453,8 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
         phase: "F4:feasibility",
         idea: state.idea,
         context: f3Summary,
+        // Fizibilite gerçek metni okumadan yapılamaz: burada TAM METİN (DESIGN §5).
+        attachments: state.attachments,
       }));
       return { ...budget, ...update };
     })
@@ -466,6 +481,7 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
       const { update } = await runPhase(state, "F4:revision", DEFENDERS, () => ({
         phase: "F4:revision",
         idea: state.idea,
+        attachmentSummary: state.attachmentSummary,
         context: auditText,
         round,
       }));
@@ -509,6 +525,7 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
       const { update } = await runPhase(state, "F2s:idea", SMALL_IDEATORS, () => ({
         phase: "F2s:idea",
         idea: state.idea,
+        attachmentSummary: state.attachmentSummary,
         context: state.selectedHmw ?? undefined,
       }));
       return { ...budget, ...update };
@@ -532,6 +549,7 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
         phase: "F4s:feasibility",
         idea: state.idea,
         context: summaryOf(state, "F2"),
+        attachments: state.attachments,
       });
       return {
         ...flushUsage(),
@@ -579,6 +597,7 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
       const { outcomes, update } = await runPhase(state, "F5s:ranking", SMALL_RANKERS, () => ({
         phase: "F5s:ranking",
         idea: state.idea,
+        attachmentSummary: state.attachmentSummary,
         context: f4Summary,
       }));
       const ranks = outcomes.filter((o) => o.out).map((o) => `${o.seatId}: ${o.out?.content}`);
@@ -633,6 +652,7 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
       const { outcomes, update } = await runPhase(state, "F5:ranking", RANKERS, () => ({
         phase: "F5:ranking",
         idea: state.idea,
+        attachmentSummary: state.attachmentSummary,
         context: f4Summary,
       }));
       // Susan koltuk sıralamaya GİRMEZ: eksik ses uydurulmaz, silentSeats'te görünür.

@@ -18,6 +18,10 @@ export interface SeatRunInput {
   retry?: number;
   /** özet fazlarında: o fazda KONUŞAN koltuklar (kota bunlar üzerinden denetlenir, §6) */
   seats?: readonly string[];
+  /** ek belgelerin TAM METNİ; yalnız F0 (BD) ve F4'te doldurulur (DESIGN §5 ek bağlam) */
+  attachments?: readonly { name: string; content: string }[];
+  /** ek belgelerin BD özeti; tam metin verilmeyen fazlar bunu görür */
+  attachmentSummary?: string;
 }
 
 export interface SeatRunOutput {
@@ -75,9 +79,16 @@ export class StubSeatRunner implements SeatRunner {
       if (phase === "F0:briefing") {
         // Triyaj (DESIGN §5): karmaşıklık sınıfı. Stub'da deterministik ölçü = fikrin uzunluğu.
         const complexity = idea.trim().length <= SMALL_IDEA_MAX_CHARS ? "small" : "full";
+        const ekler = input.attachments ?? [];
         return {
           content: `Brifing (stub): "${idea}" özetlendi; karmaşıklık sınıfı = ${complexity}.`,
-          data: { complexity },
+          data: {
+            summary: `Brifing (stub): karmaşıklık ${complexity}.`,
+            complexity,
+            attachmentSummary: ekler.length
+              ? `Ek belge özeti (stub): ${ekler.map((e) => `${e.name} (${e.content.length} krk)`).join(", ")}.`
+              : "",
+          },
         };
       }
       if (phase === "F0:hmw") {

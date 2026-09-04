@@ -18,6 +18,12 @@ export interface TranscriptEntry {
   content: string;
 }
 
+/** Şah'ın fikre iliştirdiği ek belge (README, şema, örnek kod). */
+export interface Attachment {
+  name: string;
+  content: string;
+}
+
 export interface PhaseSummary {
   phase: string;
   summary: string;
@@ -65,6 +71,18 @@ export const DivanState = Annotation.Root({
   silentSeats: Annotation<string[]>({
     reducer: (prev, next) => [...prev, ...next],
     default: () => [],
+  }),
+  /**
+    * Ek belgeler (DESIGN §5 ek bağlam). TAM METİN yalnız F0 (BD) ve F4'te (değerlendirenler +
+    * Denetçi) kullanılır; diğer fazlar `attachmentSummary` üzerinden görür.
+    */
+  attachments: Annotation<Attachment[]>({
+    reducer: (_prev, next) => next,
+    default: () => [],
+  }),
+  attachmentSummary: Annotation<string>({
+    reducer: (_prev, next) => next,
+    default: () => "",
   }),
   hmwOptions: Annotation<string[]>(),
   selectedHmw: Annotation<string | null>({
