@@ -3,7 +3,17 @@
 
 export type DivanEvent =
   | { type: "phase-start"; phase: string; threadId: string }
-  | { type: "node-update"; node: string; keys: string[] }
+  | {
+      type: "node-update";
+      node: string;
+      keys: string[];
+      /**
+       * O düğümün ürettiği transkript kayıtları, KANONİK koltuk sırasında. Şah'ın müzakereyi
+       * canlı okuyabilmesi için taşınır; anonimlik kuralı (§6.1) ajanlar ARASINDADIR, Şah'a
+       * karşı değil, dolayısıyla tasarımla çelişmez.
+       */
+      entries?: { phase: string; seatId: string; content: string }[];
+    }
   | { type: "gate"; gate: string; payload: unknown; threadId: string }
   | {
       type: "done";

@@ -87,7 +87,17 @@ async function gonder(body) {
     for (const satir of satirlar) {
       if (!satir.startsWith("data: ")) continue;
       const e = JSON.parse(satir.slice(6));
-      if (e.type === "node-update") console.log(`   . ${e.node}`);
+      if (e.type === "node-update") {
+        console.log(`   . ${e.node}`);
+        // Dalga tamamlandığında koltuk çıktıları TAM METİN ve kanonik sırada basılır.
+        for (const k of e.entries ?? []) {
+          console.log(`\n   ${"-".repeat(66)}`);
+          console.log(`   ${k.seatId}  [${k.phase}]`);
+          console.log(`   ${"-".repeat(66)}`);
+          for (const satir of String(k.content).split("\n")) console.log(`   ${satir}`);
+        }
+        if ((e.entries ?? []).length) console.log("");
+      }
       if (e.type === "error") console.log(`   ! hata: ${e.message}`);
       if (e.type === "gate" || e.type === "done") durak = e;
     }

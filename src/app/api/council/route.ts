@@ -102,7 +102,13 @@ export async function POST(req: Request) {
         )) {
           for (const [node, update] of Object.entries(chunk as Record<string, unknown>)) {
             if (node === "__interrupt__") continue; // kapı, aşağıda getState ile ele alınır
-            send({ type: "node-update", node, keys: Object.keys((update as object) ?? {}) });
+            const u = (update ?? {}) as { transcript?: DivanStateType["transcript"] };
+            send({
+              type: "node-update",
+              node,
+              keys: Object.keys((update as object) ?? {}),
+              entries: u.transcript,
+            });
           }
         }
 
