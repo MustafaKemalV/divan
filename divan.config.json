@@ -51,5 +51,9 @@
   },
   "timeouts": {
     "perCallMs": 120000
+  },
+  "limits": {
+    "schemaMaxTokens": 8192,
+    "textMaxTokens": 1600
   }
 }

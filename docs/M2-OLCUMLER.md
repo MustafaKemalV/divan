@@ -73,6 +73,53 @@ izi yok (kontrol edildi).
 Bunun anlamı: prob artık oturum başına değil, config başına ve günde bir koşuyor. Yedi çağrılık
 bir maliyet her oturumda tekrarlanmıyor.
 
+### İlk tam oturum denemesi: iptal, ve iki hata (2026-09-03)
+
+Fikir gerçekti (Şah'ın üç Spring Boot kütüphanesini nasıl konumlandıracağı). Oturum F4 denetiminde
+Şah tarafından iptal edildi. Kayda geçen rakamlar:
+
+| | |
+|---|---|
+| Çağrı | 18 |
+| Token | 46.106 |
+| Maliyet | **$0.208651** |
+| Süre | 713 sn (11.9 dk) |
+| Bitiş | Şah iptali (denetim boş döndü) |
+
+Koltuk dağılımı: Mimar (opus-4.8) $0.066 / %36, Baş Danışman (sonnet-5) $0.050 / %28, Vizyoner
+(grok-4.6) $0.030 / %16, Müh-1 (gpt-5.1) $0.025 / %14, kalan üç koltuk toplam $0.011 / %6.
+**İki Anthropic koltuğu faturanın %64'ü.**
+
+> **DÜZELTME (bu tablo eksiktir, kayıt silinmedi).** Yukarıdaki koltuk dağılımında Denetçi'nin F4
+> denetim çağrıları YOK. Sebebi bir hataydı: denetim yardımcısı maliyet izleyicisini baypas edip
+> modeli doğrudan çağırıyordu, dolayısıyla o çağrılar koltuk bazlı kayda hiç girmedi. Toplam fatura
+> doğru ($0.208651), yalnızca dağılım eksik. Hata düzeltildi (tek kapı kuralı, aşağıda) ama bu
+> ölçüm o düzeltmeden ÖNCE alındığı için burada eksik haliyle duruyor.
+
+**Bulunan iki hata.** Birincisi: Denetçi'nin çağrısı token tavanına çarpıp boş dönüyordu. İkincisi
+ve daha ciddisi: kodumuz bunu "şemaya uymadı" diye rapor ediyordu, oysa sağlayıcı `finish_reason`
+alanıyla kesildiğini açıkça söylüyordu ve o alan hiç okunmuyordu.
+
+### Kesilme teşhisi: ölçümler (2026-09-03)
+
+Denetçi koltuğuna aynı gerçek bağlamla dokuz kontrollü çağrı yapıldı, toplam **$0.074**:
+
+| Tavan | Düşünme kontrolü | Bitiş | Düşünme tokenı | İçerik | Maliyet |
+|---|---|---|---|---|---|
+| 256 | yok | length | 256 (hepsi) | **boş** | $0.0019 |
+| 512 | yok | length | 512 (hepsi) | **boş** | $0.0060 |
+| 2048 | yok | length | 2048 (hepsi) | **boş** | $0.0080 |
+| 2048 | "düşük" | length | 1725 | yarım JSON | $0.0054 |
+| 4096 | "düşük" | length | 3142 | yarım JSON | $0.0090 |
+| **8192** | yok | **stop** | 2938 | **geçerli, şemadan geçti** | $0.0088 |
+
+Üç sonuç. Birincisi: akıl yürüten modeller cevaptan önce düşünme tokenı harcıyor ve şema gerektiren
+çağrılarda 2048'lik tavan tamamen düşünmeye gidiyordu. İkincisi: düşünme miktarını "düşük"e çekmek
+**işe yaramadı**, model yine binlerce token düşündü; bu yüzden o yol seçilmedi ve deneysel parametre
+geri alındı. Üçüncüsü ve en önemlisi: **düşük tavan parayı kurtarmıyor.** Kesilen çağrı da
+faturalanıyor ($0.0080) ve karşılığında hiçbir şey vermiyor; başarılı çağrı neredeyse aynı parayı
+($0.0088) alıp işi bitiriyor. Tavan artık ayar dosyasında: `limits.schemaMaxTokens = 8192`.
+
 ### Prob maliyeti ve koltuk fiyat farkı
 
 Prob maliyeti oturum sayacına **girmez** (hesap saflığı: prob grafın dışında ve farklı ritimde

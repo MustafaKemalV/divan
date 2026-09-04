@@ -30,6 +30,18 @@ export const ConfigSchema = z.object({
       perCallMs: z.number().int().positive(),
     })
     .default({ perCallMs: 120_000 }),
+  /**
+   * Çağrı token tavanları. Değerler ÖLÇÜMLE belirlendi (docs/M2-OLCUMLER.md): akıl yürüten
+   * modeller cevaptan önce düşünme tokenı harcar ve şema gerektiren çağrılarda 2048'lik tavan
+   * düşünmeye tamamen gidip içeriği boş bırakıyordu. 8192 ölçümde yeterli oldu. Düşük tavan
+   * parayı KURTARMIYOR: kesilen çağrı da faturalanıyor, sadece karşılığı alınamıyor.
+   */
+  limits: z
+    .object({
+      schemaMaxTokens: z.number().int().positive(),
+      textMaxTokens: z.number().int().positive(),
+    })
+    .default({ schemaMaxTokens: 8192, textMaxTokens: 1600 }),
 });
 
 export type DivanConfig = z.infer<typeof ConfigSchema>;

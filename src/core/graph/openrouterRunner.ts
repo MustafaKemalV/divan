@@ -5,7 +5,7 @@
 // Ayrıştırılamayan şema çıktısı SESSİZ GEÇİLMEZ ama sahte veri de üretilmez: data boş bırakılır,
 // böylece erken-uzlaşı kilidi (§6.3) devreye girer ve durum Şah'a çıkar.
 
-import { chat } from "../openrouter/client.ts";
+import { callModel } from "../openrouter/gateway.ts";
 import { loadPrompt } from "../prompts/load.ts";
 import { getSeat } from "../seats/seats.ts";
 import type { DivanConfig } from "../config/schema.ts";
@@ -41,7 +41,7 @@ export class OpenRouterSeatRunner implements SeatRunner {
     const system = loadPrompt(seatId, input.phase);
     const schema = schemaForPhase(input.phase);
 
-    const { content, servedModel, usage } = await chat({
+    const { content, servedModel, usage } = await callModel({
       model: sm.model,
       models: [sm.model, ...sm.fallbacks],
       messages: [
@@ -49,8 +49,10 @@ export class OpenRouterSeatRunner implements SeatRunner {
         { role: "user", content: buildUserMessage(input) },
       ],
       jsonSchema: schema,
-      // Reasoning modelleri asıl çıktıdan önce token harcar (M0 probe dersi); tavan bol tutulur.
-      maxTokens: schema ? 2048 : 1600,
+      // Tavan ÖLÇÜMLE belirlendi (docs/M2-OLCUMLER.md): akıl yürüten modeller cevaptan önce
+      // düşünme tokenı harcıyor ve 2048'lik tavan şema gerektiren çağrılarda tamamen düşünmeye
+      // gidip içeriği boş bırakıyordu. Düşük tavan parayı kurtarmaz, sadece karşılığını kaybettirir.
+      maxTokens: schema ? this.config.limits.schemaMaxTokens : this.config.limits.textMaxTokens,
     });
 
     if (!schema) return { content: content.trim(), servedModel, usage };

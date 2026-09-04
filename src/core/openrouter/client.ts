@@ -32,6 +32,10 @@ export interface UsageInfo {
   promptTokens?: number;
   completionTokens?: number;
   totalTokens?: number;
+  /** akıl yürüten modellerin cevaptan ÖNCE harcadığı token; tavan sorunlarının teşhisi bundadır */
+  reasoningTokens?: number;
+  /** sağlayıcı önbelleğinden okunan token (varsa) */
+  cachedTokens?: number;
   /**
    * Sağlayıcının bildirdiği USD maliyeti.
    *
@@ -48,6 +52,8 @@ export interface UsageInfo {
 
 export interface ChatResult {
   content: string;
+  /** sağlayıcının bildirdiği bitiş sebebi; zarf işleme gateway.ts'te yapılır */
+  finishReason?: string;
   /** cevabı GERÇEKTE veren model (OpenRouter `model` alanı); fallback yönlendirmesini görünür kılar */
   servedModel?: string;
   usage?: UsageInfo;
@@ -79,7 +85,12 @@ export function sanitizeProviderError(status: number, rawBody: string): string {
   return msg ? `OpenRouter ${status}: ${msg}` : `OpenRouter ${status}`;
 }
 
-export async function chat(opts: ChatOptions): Promise<ChatResult> {
+/**
+ * HAM sağlayıcı çağrısı. DIŞARIYA AÇIK DEĞİLDİR: tek kapı `gateway.callModel`'dir, çünkü izleme
+ * ve cevap zarfı işleme orada yapılır. Bunu doğrudan çağıran kod ikisini de atlamış olur.
+ * @internal
+ */
+export async function chatRaw(opts: ChatOptions): Promise<ChatResult> {
   const key = process.env.OPENROUTER_API_KEY;
   if (!key) throw new Error("OPENROUTER_API_KEY tanımlı değil (.env.local).");
 
@@ -119,15 +130,18 @@ export async function chat(opts: ChatOptions): Promise<ChatResult> {
 
   const data = (await res.json()) as {
     model?: string;
-    choices?: { message?: { content?: string } }[];
+    choices?: { message?: { content?: string }; finish_reason?: string }[];
     usage?: {
       prompt_tokens?: number;
       completion_tokens?: number;
       total_tokens?: number;
       cost?: number;
+      prompt_tokens_details?: { cached_tokens?: number };
+      completion_tokens_details?: { reasoning_tokens?: number };
     };
   };
-  const content = data.choices?.[0]?.message?.content ?? "";
+  const choice = data.choices?.[0];
+  const content = choice?.message?.content ?? "";
   const u = data.usage;
   const usage: UsageInfo | undefined = u
     ? {
@@ -135,7 +149,9 @@ export async function chat(opts: ChatOptions): Promise<ChatResult> {
         completionTokens: u.completion_tokens,
         totalTokens: u.total_tokens,
         cost: u.cost,
+        reasoningTokens: u.completion_tokens_details?.reasoning_tokens,
+        cachedTokens: u.prompt_tokens_details?.cached_tokens,
       }
     : undefined;
-  return { content, servedModel: data.model, usage, raw: data };
+  return { content, servedModel: data.model, usage, finishReason: choice?.finish_reason, raw: data };
 }

@@ -128,14 +128,33 @@ function modeRouter(state: DivanStateType): "full" | "small" {
  * İkinci çıktı da geçersizse akış durur ve DENETIM_EKSIK kapısıyla Şah'a çıkar.
  */
 async function runAuditWithReturn(
-  runner: SeatRunner,
+  run: (seatId: string, input: SeatRunInput) => Promise<SeatRunOutput>,
   state: DivanStateType,
   phase: string,
   context: string,
 ) {
   const entries: TranscriptEntry[] = [];
   const outs: SeatRunOutput[] = [];
-  const first = await runner.run("auditor", { phase, idea: state.idea, context, retry: 0 });
+  let first: SeatRunOutput;
+  try {
+    first = await run("auditor", { phase, idea: state.idea, context, retry: 0 });
+  } catch (e) {
+    // ALTYAPI ARIZASI (kesilme) ise İADE İŞLEMEZ: iade, koltuğu kendi çıktısını düzeltmeye
+    // çağırmaktır; kesilmiş bir cevapta düzeltilecek bir çıktı yoktur ve aynı tavanla yeniden
+    // sormak aynı yere çarpar. Bu, koltuğun şema disiplini siciline de yazılmaz.
+    const infra = (e as Error).name === "TruncatedResponseError";
+    if (!infra) throw e;
+    return {
+      auditComplete: false,
+      auditIssue: (e as Error).message,
+      auditRetries: 0,
+      infraFailures: [`${phase}/auditor`],
+      transcript: [
+        { phase, seatId: "auditor", content: `[ALTYAPI ARIZASI: ${(e as Error).message}]` },
+      ],
+      callCount: 1,
+    };
+  }
   outs.push(first);
   let check = validateAudit(first.data);
   entries.push({
@@ -146,7 +165,7 @@ async function runAuditWithReturn(
   let calls = 1;
 
   if (!check.ok) {
-    const second = await runner.run("auditor", {
+    const second = await run("auditor", {
       phase,
       idea: state.idea,
       context: `${context}\n\nİADE GEREKÇESİ (çıktın reddedildi, aynı denetimi bu eksiği gidererek yeniden ver): ${check.reason}`,
@@ -165,7 +184,6 @@ async function runAuditWithReturn(
   }
 
   return {
-    ...usageOf(outs),
     auditComplete: check.ok,
     auditIssue: check.ok ? "" : check.reason,
     auditRetries: calls - 1,
@@ -180,9 +198,17 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
   // kaybolmaz, yalnız bir sonraki düğüme yazılır.
   const buffer: Array<{ seatId: string; out: SeatRunOutput }> = [];
   const run = async (seatId: string, input: SeatRunInput): Promise<SeatRunOutput> => {
-    const out = await runner.run(seatId, input);
-    buffer.push({ seatId, out });
-    return out;
+    try {
+      const out = await runner.run(seatId, input);
+      buffer.push({ seatId, out });
+      return out;
+    } catch (e) {
+      // Kesilen çağrı da faturalanır. Hata taşıyorsa harcanan parayı kaydet, sonra yükselt:
+      // başarısızlık maliyetinin sessizce kaybolması, faturayı olduğundan küçük gösterirdi.
+      const usage = (e as { usage?: SeatRunOutput["usage"] }).usage;
+      if (usage) buffer.push({ seatId, out: { content: "", usage } });
+      throw e;
+    }
   };
   /**
    * Bir fazın koltuklarını PARALEL koşturur ve state güncellemesini hazırlar (DESIGN §7).
@@ -211,7 +237,13 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
         })),
         callCount: outcomes.reduce((n, o) => n + o.attempts, 0),
         // Faz adıyla birlikte: aynı koltuk farklı fazlarda sustuysa ikisi de görünür kalır.
-        silentSeats: outcomes.filter((o) => o.silent).map((o) => `${phase}/${o.seatId}`),
+        // ALTYAPI arızaları buraya YAZILMAZ: koltuk susmadı, altyapı kesti (§ tavan/kesilme).
+        silentSeats: outcomes
+          .filter((o) => o.silent && !o.infraFailure)
+          .map((o) => `${phase}/${o.seatId}`),
+        infraFailures: outcomes
+          .filter((o) => o.infraFailure)
+          .map((o) => `${phase}/${o.seatId}: ${o.reason ?? "kesilme"}`),
       },
     };
   };
@@ -368,9 +400,10 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
       return { ...budget, ...update };
     })
     // ---- F4: Denetçi denetim (premortem zorunlu) ----
-    .addNode("f4_audit", async (state: DivanStateType) =>
-      runAuditWithReturn(runner, state, "F4:audit", rawOfPhase(state, "F4:feasibility")),
-    )
+    .addNode("f4_audit", async (state: DivanStateType) => ({
+      ...(await runAuditWithReturn(run, state, "F4:audit", rawOfPhase(state, "F4:feasibility"))),
+      ...flushUsage(),
+    }))
     // ---- F4: revizyon/savunma turu (DESIGN §5, <=3 tur; kapanış revision.ts'te MEKANİK) ----
     .addNode("f4_revision", async (state: DivanStateType) => {
       // Bir tur = savunma çağrıları + ardından gelen hüküm turu.
@@ -475,9 +508,10 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
         callCount: 1,
       };
     })
-    .addNode("f4s_audit", async (state: DivanStateType) =>
-      runAuditWithReturn(runner, state, "F4s:audit", rawOfPhase(state, "F4s:feasibility")),
-    )
+    .addNode("f4s_audit", async (state: DivanStateType) => ({
+      ...(await runAuditWithReturn(run, state, "F4s:audit", rawOfPhase(state, "F4s:feasibility"))),
+      ...flushUsage(),
+    }))
     .addNode("f4s_judgment", async (state: DivanStateType) => {
       const out = await run("auditor", {
         phase: "F4s:judgment",

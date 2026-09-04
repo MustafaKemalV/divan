@@ -3,7 +3,8 @@
 // (puanlama/etiket/hüküm) YÖNLENDİRİLMEZ. server-only mühürlü.
 
 import "server-only";
-import { chat, hasApiKey } from "../openrouter/client.ts";
+import { hasApiKey } from "../openrouter/client.ts";
+import { callModel } from "../openrouter/gateway.ts";
 import { toNanoUsd } from "../graph/usage.ts";
 import { SEATS, type Seat } from "./seats.ts";
 import type { DivanConfig } from "../config/schema.ts";
@@ -59,7 +60,7 @@ async function probeSeat(
 ): Promise<SeatProbeResult> {
   const base = { seatId: seat.id, title: seat.title, family: seat.family, model, probedAt: now };
   try {
-    const { content, servedModel, usage } = await chat({
+    const { content, servedModel, usage } = await callModel({
       model,
       models,
       messages: [

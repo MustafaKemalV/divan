@@ -15,6 +15,8 @@ import type { SeatRunInput, SeatRunOutput } from "./seatRunner.ts";
 
 export interface SeatOutcome {
   seatId: string;
+  /** başarısızlık altyapı kaynaklı mı (tavan/kesilme) yoksa koltuğun kendi hatası mı */
+  infraFailure?: boolean;
   /** başarılı çıktı; koltuk sustuysa yoktur */
   out?: SeatRunOutput;
   /** yapılan çağrı denemesi sayısı (1 = ilk seferde döndü, 2 = bir kez yeniden denendi) */
@@ -59,15 +61,22 @@ export async function runPhaseSeats(
 ): Promise<SeatOutcome[]> {
   const attempt = async (seatId: string): Promise<SeatOutcome> => {
     let lastError = "";
+    let infra = false;
     for (let attemptNo = 1; attemptNo <= 2; attemptNo++) {
       try {
         const out = await withTimeout(run(seatId, inputFor(seatId)), timeoutMs, seatId);
         return { seatId, out, attempts: attemptNo, silent: false };
       } catch (e) {
         lastError = (e as Error).message;
+        // Kesilme bir ALTYAPI arızasıdır, koltuğun hatası değil: aynı tavanla yeniden denemek
+        // aynı sonucu verir ve boşuna para harcar. Tek deneme, sonra açık arıza kaydı.
+        if ((e as Error).name === "TruncatedResponseError") {
+          infra = true;
+          return { seatId, attempts: attemptNo, silent: true, infraFailure: true, reason: lastError };
+        }
       }
     }
-    return { seatId, attempts: 2, silent: true, reason: lastError };
+    return { seatId, attempts: 2, silent: true, infraFailure: infra, reason: lastError };
   };
   // Promise.all girdi sırasını korur: tamamlanma sırası değişse de çıktı kanonik kalır.
   return Promise.all(seats.map(attempt));

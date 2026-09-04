@@ -50,6 +50,11 @@ export const DivanState = Annotation.Root({
     reducer: (_prev, next) => next,
     default: () => 120_000,
   }),
+  // ALTYAPI arızaları (tavan/kesilme gibi): koltuğun şema disiplini siciline YAZILMAZ, ayrı tutulur.
+  infraFailures: Annotation<string[]>({
+    reducer: (prev, next) => [...prev, ...next],
+    default: () => [],
+  }),
   // İki denemede de cevap vermeyen koltuklar, "faz/koltuk" biçiminde. Eksik ses sessiz geçilmez:
   // transkripte "koltuk sustu" olarak yazılır ve Şah'ın görünürlüğüne çıkar.
   silentSeats: Annotation<string[]>({
