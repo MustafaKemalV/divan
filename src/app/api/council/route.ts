@@ -23,7 +23,19 @@ export async function GET(req: Request) {
   const runnerMode = resolveRunnerMode();
   const graph = getCouncilGraph(runnerMode, await createRunner(runnerMode));
   const snap = await graph.getState({ configurable: { thread_id: threadId } });
-  return NextResponse.json({ ok: true, runnerMode, next: snap.next ?? [], values: snap.values });
+  // Bekleyen kapı varsa payload'ı da döner: yarım kalan oturum sürdürülebilsin diye (--devam).
+  const interruptVal = snap.tasks?.[0]?.interrupts?.[0]?.value;
+  const gate =
+    interruptVal && typeof interruptVal === "object" && "gate" in interruptVal
+      ? String((interruptVal as { gate: unknown }).gate)
+      : undefined;
+  return NextResponse.json({
+    ok: true,
+    runnerMode,
+    next: snap.next ?? [],
+    values: snap.values,
+    bekleyenKapi: gate ? { gate, payload: interruptVal } : undefined,
+  });
 }
 
 export async function POST(req: Request) {

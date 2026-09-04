@@ -8,6 +8,13 @@
  * Danışman'ın F0 işidir, sürücü ona karışmaz), akışı canlı gösterir, kapılarda durup Şah'a sorar,
  * oturum bitince transkripti ve künyeyi bir dosyaya yazar.
  *
+ * Yarım kalan bir oturumu sürdürmek için:
+ *
+ *   npm run oturum -- --devam <threadId>
+ *
+ * Yarım oturum yanmış para demektir: checkpointer durumu zaten tutuyor, tekrar baştan koşmak
+ * ödenmiş çağrıları ikinci kez ödemektir.
+ *
  * Varsayılan GERÇEK modellerdir. Sahte koşum için: DIVAN_RUNNER=stub npm run oturum -- fikir.txt
  */
 
@@ -21,13 +28,20 @@ const PORT = Number(process.env.DIVAN_PORT ?? 3200);
 const BASE = `http://127.0.0.1:${PORT}`;
 const CIKTI_DIR = join(process.cwd(), "oturum-ciktisi");
 
-const dosya = process.argv[2];
-if (!dosya) {
-  console.error("Kullanim: npm run oturum -- <fikir-dosyasi>");
+const devamIdx = process.argv.indexOf("--devam");
+const devamThread = devamIdx >= 0 ? process.argv[devamIdx + 1] : null;
+const dosya = devamThread ? null : process.argv[2];
+
+if (!devamThread && !dosya) {
+  console.error("Kullanim:\n  npm run oturum -- <fikir-dosyasi>\n  npm run oturum -- --devam <threadId>");
   process.exit(2);
 }
-const fikir = readFileSync(dosya, "utf8").trim();
-if (!fikir) {
+if (devamThread && !/^[\w.-]+$/.test(devamThread)) {
+  console.error(`Gecersiz threadId: ${devamThread}`);
+  process.exit(2);
+}
+const fikir = dosya ? readFileSync(dosya, "utf8").trim() : "";
+if (dosya && !fikir) {
   console.error(`Fikir dosyasi bos: ${dosya}`);
   process.exit(2);
 }
@@ -243,18 +257,48 @@ function ciktiYaz(threadId, state, runnerMode, sureMs, sureKirilim) {
 }
 
 async function main() {
-  const threadId = `oturum-${new Date().toISOString().replace(/[:.]/g, "-")}`;
+  const threadId = devamThread ?? `oturum-${new Date().toISOString().replace(/[:.]/g, "-")}`;
   mkdirSync(CIKTI_DIR, { recursive: true });
   gunlukYolu = join(CIKTI_DIR, `${threadId}.jsonl`);
-  console.log(`Divan oturumu\n  fikir dosyasi : ${dosya} (${fikir.length} karakter, kelimesi kelimesine gonderilecek)`);
+  console.log(
+    devamThread
+      ? `Divan oturumu (DEVAM)\n  yarim oturum surduruluyor; odenmis cagrilar tekrar odenmez`
+      : `Divan oturumu\n  fikir dosyasi : ${dosya} (${fikir.length} karakter, kelimesi kelimesine gonderilecek)`,
+  );
   console.log(`  thread        : ${threadId}`);
   console.log(`  runner        : ${process.env.DIVAN_RUNNER ?? "openrouter (gercek)"}`);
   console.log(`  olay gunlugu  : ${gunlukYolu}\n`);
-  gunlukYaz({ type: "oturum-basladi", threadId, fikirDosyasi: dosya, fikirUzunlugu: fikir.length });
+  gunlukYaz({
+    type: devamThread ? "oturum-devam" : "oturum-basladi",
+    threadId,
+    fikirDosyasi: dosya,
+    fikirUzunlugu: fikir.length,
+  });
 
   await startServer();
   const t0 = Date.now();
-  let durak = await gonder({ threadId, idea: fikir });
+  let durak;
+
+  if (devamThread) {
+    // Durumu oku: oturum nerede kalmış, bekleyen bir kapı var mı?
+    const st = await (await fetch(`${BASE}/api/council?threadId=${threadId}`)).json();
+    const v = st.values ?? {};
+    if (!v.idea) {
+      console.error(`Bu threadId'de kayitli oturum yok: ${threadId}`);
+      return;
+    }
+    console.log(`  su ana kadar  : ${v.callCount ?? 0} cagri, $${((v.costNanoUsd ?? 0) / 1e9).toFixed(6)}`);
+    if (!st.bekleyenKapi) {
+      console.log(`\n  Bu oturumda bekleyen kapi yok (durum: ${(st.next ?? []).join(",") || "tamamlanmis"}).`);
+      const yol = ciktiYaz(threadId, st, st.runnerMode, 0, sure);
+      console.log(`  cikti      : ${yol}`);
+      return;
+    }
+    console.log(`  bekleyen kapi : ${st.bekleyenKapi.gate}\n`);
+    durak = { type: "gate", gate: st.bekleyenKapi.gate, payload: st.bekleyenKapi.payload, threadId };
+  } else {
+    durak = await gonder({ threadId, idea: fikir });
+  }
 
   while (durak && durak.type === "gate") {
     const kapiBaslangic = Date.now();
