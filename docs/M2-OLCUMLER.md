@@ -164,19 +164,32 @@ Paralelliğin ön koşulu olarak çağrı zaman aşımı eklendi: `timeouts.perC
 ölçülen en yavaş çağrının dört katı. Gerekçe: sıralı koşumda asılı bir üye yalnız yavaşlatır,
 paralel koşumda bütün oturumu asar.
 
-## Maliyet: ölçülen ve öngörülen
+## Maliyet: tahmin nasıl yanıldı
 
-Ölçülen (kesin, sağlayıcının bildirdiği rakamlar):
+**Eski tahmin: $0.0888.** İki tek çağrının ortalaması (F0 brifingi ve bir denetim) alınıp 27 ile
+çarpılmıştı, ve açıkça "alt sınır" diye etiketlenmişti.
 
-| | USD |
+**Ölçüm: yarım oturum (18 çağrı) $0.208651.** Çağrı başına $0.0116, yani tahmindeki ortalamanın
+üç buçuk katı. 27 çağrılık tam kurul için bu, kabaca **$0.31 ile $0.40** bandı demek; üst uçtaki
+pay geç fazlara (F5 sıralamasında Mimar ve Baş Danışman yine konuşuyor) ve düzeltilmiş token
+tavanına ait.
+
+Tahmin neden bu kadar yanıldı? Çünkü yanlış işten örneklenmişti. Prob çağrısı iki alanlık bir JSON
+döndürür; gerçek faz çağrısı binlerce token bağlam okur ve paragraflarca cevap yazar. Küçük bir
+çağrının fiyatından büyük bir çağrının fiyatını çıkarmak, birim fiyat sabitmiş gibi davranmaktır ve
+değildir. **Ders: bir ölçüm yalnız ölçtüğü iş yükü için geçerlidir.** Bu satır burada duruyor ki
+bir sonraki projeksiyon aynı hatayla kurulmasın.
+
+Ölçülen tek tek rakamlar (sağlayıcının bildirdiği, kesin):
+
+| Ölçüm | USD |
 |---|---|
-| Baş Danışman, F0 brifing | 0.003926 |
-| Denetçi, F4 denetim | 0.002648802 |
-| **İki çağrı toplamı** | **0.006574802** |
-| Çağrı başına ortalama | 0.003287401 |
+| Baş Danışman, F0 brifing (tek çağrı) | 0.003926 |
+| Denetçi, F4 denetim (tek çağrı, kesilmemiş) | 0.008777 |
+| Yedi koltuk şema probu (toplam) | 0.006063 |
+| Kesilme teşhisi, 9 kontrollü çağrı | 0.074 |
+| **Yarım oturum, 18 çağrı** | **0.208651** |
 
-Tam kurul projeksiyonu, 27 çağrı × ölçülen ortalama = **$0.0888**. Bu sayı bir ALT SINIR tahminidir
-ve iki yönden sapar: geç fazlarda taşınan bağlam büyüdüğü için girdi token'ı artar, ve kadronun
-fiyatları eşit değildir (Mimar Opus sınıfı, Denetçi ve Pazar Sesi daha ucuz). Yani gerçek rakamın
-bu tahminin üstünde çıkmasını bekliyoruz. Kesin sayı ilk tam oturumda ölçülüp buraya yazılacak;
-o ölçüm gelene kadar $0.0888 bir tahmindir, bir vaat değildir.
+Tam oturumun gerçek rakamı henüz **yok**: capstone koşumu iptal edildi ve yeniden koşulacak. O
+ölçüm geldiğinde buradaki band ya doğrulanacak ya da yine revize edilecek, ve hangisi olursa
+yazılacak.
