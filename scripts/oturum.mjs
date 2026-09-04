@@ -33,6 +33,13 @@ if (!fikir) {
 }
 
 const rl = createInterface({ input: stdin, output: stdout });
+
+/**
+ * Süre kırılımı. Toplam süre tek başına yanıltıcıdır: içinde hem modellerin çalıştığı zaman hem
+ * Şah'ın kapıda düşündüğü zaman vardır ve ikisi apayrı şeylerdir. Model süresi bir performans
+ * ölçüsüdür (paralellik onu düşürür); kapı beklemesi bir kullanım ölçüsüdür.
+ */
+const sure = { modelMs: 0, kapiMs: 0, dugum: new Map() };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let server = null;
 
@@ -68,6 +75,8 @@ function stopServer() {
 
 /** POST /api/council -> olaylari CANLI gosterir, duraklama olayini dondurur. */
 async function gonder(body) {
+  const t0 = Date.now();
+  let sonOlay = t0;
   const res = await fetch(`${BASE}/api/council`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -88,7 +97,11 @@ async function gonder(body) {
       if (!satir.startsWith("data: ")) continue;
       const e = JSON.parse(satir.slice(6));
       if (e.type === "node-update") {
-        console.log(`   . ${e.node}`);
+        // Düğümler sırayla akar; iki olay arası geçen süre o düğümün süresidir.
+        const gecen = Date.now() - sonOlay;
+        sonOlay = Date.now();
+        sure.dugum.set(e.node, (sure.dugum.get(e.node) ?? 0) + gecen);
+        console.log(`   . ${e.node}  (${(gecen / 1000).toFixed(1)} sn)`);
         // Dalga tamamlandığında koltuk çıktıları TAM METİN ve kanonik sırada basılır.
         for (const k of e.entries ?? []) {
           console.log(`\n   ${"-".repeat(66)}`);
@@ -102,6 +115,7 @@ async function gonder(body) {
       if (e.type === "gate" || e.type === "done") durak = e;
     }
   }
+  sure.modelMs += Date.now() - t0;
   return durak;
 }
 
@@ -154,7 +168,7 @@ async function kapiyiSor(e) {
   return (await rl.question("\nYanitin: ")).trim();
 }
 
-function ciktiYaz(threadId, state, runnerMode, sureMs) {
+function ciktiYaz(threadId, state, runnerMode, sureMs, sureKirilim) {
   mkdirSync(CIKTI_DIR, { recursive: true });
   const v = state.values ?? {};
   const fazlar = new Map();
@@ -167,7 +181,9 @@ function ciktiYaz(threadId, state, runnerMode, sureMs) {
     `# Divan oturumu: ${threadId}`,
     "",
     `- Kosum modu: **${runnerMode}**${runnerMode === "stub" ? " (SAHTE OTURUM, gercek sanilamaz)" : ""}`,
-    `- Kurul: ${v.councilMode ?? "-"} | Sure: ${(sureMs / 1000).toFixed(0)} sn | Cagri: ${v.callCount ?? 0}`,
+    `- Kurul: ${v.councilMode ?? "-"} | Cagri: ${v.callCount ?? 0}`,
+    `- Sure: ${(sureMs / 1000).toFixed(0)} sn toplam = model ${(sureKirilim.modelMs / 1000).toFixed(0)} sn + kapida bekleme ${(sureKirilim.kapiMs / 1000).toFixed(0)} sn`,
+    `- Faz sureleri: ${[...sureKirilim.dugum.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([n, ms]) => `${n} ${(ms / 1000).toFixed(0)}sn`).join(", ")}`,
     `- Maliyet: $${usd.toFixed(6)} (maliyeti bilinmeyen ${v.costUnknownCalls ?? 0} cagri, ${v.totalTokens ?? 0} token)`,
     `- Revizyon turu: ${v.revisionRounds ?? 0} | Hukum yeniden kosumu: ${v.judgmentRetries ?? 0} | Denetim iadesi: ${v.auditRetries ?? 0}`,
     `- Denetim mekanik sartlari: ${v.auditComplete ? "tam" : `EKSIK (${v.auditIssue})`}`,
@@ -221,25 +237,30 @@ async function main() {
   let durak = await gonder({ threadId, idea: fikir });
 
   while (durak && durak.type === "gate") {
+    const kapiBaslangic = Date.now();
     const yanit = await kapiyiSor(durak);
+    sure.kapiMs += Date.now() - kapiBaslangic;
     console.log("");
     durak = await gonder({ threadId, resume: yanit });
   }
 
   const sureMs = Date.now() - t0;
+  const yavaslar = [...sure.dugum.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
   if (durak?.type === "done") {
     console.log(`\n${"=".repeat(72)}\nOTURUM BITTI`);
     console.log(`  mod        : ${durak.runnerMode}`);
     console.log(`  cagri      : ${durak.metrics.callCount}`);
     console.log(`  maliyet    : $${durak.metrics.costUsd} (bilinmeyen ${durak.metrics.costUnknownCalls} cagri)`);
     console.log(`  token      : ${durak.metrics.totalTokens}`);
-    console.log(`  sure       : ${(sureMs / 1000).toFixed(0)} sn`);
+    console.log(`  sure       : ${(sureMs / 1000).toFixed(0)} sn toplam`);
+    console.log(`               model ${(sure.modelMs / 1000).toFixed(0)} sn | kapida bekleme ${(sure.kapiMs / 1000).toFixed(0)} sn`);
+    console.log(`  en yavas   : ${yavaslar.map(([n, ms]) => `${n} ${(ms / 1000).toFixed(0)}sn`).join(", ")}`);
     console.log(`  susan      : ${(durak.silentSeats ?? []).join(", ") || "yok"}`);
     if (durak.reason) console.log(`  bitis      : ${durak.reason}`);
   }
 
   const st = await (await fetch(`${BASE}/api/council?threadId=${threadId}`)).json();
-  const yol = ciktiYaz(threadId, st, st.runnerMode, sureMs);
+  const yol = ciktiYaz(threadId, st, st.runnerMode, sureMs, sure);
   console.log(`\n  cikti      : ${yol}`);
 }
 
