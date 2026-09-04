@@ -13,7 +13,7 @@
 
 import { spawn } from "node:child_process";
 import { createInterface } from "node:readline/promises";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { stdin, stdout } from "node:process";
 
@@ -33,6 +33,21 @@ if (!fikir) {
 }
 
 const rl = createInterface({ input: stdin, output: stdout });
+
+/**
+ * HAM olay günlüğü (JSONL). Markdown çıktısı insan içindir; bu dosya makine içindir ve üç işe
+ * yarar: kayıttan-oynatma demosu (DESIGN §10), M4'te odanın olay akışını beslemek, ve gerçek
+ * oturumlardan bir regresyon korpusu biriktirmek. Her satır bir olay, üstünde alındığı an.
+ */
+let gunlukYolu = null;
+function gunlukYaz(kayit) {
+  if (!gunlukYolu) return;
+  try {
+    appendFileSync(gunlukYolu, JSON.stringify({ t: new Date().toISOString(), ...kayit }) + "\n", "utf8");
+  } catch {
+    // Günlük yazılamazsa oturum durmaz: kayıt bir kolaylıktır, akışın şartı değil.
+  }
+}
 
 /**
  * Süre kırılımı. Toplam süre tek başına yanıltıcıdır: içinde hem modellerin çalıştığı zaman hem
@@ -96,6 +111,7 @@ async function gonder(body) {
     for (const satir of satirlar) {
       if (!satir.startsWith("data: ")) continue;
       const e = JSON.parse(satir.slice(6));
+      gunlukYaz(e);
       if (e.type === "node-update") {
         // Düğümler sırayla akar; iki olay arası geçen süre o düğümün süresidir.
         const gecen = Date.now() - sonOlay;
@@ -228,9 +244,13 @@ function ciktiYaz(threadId, state, runnerMode, sureMs, sureKirilim) {
 
 async function main() {
   const threadId = `oturum-${new Date().toISOString().replace(/[:.]/g, "-")}`;
+  mkdirSync(CIKTI_DIR, { recursive: true });
+  gunlukYolu = join(CIKTI_DIR, `${threadId}.jsonl`);
   console.log(`Divan oturumu\n  fikir dosyasi : ${dosya} (${fikir.length} karakter, kelimesi kelimesine gonderilecek)`);
   console.log(`  thread        : ${threadId}`);
-  console.log(`  runner        : ${process.env.DIVAN_RUNNER ?? "openrouter (gercek)"}\n`);
+  console.log(`  runner        : ${process.env.DIVAN_RUNNER ?? "openrouter (gercek)"}`);
+  console.log(`  olay gunlugu  : ${gunlukYolu}\n`);
+  gunlukYaz({ type: "oturum-basladi", threadId, fikirDosyasi: dosya, fikirUzunlugu: fikir.length });
 
   await startServer();
   const t0 = Date.now();
@@ -240,6 +260,8 @@ async function main() {
     const kapiBaslangic = Date.now();
     const yanit = await kapiyiSor(durak);
     sure.kapiMs += Date.now() - kapiBaslangic;
+    // Şah'ın yanıtı da kayda girer: kapıda ne sorulduğu kadar ne cevaplandığı da replay'in parçası.
+    gunlukYaz({ type: "sah-yaniti", gate: durak.gate, yanit, bekleyisMs: Date.now() - kapiBaslangic });
     console.log("");
     durak = await gonder({ threadId, resume: yanit });
   }
@@ -260,8 +282,10 @@ async function main() {
   }
 
   const st = await (await fetch(`${BASE}/api/council?threadId=${threadId}`)).json();
+  gunlukYaz({ type: "oturum-bitti", sureMs, modelMs: sure.modelMs, kapiMs: sure.kapiMs });
   const yol = ciktiYaz(threadId, st, st.runnerMode, sureMs, sure);
   console.log(`\n  cikti      : ${yol}`);
+  console.log(`  olay gunlugu: ${gunlukYolu}`);
 }
 
 try {
