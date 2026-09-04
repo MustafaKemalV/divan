@@ -59,6 +59,8 @@ Son güncelleme: M2-A1 (prompt altyapısı + gerçek runner iskeleti + premortem
 | Mekanizma | Zorlayan katman | Kanıt | Köken |
 |---|---|---|---|
 | Beyan bütünlüğü (değiştirme yok: taşı ya da iade et) | graf + kod + test | `runAuditWithReturn`, e2e S12/S13 | M2-A yeni |
+| ÖZET KOTASI: özetleyici bir koltuğu düşüremez | şema + kod + test | `summary.ts` (konuşan her koltuk >=1 madde), `summary.test.ts`, e2e S17. Susan koltuk muaf; kayıt hali koltuk etiketli, taşınan hali kimliksiz | M2-A yeni |
+| Faz özetinde kimlik sızıntısı (etiket + metin içi ad) | kod + test | `anonymizeSummary` etiketi kaldırır VE metin içindeki koltuk adlarını maskeler. **Kalan borç:** dolaylı tanıma (üslup, konu, ima) M2-C anonimleştirme katmanının işi | M2-A kısmi |
 | İade semantiği (tek iade, ham iz kalır, iade bütçeye yazılır) | graf + kod + test | e2e S12 (retries=1, 28 çağrı), S13 (iadede düzelme) | M2-A yeni |
 | 6.1 Anonimleştirme | **YOK** | M2-C borcu | borç (M2-C) |
 | 6.2 Kanıt kapısı, üç durum etiketi | şema + kod + test | denetim şemasında zorunlu enum, `audit.test.ts` | M2-A yeni |
@@ -95,7 +97,7 @@ Son güncelleme: M2-A1 (prompt altyapısı + gerçek runner iskeleti + premortem
 
 ## Özet
 
-Zorlanan mekanizma sayısı 34, borç 12. Borçların dağılımı: M2-A2 iki, M2-B dört, M2-C iki,
+Zorlanan mekanizma sayısı 36, borç 12. Borçların dağılımı: M2-A2 iki, M2-B dört, M2-C iki,
 M2-D bir, M3 üç, M4 iki, M5 bir. (Kanıt rozetinin URL kuralı M2-C'den M2-A'ya ÇEKİLDİ: ilk gerçek
 çağrıda bir iddia hak etmediği rozeti aldı, borcu ertelemek yerine kapatmak gerekti.)
 

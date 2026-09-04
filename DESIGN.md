@@ -108,6 +108,17 @@ Bunun yapısal sonucu: **kadro veridir.** Graf, hangi fazda kimin konuşacağın
 
 **Beyan bütünlüğü (temel ilke).** Sistem hiçbir ajanın beyanını değiştirmez: ya olduğu gibi taşır, ya gerekçesiyle iade eder. Bir çıktı mekanik şartları taşımıyorsa düzeltilmez, yumuşatılmaz, etiketi sessizce çevrilmez; ilgili koltuğa reddin gerekçesiyle geri gönderilir. Aşağıdaki mekaniklerin hepsi bu ilkenin uygulamasıdır.
 
+**Özet kotası (beyan bütünlüğünün faz özetlerine uygulanması).** Fazlar arası taşınan tek şey BD'nin
+faz özetidir (§5). Bu, özete girmeyen bir görüşün sonraki fazlar için hiç var olmamış olması demektir
+ve muhalefeti gömmenin en sessiz yoludur: kimse bir şey silmez, sadece özetlemez. Bu delik şemayla
+kapatılır: faz özeti, o fazda KONUŞAN HER KOLTUK için en az bir madde taşımak zorundadır ve her madde
+hangi koltuğa ait olduğunu bildirir. Baş Danışman yorumlar, sıralar, ağırlıklandırır ve kendi
+değerlendirmesini ekler; ama bir koltuğun katkısını özetten DÜŞÜREMEZ. Kota karşılanmazsa özet
+geçersizdir ve iade edilir. (Susan koltuk kotadan muaftır: olmayan bir katkı özetlenemez.)
+
+Koltuk etiketleri özetin KAYIT halinde tutulur; ileri taşınan metin kimliksizdir (§6.1), yani kota
+denetlenebilirliği artırırken anonimlik kuralını delmez.
+
 **İade semantiği.** Şema reddi TEK bir iade hakkı doğurur: aynı koltuğa, gerekçesiyle birlikte. İkinci çıktı da geçersizse akış durur ve Şah'a çıkar. İlk denemenin HAM hali transkriptte kalır (silinmez, düzeltilmez), ve iade çağrısı bütçe sayacına dahildir: iade bedavaya gelmez.
 
 ### 6.1 Anonimleştirme

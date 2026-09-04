@@ -50,6 +50,11 @@ export const DivanState = Annotation.Root({
     reducer: (_prev, next) => next,
     default: () => 120_000,
   }),
+  // Özet kotası karşılanmayan fazlar (§6): özet yine taşınır ama EKSİK olduğu görünür kalır.
+  summaryIssues: Annotation<string[]>({
+    reducer: (prev, next) => [...prev, ...next],
+    default: () => [],
+  }),
   // ALTYAPI arızaları (tavan/kesilme gibi): koltuğun şema disiplini siciline YAZILMAZ, ayrı tutulur.
   infraFailures: Annotation<string[]>({
     reducer: (prev, next) => [...prev, ...next],

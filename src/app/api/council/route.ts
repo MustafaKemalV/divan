@@ -147,6 +147,7 @@ export async function POST(req: Request) {
               costUnknownCalls: v.costUnknownCalls ?? 0,
             },
             silentSeats: v.silentSeats ?? [],
+            summaryIssues: v.summaryIssues ?? [],
           });
         }
       } catch (e) {

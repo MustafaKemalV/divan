@@ -330,6 +330,23 @@ async function run() {
     console.log(`  kanit: susan=${JSON.stringify(s.silentSeats)} | cagri ${s.metrics.callCount} (3 ek deneme) | bilinmeyen maliyet ${s.metrics.costUnknownCalls}`);
   });
 
+  // S17: özet kotası -> özetleyici bir koltuğu düşüremez (§6 beyan bütünlüğü)
+  await scenario("S17", "Ozet kotasi: dusen koltuk yakalanir ve gorunur kalir", async () => {
+    await post({ threadId: "e2e-s17", idea: `${LONG} [TEST:ozeteksik]` });
+    await post({ threadId: "e2e-s17", resume: "hmw" });
+    let s = stopEvent(await post({ threadId: "e2e-s17", resume: "cerceve onaylandi" }));
+    check(s.gate === "KAPI3", `KAPI3 bekleniyordu: ${s.gate ?? s.type}`);
+    check(
+      Array.isArray(s.payload.summaryIssues) && s.payload.summaryIssues.length > 0,
+      "dusurulen koltuk ozet kotasinda yakalanmaliydi",
+    );
+    const ilk = String(s.payload.summaryIssues[0]);
+    check(ilk.includes("kotası karşılanmadı"), `sebep kota olmali: ${ilk}`);
+    console.log(`  kanit: ${ilk.slice(0, 96)}`);
+    s = stopEvent(await post({ threadId: "e2e-s17", resume: "karar" }));
+    check(s.summaryIssues.length > 0, "done olayinda da gorunmeli");
+  });
+
   // S15: KURTARMA ZİNCİRİ. Güvenli duruş bir çıkmaz sokak olmamalı: ihlal -> sebepli duruş ->
   // re-table -> durum ve sayaç intakt -> devam -> tamamlanma.
   await scenario("S15", "Guvenli durus kurtarilabilir: ihlal -> re-table -> tamamlanma", async () => {

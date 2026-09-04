@@ -16,6 +16,8 @@ export interface SeatRunInput {
   round?: number;
   /** erken-uzlaşı kilidi yeniden-koşum sayısı */
   retry?: number;
+  /** özet fazlarında: o fazda KONUŞAN koltuklar (kota bunlar üzerinden denetlenir, §6) */
+  seats?: readonly string[];
 }
 
 export interface SeatRunOutput {
@@ -48,6 +50,7 @@ export const SMALL_IDEA_MAX_CHARS = 60;
  *   [TEST:noaudit]      -> denetim premortemsiz döner (§6.3.1 eksik denetim işaretlenmesi)
  *   [TEST:badurl]       -> "dogrulanmis" iddia hep URL'siz döner (red -> iade -> red -> Şah kapısı)
  *   [TEST:badurl1]      -> ilk çıktı URL'siz, İADE turunda düzelir (§6 iade semantiği mutlu yol)
+ *   [TEST:ozeteksik]    -> faz özeti bir koltuğun katkısını düşürür (§6 özet kotası)
  *   [TEST:slow:<koltuk>]   -> o koltuk gecikir (paralel tamamlanma sırası bozulur)
  *   [TEST:silent:<koltuk>] -> o koltuk hiç cevap vermez (koltuk sustu dalı)
  */
@@ -89,9 +92,17 @@ export class StubSeatRunner implements SeatRunner {
         return { content: `Taslak karar (stub): sıralama + hüküm turuna göre yön önerildi; muhalefet notu eklendi.` };
       }
       if (phase.endsWith(":summary")) {
-        const gorusSayisi = (input.context ?? "").split("\n").filter(Boolean).length;
+        const konusanlar = input.seats ?? [];
+        // [TEST:ozeteksik]: özetleyici son koltuğun katkısını DÜŞÜRÜR; §6 kotası bunu yakalamalı.
+        const dusur = idea.includes("[TEST:ozeteksik]") && konusanlar.length > 1;
+        const kapsanan = dusur ? konusanlar.slice(0, -1) : konusanlar;
+        const faz = phase.split(":")[0];
         return {
-          content: `${phase.split(":")[0]} özeti (stub): ${gorusSayisi} görüş alındı; ana eksen fikrin çekirdeği, ayrışma işaretlendi.`,
+          content: `${faz} özeti (stub): ${konusanlar.length} görüş alındı.`,
+          data: {
+            summary: `${faz} özeti (stub): ${konusanlar.length} görüş alındı; ana eksen fikrin çekirdeği, ayrışma işaretlendi.`,
+            points: kapsanan.map((s) => ({ seatId: s, point: `${s} katkısı özetlendi (stub).` })),
+          },
         };
       }
       return { content: `[BD stub @ ${phase}]` };

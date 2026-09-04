@@ -16,6 +16,8 @@ import type { SeatRunInput, SeatRunOutput } from "./seatRunner.ts";
 import { usageOf, formatUsd, toNanoUsd } from "./usage.ts";
 import { estimatePhaseCost } from "./estimate.ts";
 import { runPhaseSeats, type SeatOutcome } from "./phaseRun.ts";
+import { anonymizeSummary, speakingSeats, validateSummary } from "./summary.ts";
+import { SEATS } from "../seats/seats.ts";
 
 // DESIGN §4/§5 koltuk rolleri per faz (tam kurul).
 const IDEATORS = ["visionary", "market", "engineer1", "architect"] as const; // F2/F3
@@ -248,6 +250,60 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
     };
   };
 
+  /** Maskeleme için bilinen koltuk adları (id + Türkçe başlık). */
+  const seatLabels = SEATS.flatMap((s) => [s.id, s.title]);
+
+  /**
+   * Faz özeti (DESIGN §6 özet kotası). Konuşan her koltuk özette en az bir maddeyle temsil
+   * edilmek zorunda; karşılanmazsa özet BİR KEZ gerekçesiyle iade edilir. İkinci kez de eksikse
+   * özet yine taşınır (akış durmaz) ama eksikliği state'e yazılır ve karar ekranında görünür:
+   * susturulmuş bir görüşün sessizce kaybolması, kaba bir durmadan kötüdür.
+   *
+   * KAYIT hali koltuk etiketlidir (denetlenebilirlik), İLERİ TAŞINAN hali kimliksizdir (§6.1).
+   */
+  const runSummary = async (
+    state: DivanStateType,
+    phase: string,
+    rawPrefix: string,
+    summaryKey: string,
+  ) => {
+    const konusanlar = speakingSeats(state.transcript, rawPrefix);
+    const context = rawOfPhase(state, rawPrefix);
+    let calls = 1;
+    let out = await run("chiefAdvisor", { phase, idea: state.idea, context, seats: konusanlar });
+    let check = validateSummary(out.data, konusanlar);
+
+    if (!check.ok) {
+      calls = 2;
+      out = await run("chiefAdvisor", {
+        phase,
+        idea: state.idea,
+        context: `${context}\n\nİADE GEREKÇESİ (özetin reddedildi, düzelt): ${check.reason}`,
+        seats: konusanlar,
+        retry: 1,
+      });
+      check = validateSummary(out.data, konusanlar);
+    }
+
+    const kayit = check.ok
+      ? check.value.points.map((p) => `- [${p.seatId}] ${p.point}`).join("\n")
+      : `[ÖZET KOTASI EKSİK: ${check.reason}]\n${out.content}`;
+
+    return {
+      ...flushUsage(),
+      phaseSummaries: [
+        {
+          phase: summaryKey,
+          summary: check.ok ? anonymizeSummary(check.value, seatLabels) : out.content,
+        },
+      ],
+      // Özet KAYIT halinde koltuk etiketli tutulur: kota ancak böyle denetlenebilir.
+      transcript: [{ phase, seatId: "chiefAdvisor", content: kayit }],
+      summaryIssues: check.ok ? [] : [`${phase}: ${check.reason}`],
+      callCount: calls,
+    };
+  };
+
   const flushUsage = () => {
     const totals = usageOf(buffer.map((b) => b.out));
     const seatCostNano: Record<string, number> = {};
@@ -342,15 +398,9 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
       }));
       return { ...budget, ...update };
     })
-    .addNode("bd_summary_f2", async (state: DivanStateType) => {
-      const out = await run("chiefAdvisor", {
-        phase: "F2:summary",
-        idea: state.idea,
-        context: rawOfPhase(state, "F2:idea"),
-      });
-      return { ...flushUsage(), phaseSummaries: [{ phase: "F2", summary: out.content }], callCount: 1 };
-    })
-    // ---- F3: çapraz-tozlaşma (SIKIŞTIRMA: ham değil, F2 özeti bağlam) ----
+    .addNode("bd_summary_f2", async (state: DivanStateType) =>
+      runSummary(state, "F2:summary", "F2:idea", "F2"),
+    )
     .addNode("f3_cross", async (state: DivanStateType) => {
       const budget = budgetStop(state, IDEATORS.length, "F3", IDEATORS, "f3_cross");
       if (budget.abort) {
@@ -370,15 +420,9 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
       }));
       return { ...budget, ...update };
     })
-    .addNode("bd_summary_f3", async (state: DivanStateType) => {
-      const out = await run("chiefAdvisor", {
-        phase: "F3:summary",
-        idea: state.idea,
-        context: rawOfPhase(state, "F3:cross"),
-      });
-      return { ...flushUsage(), phaseSummaries: [{ phase: "F3", summary: out.content }], callCount: 1 };
-    })
-    // ---- F4: fizibilite (Müh-1/Müh-2/Mimar) ----
+    .addNode("bd_summary_f3", async (state: DivanStateType) =>
+      runSummary(state, "F3:summary", "F3:cross", "F3"),
+    )
     .addNode("f4_feasibility", async (state: DivanStateType) => {
       // F4'ün tam maliyeti: fizibilite + denetim + ilk revizyon turu + hüküm turu.
       const budget = budgetStop(state, FEASIBILITY.length + 1 + DEFENDERS.length + 1, "F4", [...FEASIBILITY, "auditor", ...DEFENDERS], "f4_feasibility");
@@ -448,16 +492,9 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
         callCount: 1,
       };
     })
-    .addNode("bd_summary_f4", async (state: DivanStateType) => {
-      const out = await run("chiefAdvisor", {
-        phase: "F4:summary",
-        idea: state.idea,
-        context: rawOfPhase(state, "F4:"),
-      });
-      return { ...flushUsage(), phaseSummaries: [{ phase: "F4", summary: out.content }], callCount: 1 };
-    })
-
-    // ================= KÜÇÜK KURUL (F1/F3 ve revizyon döngüsü yok) =================
+    .addNode("bd_summary_f4", async (state: DivanStateType) =>
+      runSummary(state, "F4:summary", "F4:", "F4"),
+    )
     .addNode("f2s_ideation", async (state: DivanStateType) => {
       const budget = budgetStop(state, SMALL_IDEATORS.length, "F2s", SMALL_IDEATORS, "f2s_ideation");
       if (budget.abort) {
@@ -476,14 +513,9 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
       }));
       return { ...budget, ...update };
     })
-    .addNode("bd_summary_f2s", async (state: DivanStateType) => {
-      const out = await run("chiefAdvisor", {
-        phase: "F2s:summary",
-        idea: state.idea,
-        context: rawOfPhase(state, "F2s:idea"),
-      });
-      return { ...flushUsage(), phaseSummaries: [{ phase: "F2", summary: out.content }], callCount: 1 };
-    })
+    .addNode("bd_summary_f2s", async (state: DivanStateType) =>
+      runSummary(state, "F2s:summary", "F2s:idea", "F2"),
+    )
     .addNode("f4s_feasibility", async (state: DivanStateType) => {
       // Küçük kurul F4: fizibilite + denetim + hüküm turu (revizyon döngüsü yok).
       const budget = budgetStop(state, 3, "F4s", ["engineer1", "auditor"], "f4s_feasibility");
@@ -529,14 +561,9 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
         callCount: 1,
       };
     })
-    .addNode("bd_summary_f4s", async (state: DivanStateType) => {
-      const out = await run("chiefAdvisor", {
-        phase: "F4s:summary",
-        idea: state.idea,
-        context: rawOfPhase(state, "F4s:"),
-      });
-      return { ...flushUsage(), phaseSummaries: [{ phase: "F4", summary: out.content }], callCount: 1 };
-    })
+    .addNode("bd_summary_f4s", async (state: DivanStateType) =>
+      runSummary(state, "F4s:summary", "F4s:", "F4"),
+    )
     .addNode("f5s_ranking", async (state: DivanStateType) => {
       const budget = budgetStop(state, SMALL_RANKERS.length + 2, "F5s", [...SMALL_RANKERS, "chiefAdvisor", "auditor"], "f5s_ranking");
       if (budget.abort) {
@@ -650,6 +677,8 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
         auditIssue: state.auditIssue,
         // Susan koltuklar karar anında görünür: eksik ses gizlenmez (§7).
         silentSeats: state.silentSeats,
+        // Özet kotası karşılanmayan fazlar: susturulmuş görüş sessizce kaybolmaz (§6).
+        summaryIssues: state.summaryIssues,
         // Karar anında maliyet de görünür: onay bedelini bilerek verilir.
         costNanoUsd: state.costNanoUsd,
         costUsd: formatUsd(state.costNanoUsd),

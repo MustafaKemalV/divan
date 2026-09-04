@@ -95,6 +95,34 @@ const JUDGMENT: JsonSchemaSpec = {
   },
 };
 
+// DESIGN §6 özet kotası: faz özeti, o fazda konuşan HER koltuk için en az bir madde taşımalı.
+// Kotanın kendisi kod tarafında (summary.ts) denetlenir; şema maddelerin koltuk kimliği taşımasını
+// zorunlu kılar, çünkü kimliksiz bir madde kotayı denetlenemez hale getirirdi.
+const SUMMARY: JsonSchemaSpec = {
+  name: "divan_faz_ozeti",
+  schema: {
+    type: "object",
+    additionalProperties: false,
+    required: ["summary", "points"],
+    properties: {
+      summary: { type: "string" },
+      points: {
+        type: "array",
+        minItems: 1,
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["seatId", "point"],
+          properties: {
+            seatId: { type: "string" },
+            point: { type: "string" },
+          },
+        },
+      },
+    },
+  },
+};
+
 /** Faz -> şema. Burada olan her faz ŞEMA-KRİTİKTİR (probu geçmemiş koltuğa gitmez, §7). */
 const BY_PHASE: Record<string, JsonSchemaSpec> = {
   "F0:briefing": BRIEFING,
@@ -103,6 +131,11 @@ const BY_PHASE: Record<string, JsonSchemaSpec> = {
   "F4s:audit": AUDIT,
   "F4:judgment": JUDGMENT,
   "F4s:judgment": JUDGMENT,
+  "F2:summary": SUMMARY,
+  "F3:summary": SUMMARY,
+  "F4:summary": SUMMARY,
+  "F2s:summary": SUMMARY,
+  "F4s:summary": SUMMARY,
 };
 
 export function schemaForPhase(phase: string): JsonSchemaSpec | undefined {

@@ -44,6 +44,8 @@ export type DivanEvent =
       };
       /** iki denemede de cevap vermeyen koltuklar (§7 eksik ses sessiz geçilmez) */
       silentSeats: string[];
+      /** özet kotası karşılanmayan fazlar (§6): bir görüş özetten düşmüşse burada görünür */
+      summaryIssues: string[];
     }
   | { type: "error"; message: string };
 
