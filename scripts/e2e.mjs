@@ -488,6 +488,30 @@ async function run() {
     console.log(`  kanit: auditComplete=true, iade dahil ${done.metrics.callCount} cagri`);
   });
 
+  // ------------------------------------------------ çağrı başına kullanım kaydı (M2-A3 U-8)
+  // "Sonra ölçeriz" sözünün aleti bu kayıt. Bekçi görevi iki yönlü: kayıt gerçekten tutuluyor mu,
+  // ve stub koşumda uydurma sayı üretiliyor mu? Sağlayıcı bildirmediyse alan BOŞ kalmalı.
+  console.log(`\n[KANIT] Cagri basina kullanim kaydi: tutuluyor mu, uyduruluyor mu?`);
+  try {
+    const ev = await post({ threadId: "e2e-calllog", idea: SHORT });
+    const kayitlar = ev.flatMap((e) => (e.type === "node-update" ? (e.calls ?? []) : []));
+    check(kayitlar.length > 0, "cagri kaydi hic tutulmamis");
+    const ornek = kayitlar[0];
+    check(typeof ornek.seatId === "string" && typeof ornek.phase === "string", "kayit koltuk ve faz tasimali");
+    check(typeof ornek.attempt === "number", "kayit deneme numarasi tasimali");
+    // Stub saglayici token bildirmez: alanlar BOS kalmali, sifir ya da uydurma deger DEGIL.
+    const uydurma = kayitlar.filter((k) => k.promptTokens !== undefined || k.costNanoUsd !== undefined);
+    console.log(`  kayit sayisi: ${kayitlar.length} | ornek: ${ornek.seatId}/${ornek.phase} deneme ${ornek.attempt}`);
+    console.log(`  stub'da token/maliyet alani dolduran kayit: ${uydurma.length}`);
+    check(uydurma.length === 0, `stub kosumda uydurma deger uretilmis: ${JSON.stringify(uydurma[0] ?? {})}`);
+    results.push({ id: "CAGRI-KAYDI", ok: true });
+    console.log(`  GECTI`);
+  } catch (e) {
+    results.push({ id: "CAGRI-KAYDI", ok: false, err: e.message });
+    console.log(`  DUSTU: ${e.message}`);
+  }
+
+
   await stopServer();
 
   // ------------------------------------------------ bağlam sıkıştırması kanıtı (in-process ölçüm)

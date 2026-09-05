@@ -31,8 +31,17 @@ export interface SeatRunOutput {
   data?: Record<string, unknown>;
   /** cevabı gerçekte veren model; stub'da yok, gerçek runner'da künye ve fallback izi için dolu */
   servedModel?: string;
-  /** token/maliyet; maliyet sayacı bunu toplar (M2-A2) */
-  usage?: { promptTokens?: number; completionTokens?: number; totalTokens?: number; cost?: number };
+  /** token/maliyet; maliyet sayacı toplar, çağrı kaydı (DESIGN §7) alan alan saklar */
+  usage?: {
+    promptTokens?: number;
+    completionTokens?: number;
+    totalTokens?: number;
+    /** akıl yürüten modellerin cevaptan önce harcadığı token (kesilme teşhisi) */
+    reasoningTokens?: number;
+    /** sağlayıcı önbelleğinden okunan token (katmanlı prompt mimarisinin ölçüsü) */
+    cachedTokens?: number;
+    cost?: number;
+  };
 }
 
 export interface SeatRunner {

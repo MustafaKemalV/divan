@@ -5,7 +5,13 @@
 // Çekirdek/UI ayrımı korunur: sıfır React/Next importu.
 
 import { StateGraph, START, END, interrupt } from "@langchain/langgraph";
-import { DivanState, type DivanStateType, type TranscriptEntry, type JudgmentItem } from "./state.ts";
+import {
+  DivanState,
+  type CallRecord,
+  type DivanStateType,
+  type JudgmentItem,
+  type TranscriptEntry,
+} from "./state.ts";
 import { StubSeatRunner, type SeatRunner } from "./seatRunner.ts";
 import { getCheckpointer } from "./checkpointer.ts";
 import { earlyConsensusLockRouter } from "./lock.ts";
@@ -201,11 +207,14 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
   // Her koltuk çağrısı buradan geçer; düğüm dönüşünde flushUsage() ile maliyet state'e yazılır.
   // Tampon düğüm-yereldir (graf düğümleri sırayla koşar); bir düğüm boşaltmayı atlarsa maliyet
   // kaybolmaz, yalnız bir sonraki düğüme yazılır.
-  const buffer: Array<{ seatId: string; out: SeatRunOutput }> = [];
+  const buffer: Array<{ seatId: string; phase: string; attempt: number; failed?: boolean; out: SeatRunOutput }> = [];
   const run = async (seatId: string, input: SeatRunInput): Promise<SeatRunOutput> => {
+    // Deneme numarası düğüm içinde sayılır: aynı koltuk+faz için kaçıncı çağrı olduğu, iade ve
+    // yeniden deneme mekanizmalarının maliyetini kayıtta ayırt edilebilir kılar.
+    const attempt = buffer.filter((b) => b.seatId === seatId && b.phase === input.phase).length + 1;
     try {
       const out = await runner.run(seatId, input);
-      buffer.push({ seatId, out });
+      buffer.push({ seatId, phase: input.phase, attempt, out });
       return out;
     } catch (e) {
       // Başarısız deneme de bir çağrıdır ve HER ZAMAN kaydedilir. Hata harcanan parayı taşıyorsa
@@ -213,7 +222,7 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
       // onu "maliyeti bilinmeyen" olarak sayar. Kaydı burada tutmak, aynı denemenin bir de düğüm
       // tarafından ikinci kez sayılmasını gereksiz kılar (M2-A3 U-7 çift sayımı).
       const usage = (e as { usage?: SeatRunOutput["usage"] }).usage;
-      buffer.push({ seatId, out: { content: "", usage } });
+      buffer.push({ seatId, phase: input.phase, attempt, failed: true, out: { content: "", usage } });
       throw e;
     }
   };
@@ -313,13 +322,27 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
     const totals = usageOf(buffer.map((b) => b.out));
     const seatCostNano: Record<string, number> = {};
     const seatCalls: Record<string, number> = {};
+    const callLog: CallRecord[] = [];
     for (const b of buffer) {
       seatCalls[b.seatId] = (seatCalls[b.seatId] ?? 0) + 1;
-      const c = b.out.usage?.cost;
-      if (c !== undefined) seatCostNano[b.seatId] = (seatCostNano[b.seatId] ?? 0) + toNanoUsd(c);
+      const u = b.out.usage;
+      if (u?.cost !== undefined) seatCostNano[b.seatId] = (seatCostNano[b.seatId] ?? 0) + toNanoUsd(u.cost);
+      // Sağlayıcı bildirmediyse alan BOŞ kalır: stub koşumda uydurma sayı üretilmez.
+      callLog.push({
+        seatId: b.seatId,
+        phase: b.phase,
+        attempt: b.attempt,
+        servedModel: b.out.servedModel,
+        promptTokens: u?.promptTokens,
+        completionTokens: u?.completionTokens,
+        reasoningTokens: u?.reasoningTokens,
+        cachedTokens: u?.cachedTokens,
+        costNanoUsd: u?.cost === undefined ? undefined : toNanoUsd(u.cost),
+        ...(b.failed ? { failed: true } : {}),
+      });
     }
     buffer.length = 0;
-    return { ...totals, seatCostNano, seatCalls };
+    return { ...totals, seatCostNano, seatCalls, callLog };
   };
 
   const graph = new StateGraph(DivanState)

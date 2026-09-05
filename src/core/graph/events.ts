@@ -13,6 +13,8 @@ export type DivanEvent =
        * karşı değil, dolayısıyla tasarımla çelişmez.
        */
       entries?: { phase: string; seatId: string; content: string }[];
+      /** o düğümün yaptığı çağrıların kullanım kaydı (DESIGN §7); JSONL günlüğüne düşer */
+      calls?: unknown[];
     }
   | { type: "gate"; gate: string; payload: unknown; threadId: string }
   | {

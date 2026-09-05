@@ -18,6 +18,27 @@ export interface TranscriptEntry {
   content: string;
 }
 
+/**
+ * Tek bir koltuk çağrısının kaydı (DESIGN §7). Zarfın, eklerin ve önbelleğin maliyet payı bu
+ * kayıt olmadan ölçülemez. Sağlayıcı bir alanı bildirmezse alan BOŞ kalır; uydurulmaz.
+ */
+export interface CallRecord {
+  seatId: string;
+  phase: string;
+  /** aynı koltuk+faz içinde kaçıncı deneme (1 = ilk) */
+  attempt: number;
+  /** cevabı gerçekte veren model (pin mi fallback mi) */
+  servedModel?: string;
+  promptTokens?: number;
+  completionTokens?: number;
+  reasoningTokens?: number;
+  /** sağlayıcı önbelleğinden okunan token; katmanlı prompt mimarisinin ölçüsü budur */
+  cachedTokens?: number;
+  costNanoUsd?: number;
+  /** çağrı başarısızlıkla bitti mi (kesilme, zaman aşımı, hata) */
+  failed?: boolean;
+}
+
 /** Şah'ın fikre iliştirdiği ek belge (README, şema, örnek kod). */
 export interface Attachment {
   name: string;
@@ -204,6 +225,12 @@ export const DivanState = Annotation.Root({
   costUnknownCalls: Annotation<number>({
     reducer: (prev, next) => prev + next,
     default: () => 0,
+  }),
+  // ÇAĞRI BAŞINA kayıt (DESIGN §7 kullanım kaydı). Toplamlar soruyu cevaplamıyor: "zarf ne kadar
+  // tuttu", "ekler ne kadar tuttu", "önbellek çalıştı mı" ancak çağrı çağrı bakılınca görülür.
+  callLog: Annotation<CallRecord[]>({
+    reducer: (prev, next) => [...prev, ...next],
+    default: () => [],
   }),
   // Koltuk bazlı birikim: bütçe kapısındaki KESTİRİM bundan türetilir (koltuk fiyatları 21 kata
   // varan farklar gösteriyor, düz ortalama yanıltır; docs/M2-OLCUMLER.md).
