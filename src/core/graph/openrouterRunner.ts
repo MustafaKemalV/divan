@@ -6,7 +6,7 @@
 // böylece erken-uzlaşı kilidi (§6.3) devreye girer ve durum Şah'a çıkar.
 
 import { callModel } from "../openrouter/gateway.ts";
-import { loadPrompt } from "../prompts/load.ts";
+import { buildSystemPrompt } from "../prompts/load.ts";
 import { getSeat } from "../seats/seats.ts";
 import type { DivanConfig } from "../config/schema.ts";
 import { schemaForPhase } from "./schemas.ts";
@@ -14,7 +14,10 @@ import type { SeatRunInput, SeatRunOutput, SeatRunner } from "./seatRunner.ts";
 
 /** Kullanıcı mesajı: fikir + ileri taşınan bağlam + tur bilgisi. Ham transkript BURADAN geçmez. */
 function buildUserMessage(input: SeatRunInput): string {
-  const parts = [`FİKİR:\n${input.idea}`];
+  const parts: string[] = [];
+  // OTURUM ZARFI ilk blok: çerçeve her çağrıya gider (DESIGN §5 D-2).
+  if (input.envelope?.trim()) parts.push(input.envelope.trim());
+  parts.push(`FİKİR:\n${input.idea}`);
   // Ek belgeler: TAM METİN yalnız verildiği fazlarda; diğer fazlar özet görür (DESIGN §5).
   for (const ek of input.attachments ?? []) {
     parts.push(`EK BELGE (${ek.name}):\n${ek.content}`);
@@ -46,7 +49,8 @@ export class OpenRouterSeatRunner implements SeatRunner {
     const sm = this.config.seats[seatId];
     if (!sm) throw new Error(`Config'de koltuk eşlemesi yok: "${seatId}".`);
 
-    const system = loadPrompt(seatId, input.phase);
+    // Sistem mesajı = KİMLİK + FAZ TALİMATI (DESIGN §7 D-1).
+    const system = buildSystemPrompt(seatId, input.phase);
     const schema = schemaForPhase(input.phase);
 
     const { content, servedModel, usage } = await callModel({

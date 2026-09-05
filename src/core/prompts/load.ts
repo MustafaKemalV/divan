@@ -20,8 +20,26 @@ export function promptFileName(seatId: string, phase: string): string {
 }
 
 /** Prompt metnini döndürür. Eksik dosya SESSİZ geçilmez: koltuk sessiz bir varsayılanla konuşamaz. */
+/**
+ * KİMLİK katmanı (DESIGN §7 D-1): koltuk başına sabit, bütün fazlarda aynı. Divan'da ajan seansı
+ * yoktur, her çağrı hafızasızdır; bir insanın kurula girerken aldığı brifingin karşılığı, her
+ * çağrıda yeniden gönderilen bu sabit metindir. Sabit olduğu için sağlayıcı önbelleğinin de
+ * hedefidir; etkisi tahmin edilmez, çağrı kaydındaki `cachedTokens` ile ölçülür.
+ */
+export function loadIdentity(seatId: string): string {
+  return loadFile(`${seatId}-kimlik.md`, `koltuk "${seatId}" kimliği`);
+}
+
+/** Sistem mesajı = KİMLİK + FAZ TALİMATI. Sıra sabittir: sabit katman başta durur. */
+export function buildSystemPrompt(seatId: string, phase: string): string {
+  return `${loadIdentity(seatId)}\n\n---\n\n${loadPrompt(seatId, phase)}`;
+}
+
 export function loadPrompt(seatId: string, phase: string): string {
-  const file = promptFileName(seatId, phase);
+  return loadFile(promptFileName(seatId, phase), `koltuk "${seatId}", faz "${phase}"`);
+}
+
+function loadFile(file: string, ne: string): string {
   const cached = cache.get(file);
   if (cached !== undefined) return cached;
   let text: string;
@@ -29,8 +47,8 @@ export function loadPrompt(seatId: string, phase: string): string {
     text = readFileSync(join(PROMPTS_DIR, file), "utf8");
   } catch {
     throw new Error(
-      `Prompt dosyası bulunamadı: prompts/${file} (koltuk "${seatId}", faz "${phase}"). ` +
-        `Her koltuk-faz çifti için bir prompt dosyası gerekir; varsayılan metinle konuşulmaz.`,
+      `Prompt dosyası bulunamadı: prompts/${file} (${ne}). ` +
+        `Eksik prompt sessiz geçilmez; varsayılan metinle konuşulmaz.`,
     );
   }
   // Başlık satırı (# ...) insan içindir, modele gitmez.

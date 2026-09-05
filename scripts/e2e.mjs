@@ -534,6 +534,7 @@ async function run() {
           output: out.content,
           attachments: input.attachments ?? [],
           attachmentSummary: input.attachmentSummary ?? "",
+          envelope: input.envelope ?? "",
         });
         return out;
       },
@@ -582,6 +583,13 @@ async function run() {
       check(raw.length > 0, `${fp.phase} ham metni olusmadi`);
       check(leaks.length === 0, `ham transkript sizdi (${fp.phase}): ${leaks.map((l) => l.phase).join(",")}`);
     }
+
+    // OTURUM ZARFI: F2 ve sonrasındaki her ajan çağrısı çerçeveyi görmeli (M2-A3 U-4).
+    const zarfsiz = fullOnly.filter(
+      (c) => /^F[2345]/.test(c.phase) && c.seatId !== "chiefAdvisor" && !String(c.envelope ?? "").includes("OTURUM ZARFI"),
+    );
+    console.log(`  oturum zarfi olmayan gec faz cagrisi: ${zarfsiz.length}`);
+    check(zarfsiz.length === 0, `zarfsiz cagri var: ${zarfsiz.map((c) => c.phase).join(",")}`);
 
     const f2Raw = rawOf("F2:idea");
     const f3Ctx = fullOnly.find((c) => c.phase === "F3:cross")?.context ?? "";
@@ -714,7 +722,9 @@ async function run() {
   // Yani buradaki "eksik dosya" hatası çoğu zaman eksik dosya değil, yanlış kadro demektir.
   console.log(`\n[KANIT] Prompt kapsami: grafin cagirdigi her koltuk-faz cifti dosyada var mi?`);
   try {
-    const { loadPrompt, promptFileName } = await import("../src/core/prompts/load.ts");
+    const { loadPrompt, loadIdentity, buildSystemPrompt, promptFileName } = await import(
+      "../src/core/prompts/load.ts"
+    );
     const pairs = new Map();
     for (const c of spyCalls) pairs.set(`${c.seatId}|${c.phase}`, c);
     const missing = [];
@@ -724,6 +734,23 @@ async function run() {
       } catch {
         missing.push(`${promptFileName(c.seatId, c.phase)}  (koltuk ${c.seatId}, faz ${c.phase})`);
       }
+      // KİMLİK katmanı da kapsama dahil: kimliksiz bir koltuk, F3 ve F5'te kim olduğunu bilmez.
+      try {
+        loadIdentity(c.seatId);
+      } catch {
+        missing.push(`${c.seatId}-kimlik.md  (koltuk ${c.seatId})`);
+      }
+    }
+    // F3 ve F5'te kimlik gerçekten sistem promptunda mı? (Bu iki fazın talimat dosyaları
+    // koltuktan koltuğa neredeyse aynıydı; kimlik tek taşıyıcı.)
+    for (const [seat, faz] of [
+      ["visionary", "F3:cross"],
+      ["market", "F5:ranking"],
+      ["architect", "F5:ranking"],
+    ]) {
+      const sistem = buildSystemPrompt(seat, faz);
+      const kimlik = loadIdentity(seat);
+      if (!sistem.startsWith(kimlik.slice(0, 40))) missing.push(`${seat} kimligi ${faz} sistem promptunda yok`);
     }
     console.log(`  cagrilan benzersiz cift: ${pairs.size} | eksik prompt: ${missing.length}`);
     for (const m of missing) console.log(`    EKSIK: ${m}`);

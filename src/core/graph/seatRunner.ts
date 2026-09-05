@@ -23,6 +23,8 @@ export interface SeatRunInput {
   attachments?: readonly { name: string; content: string }[];
   /** ek belgelerin BD özeti; tam metin verilmeyen fazlar bunu görür */
   attachmentSummary?: string;
+  /** OTURUM ZARFI (DESIGN §5 D-2): kod tarafından kurulur, her çağrının ilk bloğudur */
+  envelope?: string;
 }
 
 export interface SeatRunOutput {

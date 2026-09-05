@@ -105,14 +105,24 @@ export const DivanState = Annotation.Root({
     reducer: (_prev, next) => next,
     default: () => "",
   }),
+  /** BD'nin F0'da ürettiği fikir özeti; oturum zarfının ilk parçası (DESIGN §5 D-2). */
+  ideaSummary: Annotation<string>({
+    reducer: (_prev, next) => next,
+    default: () => "",
+  }),
   hmwOptions: Annotation<string[]>(),
   selectedHmw: Annotation<string | null>({
     reducer: (_prev, next) => next,
     default: () => null,
   }),
 
-  // F1 Denetçi çerçeve itirazı (üzerine yazılır) + KAPI 2'de Şah'ın onayladığı çerçeve
-  frameObjection: Annotation<string>(),
+  // F1 Denetçi çerçeve itirazı (üzerine yazılır) + KAPI 2'de Şah'ın onayladığı çerçeve.
+  // Varsayılan ŞART: küçük kurul yolunda F1 hiç koşmaz ve bu alan hiç yazılmaz; varsayılansız
+  // bir kanal orada undefined kalıp zarf kurulumunu düşürüyordu.
+  frameObjection: Annotation<string>({
+    reducer: (_prev, next) => next,
+    default: () => "",
+  }),
   approvedFrame: Annotation<string | null>({
     reducer: (_prev, next) => next,
     default: () => null,
