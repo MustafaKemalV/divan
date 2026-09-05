@@ -88,6 +88,20 @@ Son güncelleme: M2-A1 (prompt altyapısı + gerçek runner iskeleti + premortem
 | Runner modu damgası | kod + test | done olayı `runnerMode`, e2e S01 | M2-A yeni |
 | Maliyet sayacı (bilinmeyen tahmin edilmez) | kod + test | `usage.ts`, `usage.test.ts`, e2e S01 (stub koşumda 27/27 çağrı "maliyeti bilinmiyor") | M2-A2: borç kapandı |
 
+## M2-A3 Blok 1 (Fable incelemesinden doğdu, kapatıldı)
+
+| Mekanizma | Zorlayan katman | Kanıt | Köken |
+|---|---|---|---|
+| Test zinciri tek komutta (tsc + birim + e2e) | komut + kanıt | `npm test`; kasıtlı bozulan birim testi zinciri düşürdü | M2-A3 U-1 |
+| Ağ sınırı: yalnız 127.0.0.1 | kod + ölçüm | lsof: `*:3299` idi, `127.0.0.1:3299` oldu | M2-A3 U-2 |
+| Maskeleme harf sınırı tanır | kod + test | `summary.ts` Unicode sınırı, `summary.test.ts`; "Mimari kararlar" ve "marketing" artık bozulmuyor | M2-A3 U-3 |
+| Bilinen maliyet "bilinmeyen" sayılmaz | kod + test | sayım tek kaynaktan (izleyici); e2e S18 | M2-A3 U-7 |
+| Çağrı başına kullanım kaydı | kod + test | `callLog` (koltuk, faz, deneme, model, token dökümü, maliyet); e2e stub'da uydurma değer üretilmediğini doğruluyor | M2-A3 U-8 |
+| Özet zinciri kendi kuyruğunu yemez | kod + test | `context.ts` (son özet okunur, özet kaydı ham bağlama girmez), `context.test.ts`; `judgmentHistory` tur numaralı | M2-A3 U-6 |
+| Oturum zarfı: çerçeve her çağrıda | kod + test | `buildEnvelope` kademeli görünürlük; e2e "zarfsız geç faz çağrısı: 0" (önce 19/19 çağrı çerçeveyi görmüyordu) | M2-A3 U-4 |
+| Kimlik katmanı sistem promptunda | kod + test | yedi `<koltuk>-kimlik.md`; prompt kapsamı testi kimlikleri de sayıyor ve F3/F5 sistem promptunda varlığını doğruluyor | M2-A3 U-4 |
+| Karar taslağı ve final denetim görerek çalışır | kod + test | e2e: taslak sıralamaları ve muhalefet notunu görüyor, final denetim taslağı görüyor, sıralamalar kimliksiz | M2-A3 U-5 |
+
 ## Fable M2-A3 incelemesinden çıkan borçlar (Blok 3)
 
 | Mekanizma | Zorlayan katman | Kanıt | Köken |
@@ -111,7 +125,7 @@ Son güncelleme: M2-A1 (prompt altyapısı + gerçek runner iskeleti + premortem
 
 ## Özet
 
-Zorlanan mekanizma sayısı 37, borç 12. Borçların dağılımı: M2-A2 iki, M2-B dört, M2-C iki,
+Zorlanan mekanizma sayısı 46, borç 20 (12'si sonraki milestone'lara planlı, 8'i Fable M2-A3 incelemesinden). Borçların dağılımı: M2-A2 iki, M2-B dört, M2-C iki,
 M2-D bir, M3 üç, M4 iki, M5 bir. (Kanıt rozetinin URL kuralı M2-C'den M2-A'ya ÇEKİLDİ: ilk gerçek
 çağrıda bir iddia hak etmediği rozeti aldı, borcu ertelemek yerine kapatmak gerekti.)
 

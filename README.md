@@ -50,7 +50,7 @@ The interesting artefact in this repository may be
 design promises, what actually enforces it (graph edge, schema, code, test, or nothing yet), the
 evidence for that claim, and whether the row is a new mechanism or a debt that was paid off.
 
-At the time of writing: 37 mechanisms enforced, 20 still owed (12 planned for later milestones,
+At the time of writing: 46 mechanisms enforced, 20 still owed (12 planned for later milestones,
 8 opened by an independent line-by-line review of this codebase). The debts are listed by name.
 
 Measurements from real runs, including per seat costs and what they revealed, are in
