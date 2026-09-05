@@ -50,4 +50,24 @@ const anon = anonymizeSummary(
 assert.ok(!/visionary|market|Vizyoner|Pazar Sesi/i.test(anon), `tasinan metinde kimlik olmamali: ${anon}`);
 assert.ok(anon.includes("Görüş 1") && anon.includes("Görüş 2"), "gorusler kimliksiz numaralanmali");
 
-console.log("SUMMARY_TEST_OK: kota (dusen koltuk yakalanir) + susan muafiyeti + tasinan metin kimliksiz");
+// 8) HARF SINIRI (M2-A3 U-3). GEREKÇE-KANITI: sınırsız maskeleme sözcük içini bozuyordu.
+//    Kırmızı hal: "Mimari kararlar" -> "bir koltuki kararlar", "marketing" -> "bir koltuking".
+{
+  const etiketler = ["architect", "Mimar", "market", "Pazar Sesi"];
+  const cikti = anonymizeSummary(
+    {
+      summary: "Mimari kararlar oturmamis; marketing plani yok",
+      points: [{ seatId: "architect", point: "Mimar dedi ki yapi zayif; Pazar Sesi ayristi" }],
+    },
+    etiketler,
+  );
+  // Sözcük İÇİ dokunulmaz: bunlar koltuk adı değil, sıradan kelimeler.
+  assert.ok(cikti.includes("Mimari kararlar"), `sozcuk ici bozulmamali: ${cikti}`);
+  assert.ok(cikti.includes("marketing"), `sozcuk ici bozulmamali: ${cikti}`);
+  // Sözcük olarak geçen koltuk adı maskelenir.
+  assert.ok(!/\bMimar dedi/.test(cikti), `koltuk adi maskelenmeli: ${cikti}`);
+  assert.ok(!cikti.includes("Pazar Sesi"), `iki kelimelik koltuk adi da maskelenmeli: ${cikti}`);
+  assert.ok(cikti.includes("bir koltuk dedi"), `maskeleme uygulanmali: ${cikti}`);
+}
+
+console.log("SUMMARY_TEST_OK: kota (dusen koltuk yakalanir) + susan muafiyeti + tasinan metin kimliksiz + harf siniri");

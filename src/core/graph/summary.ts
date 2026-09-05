@@ -80,11 +80,19 @@ export function validateSummary(data: unknown, expectedSeats: readonly string[])
  */
 export function anonymizeSummary(value: SummaryOutput, seatLabels: readonly string[] = []): string {
   const maskele = (metin: string) =>
-    seatLabels.reduce(
-      (acc, etiket) =>
-        etiket ? acc.replaceAll(new RegExp(etiket.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"), "bir koltuk") : acc,
-      metin,
-    );
+    seatLabels.reduce((acc, etiket) => {
+      if (!etiket) return acc;
+      const kacisli = etiket.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      // HARF SINIRI. Düz bir arama sözcük içini bozar: "Mimari kararlar" -> "bir koltuki kararlar",
+      // "marketing" -> "bir koltuking". JavaScript'in \b sınırı Türkçe harflerde güvenilmez
+      // (ı, İ, ş, ğ ASCII sözcük karakteri sayılmaz), bu yüzden Unicode harf/rakam çevresi
+      // lookbehind/lookahead ile kontrol edilir.
+      //
+      // Bilinen sınır: "market" koltuk kimliği aynı zamanda sıradan bir kelime; tek başına geçen
+      // bir "market" sözcüğü de maskelenir. Doğru çözüm koltuğa maskelemede kullanılacak ayrı bir
+      // ad vermektir ve M2-B "kadro = veri" işine borçtur.
+      return acc.replace(new RegExp(`(?<![\\p{L}\\p{N}])${kacisli}(?![\\p{L}\\p{N}])`, "giu"), "bir koltuk");
+    }, metin);
   const satirlar = value.points.map((p, i) => `- Görüş ${i + 1}: ${maskele(p.point)}`);
   return [maskele(value.summary), "", ...satirlar].join("\n");
 }
