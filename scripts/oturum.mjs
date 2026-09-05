@@ -79,7 +79,10 @@ let server = null;
 
 async function startServer() {
   const env = { ...process.env, PORT: String(PORT) };
-  server = spawn("node_modules/.bin/next", ["dev", "--port", String(PORT)], {
+  // AĞ SINIRI (DESIGN §10): yalnız yerel arayüz. Host verilmezse Next bütün arayüzlere
+  // bağlanır ve aynı ağdaki herkes /api/council ile Şah'ın anahtarını harcayabilir,
+  // GET ile transkript okuyabilir. Anahtar VE harcama yetkisi makineden çıkmaz.
+  server = spawn("node_modules/.bin/next", ["dev", "--hostname", "127.0.0.1", "--port", String(PORT)], {
     env,
     stdio: ["ignore", "pipe", "pipe"],
   });

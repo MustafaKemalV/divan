@@ -44,7 +44,10 @@ async function startServer() {
     DIVAN_RUNNER: "stub", // sahte koşum AÇIKÇA istenir; varsayılan mod gerçek modellerdir
   };
   delete env.OPENROUTER_API_KEY; // anahtarsız koşum: stub'lar hiçbir sağlayıcıya gitmez
-  server = spawn("node_modules/.bin/next", ["dev", "--port", String(PORT)], {
+  // AĞ SINIRI (DESIGN §10): yalnız yerel arayüz. Host verilmezse Next bütün arayüzlere
+  // bağlanır ve aynı ağdaki herkes /api/council ile Şah'ın anahtarını harcayabilir,
+  // GET ile transkript okuyabilir. Anahtar VE harcama yetkisi makineden çıkmaz.
+  server = spawn("node_modules/.bin/next", ["dev", "--hostname", "127.0.0.1", "--port", String(PORT)], {
     env,
     stdio: ["ignore", "pipe", "pipe"],
   });
