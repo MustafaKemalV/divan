@@ -208,10 +208,12 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
       buffer.push({ seatId, out });
       return out;
     } catch (e) {
-      // Kesilen çağrı da faturalanır. Hata taşıyorsa harcanan parayı kaydet, sonra yükselt:
-      // başarısızlık maliyetinin sessizce kaybolması, faturayı olduğundan küçük gösterirdi.
+      // Başarısız deneme de bir çağrıdır ve HER ZAMAN kaydedilir. Hata harcanan parayı taşıyorsa
+      // (kesilme) maliyet bilinir; taşımıyorsa (zaman aşımı, bağlantı) usage boş kalır ve sayaç
+      // onu "maliyeti bilinmeyen" olarak sayar. Kaydı burada tutmak, aynı denemenin bir de düğüm
+      // tarafından ikinci kez sayılmasını gereksiz kılar (M2-A3 U-7 çift sayımı).
       const usage = (e as { usage?: SeatRunOutput["usage"] }).usage;
-      if (usage) buffer.push({ seatId, out: { content: "", usage } });
+      buffer.push({ seatId, out: { content: "", usage } });
       throw e;
     }
   };
@@ -227,14 +229,14 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
     inputFor: (seat: string) => SeatRunInput,
   ): Promise<{ outcomes: SeatOutcome[]; update: Record<string, unknown> }> => {
     const outcomes = await runPhaseSeats(run, seats, inputFor, state.perCallTimeoutMs);
+    // Cevapsız denemenin maliyeti BİLİNMİYORDUR, asla sıfır. Ama bilinen bir maliyeti de
+    // "bilinmiyor" saymak yanlıştır: kesilen çağrı harcadığı parayı hatayla birlikte taşır ve
+    // izleyici onu zaten kaydeder. Buradaki sayım tek kaynaktan, izleyiciden gelir.
     const usage = flushUsage();
-    // Cevapsız denemenin maliyeti BİLİNMİYORDUR, asla sıfır: sağlayıcı iş yapıp bildirmemiş olabilir.
-    const failedAttempts = outcomes.reduce((n, o) => n + (o.out ? o.attempts - 1 : o.attempts), 0);
     return {
       outcomes,
       update: {
         ...usage,
-        costUnknownCalls: usage.costUnknownCalls + failedAttempts,
         transcript: outcomes.map((o) => ({
           phase,
           seatId: o.seatId,

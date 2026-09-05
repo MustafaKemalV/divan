@@ -4,6 +4,7 @@
 // Framework-bağımsız.
 
 import type { JudgmentItem } from "./state.ts";
+import { TruncatedResponseError } from "../openrouter/envelope.ts";
 
 export interface SeatRunInput {
   phase: string;
@@ -57,6 +58,7 @@ export const SMALL_IDEA_MAX_CHARS = 60;
  *   [TEST:ozeteksik]    -> faz özeti bir koltuğun katkısını düşürür (§6 özet kotası)
  *   [TEST:slow:<koltuk>]   -> o koltuk gecikir (paralel tamamlanma sırası bozulur)
  *   [TEST:silent:<koltuk>] -> o koltuk hiç cevap vermez (koltuk sustu dalı)
+ *   [TEST:kesik:<koltuk>]  -> o koltuk maliyeti BİLİNEN bir kesilmeyle düşer (çift sayım bekçisi)
  */
 export class StubSeatRunner implements SeatRunner {
   async run(seatId: string, input: SeatRunInput): Promise<SeatRunOutput> {
@@ -72,6 +74,18 @@ export class StubSeatRunner implements SeatRunner {
     const silent = idea.match(/\[TEST:silent:(\w+)\]/);
     if (silent && silent[1] === seatId) {
       throw new Error(`stub: "${seatId}" koltugu cevap vermiyor`);
+    }
+    // [TEST:kesik:<koltuk>] -> maliyeti BİLİNEN bir kesilme (tavana çarpma) taklidi.
+    // Çift sayım hatasını görünür kılmak için: harcanan para biliniyor, dolayısıyla bu deneme
+    // "maliyeti bilinmeyen" sayılmamalı.
+    const kesik = idea.match(/\[TEST:kesik:(\w+)\]/);
+    if (kesik && kesik[1] === seatId) {
+      throw new TruncatedResponseError({
+        completionTokens: 2048,
+        reasoningTokens: 2048,
+        maxTokens: 2048,
+        usage: { completionTokens: 2048, totalTokens: 3000, cost: 0.01 },
+      });
     }
 
     // --- Baş Danışman: brifing + triyaj, HMW, faz özetleri, taslak karar ---
