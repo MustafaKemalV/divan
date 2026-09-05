@@ -88,6 +88,19 @@ Son güncelleme: M2-A1 (prompt altyapısı + gerçek runner iskeleti + premortem
 | Runner modu damgası | kod + test | done olayı `runnerMode`, e2e S01 | M2-A yeni |
 | Maliyet sayacı (bilinmeyen tahmin edilmez) | kod + test | `usage.ts`, `usage.test.ts`, e2e S01 (stub koşumda 27/27 çağrı "maliyeti bilinmiyor") | M2-A2: borç kapandı |
 
+## Fable M2-A3 incelemesinden çıkan borçlar (Blok 3)
+
+| Mekanizma | Zorlayan katman | Kanıt | Köken |
+|---|---|---|---|
+| Tek koltuk-çağrısı yolu (tek düğümlerde de yeniden deneme, gerçek iptal) | **YOK** | zaman aşımı `AbortSignal` taşımıyor, istek iptal edilmiyor; yeniden deneme yalnız paralel fazlarda | borç (U-9) |
+| Kapı sözleşmesi tek tablo | **KISMİ** | bütçe kapısı sözleşmeyi ilan ediyor; DENETIM_EKSIK / HUKUM_EKSIK / ERKEN_BRIFING tutarsız | borç (U-10) |
+| İki katlı tavan (mekanizma çağrıları sert tavana tabi) | **YOK** | iade, yeniden deneme ve özet çağrıları hiçbir tavana sayılmıyor | borç (U-11) |
+| Seçenek defteri + şema-bağlı sıralama (Kendall tau'nun ön şartı) | **YOK** | ortak seçenek ve kriter listesi yok | borç (U-12) |
+| Kalıcı kimlikli itiraz ve kriter | **YOK** | düşen itiraz izi hâlâ ADLA eşleşiyor (M1 kapısı borcu) | borç (U-12) |
+| Ek belge boyut eşiği ve MALİYET ÖLÇÜMÜ | **YOK** | DESIGN "ölçülür ve kaydedilir" diyor; ölçüm aleti (çağrı başına kayıt) Blok 1'de geliyor, eşik ve rapor Blok 3'te | borç (U-13) |
+| Çökmüş oturum teşhisi (sürücü) | **YOK** | düğüm çökünce `--devam` oturumu "tamamlanmış" sanıyor | borç (U-14) |
+| Altyapı kesilmesinin doğru etiketlenmesi | **KISMİ** | state'te ayrı tutuluyor ama transkripte "KOLTUK SUSTU" yazılıyor | borç (U-15) |
+
 ## §9 Çıktılar
 
 | Mekanizma | Zorlayan katman | Kanıt | Köken |

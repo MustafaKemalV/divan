@@ -9,7 +9,7 @@ Self-hosted anti-yağcılık LLM konseyi; kullanıcı = "Şah". Tek gerçek kayn
 
 ## Model stratejisi
 - İmplementasyon: Opus (oturum varsayılanı bu olmalı; Fable varsayılan KALMASIN).
-- Milestone kapısı: `/model claude-fable-5`'e geç, PLAN.md'deki ilgili milestone kontrol listesini uygula, bitince Opus'a dön.
+- Milestone kapısı: Fable masası AYRI bir oturumdur (oturum içi `/model` geçişi terk edildi). Şah kapı mesajını oraya taşır, bulgular kapanmadan milestone kapanmaz.
 - M2 (mekanikler) ve M5 (final) kapıları: TAZE bir Fable oturumunda, sadece repo + DESIGN + PLAN üzerinden, bağımsız review.
 - **Hatırlatma görevi Claude'dadır:** bir milestone'un TÜM kabul kriterleri kanıtlandığında Claude, Şah'a açıkça şunu yazar: "M<X> kapısı: şimdi `/model claude-fable-5`'e geç ve şu mesajı gönder: 'M<X> bitti, PLAN.md'deki M<X> kontrol listesini uygula'". Model geçişini yalnız Şah yapabilir; kapıyı atlamak yasaktır.
 - **Escalation:** Opus bir problemde takılırsa milestone beklemeden Şah'a Fable'a geçişi önerebilir; tek soru çözülür, Opus'a dönülür.
@@ -18,7 +18,8 @@ Self-hosted anti-yağcılık LLM konseyi; kullanıcı = "Şah". Tek gerçek kayn
 - Tasarımdan sapma gerekiyorsa: ÖNCE Şah onayıyla DESIGN.md güncellenir, SONRA kod yazılır. Ters sıra yasak.
 - Kanıtsız "bitti" yok: test çıktısı veya çalışan örnek gösterilmeden hiçbir iş tamam ilan edilmez; milestone kapısı bunsuz kapanmaz.
 - **Gerekçe-kanıtı testi (ev standardı):** bir kuralın NEDEN var olduğu testte gösterilir. Test önce kuralsız/naif halin bozulduğunu kanıtlar, sonra kuralın düzelttiğini. Böylece kural ileride gevşetilmek istendiğinde gerekçesi de kayıtta olur, tartışma hafızaya değil koda dayanır. (Örnek: `usage.test.ts` önce `0.1 + 0.2 !== 0.3` olduğunu gösterir, sonra tamsayı toplamanın sapmadığını.) Ayrıca testlerde yakınlık/epsilon karşılaştırması ya gerekçe yorumu taşır ya envantere borç olarak yazılır; tolerans, çözülmemiş bir sorunun yaması olabilir.
-- **Commit, test zincirinin çıkış koduna bağlıdır; test düşerse commit çalışmaz.** (Kural niyet olarak değil, komut olarak kurulur: `npm run e2e && git commit ...`. M2-A'da kırık testle commit atıldı, kural o yüzden yazıldı.)
+- **Commit, test zincirinin çıkış koduna bağlıdır; test düşerse commit çalışmaz.** (Kural niyet olarak değil, komut olarak kurulur: `npm test && git commit ...`. Zincir: `tsc --noEmit` + bütün birim testleri + e2e. M2-A'da kırık testle commit atıldı, kural o yüzden yazıldı.)
+- **Gerçek para harcayan her koşumdan önce Fable masası kodu satır satır okur; plan "tamam" dediği için koşulmaz.** (M2-A3: plan bitmiş görünürken inceleme sekiz doğrulanmış bulgu çıkardı.)
 - `templates/` altındaki şablonlar bağlayıcıdır (hem spec hem runtime asset). Format değişikliği = DESIGN §9 değişikliği = Şah onayı gerektirir.
 - Dış iddialar (API davranışı, kütüphane özelliği, sürüm, fiyat) ya canlı doğrulanır ya açıkça "varsayım" etiketlenir; Divan'ın kanıt disiplini bu repoya da uygulanır.
 - Kod, komut, config: önce öner, Şah onaylasın, sonra uygula.

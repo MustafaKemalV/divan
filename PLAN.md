@@ -6,6 +6,7 @@ Tek gerçek kaynak `DESIGN.md`; bu plan onun inşa sırasıdır. Model stratejis
 - Her milestone sonunda: `/model claude-fable-5` → "M<X> bitti, PLAN.md'deki M<X> kontrol listesini uygula" → bulgular kapanmadan milestone kapanmaz → Opus'a dön.
 - **M2 ve M5:** TAZE bir Fable oturumu (bu klasörden aç); sadece repo + DESIGN + PLAN üzerinden bağımsız review.
 - Kural: kanıtsız "bitti" yok; her kabul kriteri test çıktısı veya çalışan örnekle gösterilir.
+- **Gerçek para harcayan her koşumdan önce Fable masası kodu satır satır okur; plan "tamam" dediği için koşulmaz.**
 - **Kanıt repoda koşulabilir olmalı; oturum-içi scratchpad çıktısı kanıt sayılmaz.** (M1'den itibaren: `npm run e2e`, anahtarsız stub'larla deterministik, düşen senaryoda non-zero exit.)
 
 ---
@@ -45,6 +46,38 @@ Tek gerçek kaynak `DESIGN.md`; bu plan onun inşa sırasıdır. Model stratejis
 - [ ] Kilit blok dalı END'e düşüyor mu? (Düşüyorsa sessiz bitiş = arıza.) Retry ve Şah kapısı canlı kanıtlı mı?
 - [ ] Revizyonla düşen itiraz izi gerçek mi: kriter eşleştirmesi neye göre yapılıyor, gerçek modelde ad değişirse ne olur?
 - [ ] Stub'daki test işaretleri ([TEST:...]) mekanikleri kanıtlıyor mu, yoksa mekaniği taklit mi ediyor?
+
+## M2-A3: Bağlam mimarisi revizyonu (capstone ÖNCESİ zorunlu)
+
+Fable masasının satır satır kod incelemesinden (2026-09-04) çıktı. Bulgular ve yeniden üretim
+adımları: `docs/M2-A3-BULGULAR.md`. Tasarım kararları DESIGN'a yazıldı (D-1..D-8).
+
+**Kapsam (Blok 1):** test zinciri, yerel bağlanma, maskeleme sınırı, çift sayım, çağrı başına
+kullanım kaydı, özet zinciri, kimlik katmanı + oturum zarfı, F5 girdileri.
+
+**Kabul kriterleri** (her biri önce KIRMIZI test, sonra düzeltme):
+- `npm test` tek komutta tsc + bütün birim testleri + e2e koşuyor; kasıtlı bozulan bir birim testi zinciri düşürüyor.
+- Sunucu yalnız `127.0.0.1`'e bağlanıyor (lsof kanıtı raporda).
+- Maskeleme sözcük içini bozmuyor: "Mimari kararlar" ve "marketing" dokunulmuyor, "Mimar dedi" maskeleniyor.
+- Maliyeti BİLİNEN kesilmiş çağrı "maliyeti bilinmeyen" sayılmıyor.
+- Her koltuk çağrısı için kullanım kaydı tutuluyor; stub koşumda alanlar boş kalıyor, uydurulmuyor.
+- Özet zinciri: F5 SON F4 özetini okuyor; özet kaydı bir daha özet girdisi olmuyor; hüküm yeniden koşumunda özet bir kez yenileniyor; `judgmentHistory` tur numarasını açıkça taşıyor.
+- Seçilen HMW metni F2 ve sonrasındaki her ajan çağrısının girdisinde; F3/F5'te koltuğun kimlik metni sistem promptunda; bağlam sıkıştırması kanıtı yine 0 sızıntı veriyor.
+- Taslak karar girdisi muhalefet notunun ham metnini içeriyor; final denetim girdisi taslağı içeriyor.
+
+**Blok 3 (capstone SONRASI, borç):** U-9 tek koltuk-çağrısı yolu (AbortSignal ile gerçek iptal,
+her yerde tek yeniden deneme, graf-global tamponun kalkması); U-10 kapı sözleşmesi tablosu (D-5);
+U-11 iki katlı tavan (D-8); U-12 seçenek defteri, sıralama şeması, Kendall tau, tam-uyum bayrağı,
+numaralı itiraz ve yönlendirme (D-3, D-4); U-13 ek belge eşiği ve maliyet ölçümü (D-7); U-14
+sürücüde çökmüş oturum teşhisi; U-15 altyapı kesilmesinin transkriptte doğru etiketlenmesi.
+
+**Fable kontrol listesi:**
+- [ ] Zarf her çağrıda mı, KAPI 2'den sonra donuyor mu?
+- [ ] F3/F5'te kimlik gerçekten sistem promptunda mı?
+- [ ] Taslak ve final denetim girdileri boş olabilir mi?
+- [ ] Özet kaydı bir daha özet girdisi olabilir mi?
+- [ ] Çağrı başına kayıt stub'da uydurma değer üretiyor mu?
+- [ ] Sunucu gerçekten yalnız 127.0.0.1'de mi?
 
 ## M2: Gerçek modeller + mekanikler (KRİTİK KAPI: taze Fable oturumu)
 **Kapsam:** OpenRouter entegrasyonu (pin+fallback); anonimleştirme katmanı; kanıt kapısı (3 durum, URL zorunluluğu); web plugin (kaplı); hüküm turu (şema-bağlı); gömülemez muhalefet; sıralama-puanlama + Kendall tau; maliyet sayacı. **Ayrıca DESIGN §5.1:** kadronun dinamikleştirilmesi (koltuk listeleri config + KAPI 1 seçiminden gelir, kodda sabit dizi kalmaz), F0 triyajının gözlem şeması + eşik sınıflandırması, kadro kapısı (öneri + Şah düzenlemesi, Denetçi kilidi, en az üç rol, çeşitlilik uyarısı).
