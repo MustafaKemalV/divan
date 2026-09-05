@@ -149,9 +149,11 @@ export const DivanState = Annotation.Root({
     default: () => null,
   }),
 
-  // BİRİKEN: her hüküm turunun tam çıktısı (§6.4). Son tur `judgment`e yazılır, geçmiş burada
-  // durur; revizyonla DÜŞEN itiraz ancak bu iz sayesinde görünür kalabilir.
-  judgmentHistory: Annotation<JudgmentItem[][]>({
+  // BİRİKEN: her hüküm turunun tam çıktısı (§6.4), TUR NUMARASIYLA. Son tur `judgment`e yazılır,
+  // geçmiş burada durur; revizyonla DÜŞEN itiraz ancak bu iz sayesinde görünür kalabilir.
+  // Numara açıkça taşınır çünkü dizi indeksi güvenilmez: hüküm turu yeniden koşulduğunda araya
+  // boş tur girer ve "[tur N]" etiketi kayar.
+  judgmentHistory: Annotation<{ round: number; items: JudgmentItem[] }[]>({
     reducer: (prev, next) => [...prev, ...next],
     default: () => [],
   }),

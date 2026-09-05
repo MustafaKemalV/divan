@@ -32,6 +32,9 @@ export function speakingSeats(
   const out: string[] = [];
   for (const e of entries) {
     if (!e.phase.startsWith(phasePrefix)) continue;
+    // Özet kaydı bir katkı değildir: kendi özetini "konuşan koltuk" sayıp kotaya sokmak,
+    // Baş Danışman'ın kendi kendini özetlemesini şart koşardı.
+    if (e.phase.endsWith(":summary")) continue;
     if (e.content.startsWith(SILENT_MARK)) continue;
     if (!out.includes(e.seatId)) out.push(e.seatId);
   }

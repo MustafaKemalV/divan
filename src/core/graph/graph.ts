@@ -23,6 +23,17 @@ import { usageOf, formatUsd, toNanoUsd } from "./usage.ts";
 import { estimatePhaseCost } from "./estimate.ts";
 import { runPhaseSeats, type SeatOutcome } from "./phaseRun.ts";
 import { anonymizeSummary, speakingSeats, validateSummary } from "./summary.ts";
+import { latestSummary, rawOfPhase as rawOf } from "./context.ts";
+
+/** Faz ham metni (özet kayıtları dışlanır, bkz. context.ts). */
+function rawOfPhase(state: DivanStateType, phasePrefix: string): string {
+  return rawOf(state.transcript, phasePrefix);
+}
+
+/** İleri taşınan tek bağlam: o fazın SON BD özeti (bkz. context.ts). */
+function summaryOf(state: DivanStateType, phase: string): string {
+  return latestSummary(state.phaseSummaries, phase);
+}
 import { SEATS } from "../seats/seats.ts";
 
 // DESIGN §4/§5 koltuk rolleri per faz (tam kurul).
@@ -37,19 +48,6 @@ const RANKERS = ["market", "engineer1", "architect", "auditor"] as const; // F5 
 // bu, seats.ts'teki faz spec'iyle de birebir hizalıdır (auditor: F1, F4, F5).
 const SMALL_IDEATORS = ["visionary", "engineer1"] as const;
 const SMALL_RANKERS = ["engineer1", "auditor"] as const;
-
-/** Bir faz(lar)ın ham transcript'ini "koltuk: içerik" satırlarına indirger (BD özet girdisi). */
-function rawOfPhase(state: DivanStateType, phasePrefix: string): string {
-  return state.transcript
-    .filter((t) => t.phase.startsWith(phasePrefix))
-    .map((t) => `${t.seatId}: ${t.content}`)
-    .join("\n");
-}
-
-/** İleri taşınan tek bağlam: BD faz özeti (ham transcript DEĞİL). */
-function summaryOf(state: DivanStateType, phase: string): string {
-  return state.phaseSummaries.find((s) => s.phase === phase)?.summary ?? "";
-}
 
 /**
  * Bütçe kapısı (DESIGN §5 dönüş a): PAHALI fazın İLK satırında çağrılır, faz daha başlamadan
@@ -526,7 +524,7 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
       return {
         ...flushUsage(),
         judgment,
-        judgmentHistory: [judgment],
+        judgmentHistory: [{ round: state.judgmentHistory.length + 1, items: judgment }],
         judgmentComplete: true,
         prevUnmetCount: prevUnmet,
         transcript: [{ phase: "F4:judgment", seatId: "auditor", content: out.content }],
@@ -598,7 +596,7 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
       return {
         ...flushUsage(),
         judgment,
-        judgmentHistory: [judgment],
+        judgmentHistory: [{ round: state.judgmentHistory.length + 1, items: judgment }],
         judgmentComplete: true,
         transcript: [{ phase: "F4s:judgment", seatId: "auditor", content: out.content }],
         callCount: 1,
@@ -694,14 +692,16 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
       const openCriteria = new Set(stillUnmet.map((j) => j.criterion));
       const seen = new Set<string>();
       const dropped: string[] = [];
-      state.judgmentHistory.forEach((round, i) => {
-        for (const item of round) {
+      // Tur numarası dizin sırasından değil KAYDIN KENDİSİNDEN alınır: araya boş tur girdiğinde
+      // dizin kayar ve itiraz yanlış tura atfedilir.
+      for (const tur of state.judgmentHistory) {
+        for (const item of tur.items) {
           if (!item.blocking || item.status !== "karsilanmadi") continue;
           if (openCriteria.has(item.criterion) || seen.has(item.criterion)) continue;
           seen.add(item.criterion);
-          dropped.push(`[tur ${i + 1}] ${item.criterion}: ${item.rawText}`);
+          dropped.push(`[tur ${tur.round}] ${item.criterion}: ${item.rawText}`);
         }
-      });
+      }
       return {
         ...flushUsage(),
         dissentNote: dissent,
