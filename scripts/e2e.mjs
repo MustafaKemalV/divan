@@ -591,6 +591,20 @@ async function run() {
     console.log(`  oturum zarfi olmayan gec faz cagrisi: ${zarfsiz.length}`);
     check(zarfsiz.length === 0, `zarfsiz cagri var: ${zarfsiz.map((c) => c.phase).join(",")}`);
 
+    // F5 GİRDİLERİ (M2-A3 U-5): taslak ve final denetim kör yazılıyordu.
+    const taslak = fullOnly.find((c) => c.phase === "F5:draft");
+    const final = fullOnly.find((c) => c.phase === "F5:output");
+    check(Boolean(taslak?.context), "karar taslagi baglamsiz yazilamaz");
+    check(taslak.context.includes("Sıralayıcı 1"), "taslak siralamalari gormeli");
+    check(taslak.context.includes("MUHALEFET NOTU"), "taslak muhalefet notunu gormeli");
+    check(Boolean(final?.context) && final.context.includes("KARAR TASLAĞI"), "final denetim taslagi gormeli");
+    // Sıralamalar KİMLİKSİZ verilir (§6.1): kim dedi değil, ne dendi.
+    check(
+      !/Sıralayıcı \d+: (market|engineer1|architect|auditor)/.test(taslak.context),
+      "siralamalarda koltuk kimligi sizmis",
+    );
+    console.log(`  F5 girdileri: taslak ${taslak.context.length} krk, final ${final.context.length} krk (kimliksiz)`);
+
     const f2Raw = rawOf("F2:idea");
     const f3Ctx = fullOnly.find((c) => c.phase === "F3:cross")?.context ?? "";
     console.log(`  ileri tasinan baglam (F3 ajan cagrisi): ${f3Ctx.length} krk / ~${toks(f3Ctx)} kaba token`);

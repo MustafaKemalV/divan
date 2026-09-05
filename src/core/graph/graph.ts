@@ -122,6 +122,28 @@ function abortRouter(state: DivanStateType): "abort" | "devam" {
   return state.endReason ? "abort" : "devam";
 }
 
+/**
+ * §6.4: revizyon döngüsü muhalefeti buharlaştıramaz. Bir turda blocking "karsilanmadi" işaretlenip
+ * son turda düşen madde, o turdaki HAM metniyle iz bırakır. Tur numarası dizin sırasından değil
+ * KAYDIN KENDİSİNDEN alınır: araya boş tur girdiğinde dizin kayar.
+ */
+function dusenItirazlar(state: DivanStateType): string[] {
+  const acik = new Set(
+    state.judgment.filter((j) => j.blocking && j.status === "karsilanmadi").map((j) => j.criterion),
+  );
+  const gorulen = new Set<string>();
+  const out: string[] = [];
+  for (const tur of state.judgmentHistory) {
+    for (const item of tur.items) {
+      if (!item.blocking || item.status !== "karsilanmadi") continue;
+      if (acik.has(item.criterion) || gorulen.has(item.criterion)) continue;
+      gorulen.add(item.criterion);
+      out.push(`[tur ${tur.round}] ${item.criterion}: ${item.rawText}`);
+    }
+  }
+  return out;
+}
+
 /** F0 triyajının kurduğu yol ayrımı; iki yerde kullanılır (kapı 1 sonrası, kilit retry). */
 function modeRouter(state: DivanStateType): "full" | "small" {
   return state.councilMode === "small" ? "small" : "full";
@@ -714,24 +736,29 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
     })
     // ---- F5: BD taslak karar + muhalefet notu (§6.4: blocking "karsilanmadi" HAM metin) ----
     .addNode("bd_draft", async (state: DivanStateType) => {
-      const out = await run(state, "chiefAdvisor", { phase: "F5:draft", idea: state.idea });
       const stillUnmet = state.judgment.filter((j) => j.blocking && j.status === "karsilanmadi");
+      // Taslak KÖR yazılıyordu: Baş Danışman'a yalnız ham fikir gidiyordu, sıralamalar ve
+      // muhalefet notu gitmiyordu. "Sıralamalara göre yön öner" demek, sıralamayı göstermeden
+      // anlamsızdır. Sıralamalar KİMLİKSİZ verilir (§6.1): kim ne dedi değil, ne dendi.
+      const oncekiDusenler = dusenItirazlar(state);
+      const draftContext = [
+        `F4 ÖZETİ:\n${summaryOf(state, "F4")}`,
+        `SIRALAMALAR (kimliksiz):\n${state.rankings
+          .map((r, i) => `- Sıralayıcı ${i + 1}: ${r.replace(/^[^:]+:\s*/, "")}`)
+          .join("\n")}`,
+        `MUHALEFET NOTU (Denetçi'nin HAM metni; yumuşatma, kısaltma ve gömme YETKİN YOK):\n${
+          stillUnmet.map((j) => j.rawText).join("\n") || "(blocking muhalefet yok)"
+        }`,
+        `REVİZYONLA DÜŞEN İTİRAZLAR:\n${oncekiDusenler.join("\n") || "(yok)"}`,
+        `DENETİM DURUMU: ${state.auditComplete ? "mekanik şartlar tam" : `EKSİK (${state.auditIssue})`}`,
+      ].join("\n\n");
+      const out = await run(state, "chiefAdvisor", {
+        phase: "F5:draft",
+        idea: state.idea,
+        context: draftContext,
+      });
       const dissent = stillUnmet.map((j) => j.rawText).join("\n");
-      // §6.4: revizyon döngüsü muhalefeti buharlaştıramaz. Bir turda blocking "karsilanmadi"
-      // işaretlenip son turda düşen madde, o turdaki HAM metniyle iz bırakır.
-      const openCriteria = new Set(stillUnmet.map((j) => j.criterion));
-      const seen = new Set<string>();
-      const dropped: string[] = [];
-      // Tur numarası dizin sırasından değil KAYDIN KENDİSİNDEN alınır: araya boş tur girdiğinde
-      // dizin kayar ve itiraz yanlış tura atfedilir.
-      for (const tur of state.judgmentHistory) {
-        for (const item of tur.items) {
-          if (!item.blocking || item.status !== "karsilanmadi") continue;
-          if (openCriteria.has(item.criterion) || seen.has(item.criterion)) continue;
-          seen.add(item.criterion);
-          dropped.push(`[tur ${tur.round}] ${item.criterion}: ${item.rawText}`);
-        }
-      }
+      const dropped = oncekiDusenler;
       return {
         ...flushUsage(),
         dissentNote: dissent,
@@ -764,7 +791,25 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
     })
     // ---- F5 çıktı: karar belgesi + kod promptu + Denetçi final denetim (M3 içerik; M1 stub) ----
     .addNode("f5_output", async (state: DivanStateType) => {
-      const out = await run(state, "auditor", { phase: "F5:output", idea: state.idea });
+      // Final topraklama denetimi KÖR yapılıyordu: Denetçi neyi denetleyeceğini görmüyordu.
+      // Kendi muhalefet notunun belgede DURUP DURMADIĞINI kontrol edebilmesi için taslağı görmeli.
+      const taslak = state.transcript.findLast?.((t) => t.phase === "F5:draft")?.content ?? "";
+      const outputContext = [
+        `KARAR TASLAĞI (Baş Danışman):\n${taslak}`,
+        `MUHALEFET NOTU (senin ham metnin; belgede aynen duruyor mu?):\n${
+          state.dissentNote || "(blocking muhalefet yok)"
+        }`,
+        `SIRALAMALAR (kimliksiz):\n${state.rankings
+          .map((r, i) => `- Sıralayıcı ${i + 1}: ${r.replace(/^[^:]+:\s*/, "")}`)
+          .join("\n")}`,
+        `F4 ÖZETİ:\n${summaryOf(state, "F4")}`,
+        `ŞAH'IN KARARI:\n${state.decision ?? "(yok)"}`,
+      ].join("\n\n");
+      const out = await run(state, "auditor", {
+        phase: "F5:output",
+        idea: state.idea,
+        context: outputContext,
+      });
       return {
         ...flushUsage(),
         transcript: [{ phase: "F5:output", seatId: "auditor", content: out.content }],
