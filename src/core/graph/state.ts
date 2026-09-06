@@ -254,6 +254,14 @@ export const DivanState = Annotation.Root({
     reducer: (prev, next) => mergeAdd(prev, next),
     default: () => ({}),
   }),
+  /**
+   * Maliyeti BİLİNEN çağrı sayısı, koltuk başına. Kestirimin böleni budur: `seatCalls` başarısız
+   * denemeleri de sayar ve ortalamayı seyreltir (F-2).
+   */
+  seatCostCalls: Annotation<Record<string, number>>({
+    reducer: (prev, next) => mergeAdd(prev, next),
+    default: () => ({}),
+  }),
   // Oturum neden bitti: normal akış mı, Şah'ın açık iptali mi (§5 bütçe sözleşmesi).
   endReason: Annotation<string>({
     reducer: (_prev, next) => next,

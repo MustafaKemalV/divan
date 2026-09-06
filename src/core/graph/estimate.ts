@@ -28,13 +28,19 @@ export interface CostEstimate {
 export function estimatePhaseCost(
   seats: readonly string[],
   seatCostNano: Record<string, number>,
-  seatCalls: Record<string, number>,
+  /**
+   * BÖLEN: yalnızca maliyeti BİLİNEN çağrıların sayısı, toplam deneme sayısı değil. Toplamla
+   * bölmek ortalamayı seyreltir: bir zaman aşımı maliyet eklemez ama böleni büyütür, kestirim
+   * düşer ve bütçe kapısı arızalı oturumlarda fazı olduğundan UCUZ gösterir. Ölçüldü: iki
+   * başarılı çağrı (1.000.000 nano) artı bir zaman aşımı, ortalamayı 666.667'ye indiriyordu.
+   */
+  seatCostCalls: Record<string, number>,
 ): CostEstimate {
   let nanoUsd = 0;
   let observedSeats = 0;
   let unobservedSeats = 0;
   for (const seat of seats) {
-    const calls = seatCalls[seat] ?? 0;
+    const calls = seatCostCalls[seat] ?? 0;
     const cost = seatCostNano[seat] ?? 0;
     if (calls > 0 && cost > 0) {
       nanoUsd += Math.round(cost / calls);

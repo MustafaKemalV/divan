@@ -70,7 +70,7 @@ function budgetStop(
 ): { maxCalls?: number; abort?: boolean; abortReason?: string } {
   if (!isOverBudget(state, nextCost)) return {};
 
-  const est = estimatePhaseCost(seats, state.seatCostNano, state.seatCalls);
+  const est = estimatePhaseCost(seats, state.seatCostNano, state.seatCostCalls);
   const payload = {
     gate: "BUTCE",
     at,
@@ -369,11 +369,16 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
     const totals = usageOf(buffer.map((b) => b.out));
     const seatCostNano: Record<string, number> = {};
     const seatCalls: Record<string, number> = {};
+    const seatCostCalls: Record<string, number> = {};
     const callLog: CallRecord[] = [];
     for (const b of buffer) {
       seatCalls[b.seatId] = (seatCalls[b.seatId] ?? 0) + 1;
       const u = b.out.usage;
-      if (u?.cost !== undefined) seatCostNano[b.seatId] = (seatCostNano[b.seatId] ?? 0) + toNanoUsd(u.cost);
+      if (u?.cost !== undefined) {
+        seatCostNano[b.seatId] = (seatCostNano[b.seatId] ?? 0) + toNanoUsd(u.cost);
+        // Kestirimin böleni: yalnız maliyeti bilinen çağrılar (F-2 seyrelmesi).
+        seatCostCalls[b.seatId] = (seatCostCalls[b.seatId] ?? 0) + 1;
+      }
       // Sağlayıcı bildirmediyse alan BOŞ kalır: stub koşumda uydurma sayı üretilmez.
       callLog.push({
         seatId: b.seatId,
@@ -389,7 +394,7 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
       });
     }
     buffer.length = 0;
-    return { ...totals, seatCostNano, seatCalls, callLog };
+    return { ...totals, seatCostNano, seatCalls, seatCostCalls, callLog };
   };
 
   const graph = new StateGraph(DivanState)

@@ -6,7 +6,7 @@ import assert from "node:assert";
 import { estimatePhaseCost } from "./estimate.ts";
 
 const costs = { visionary: 4_000_000, engineer1: 1_000_000 }; // toplam nano-USD
-const calls = { visionary: 2, engineer1: 4 }; // ortalama: 2_000_000 ve 250_000
+const calls = { visionary: 2, engineer1: 4 }; // maliyeti BİLİNEN çağrı sayısı
 
 // 1) gözlenen koltuklar ortalamalarıyla toplanır
 const a = estimatePhaseCost(["visionary", "engineer1"], costs, calls);
@@ -38,4 +38,17 @@ assert.deepStrictEqual(estimatePhaseCost([], costs, calls), {
   unobservedSeats: 0,
 });
 
-console.log("ESTIMATE_TEST_OK: koltuk bazli kestirim + gozlemsiz koltuk tahmin edilmez, sayilir");
+// 6) SEYRELME (M2-A3 F-2). GEREKÇE-KANITI: bölen tüm denemeler olursa maliyetsiz bir başarısızlık
+//    ortalamayı düşürür ve bütçe kapısı fazı olduğundan ucuz gösterir. Bölen yalnız maliyeti
+//    BİLİNEN çağrılar olmalı.
+{
+  // Bir koltukta iki başarılı çağrı (toplam 2.000.000) ve bir zaman aşımı (maliyet yok).
+  const dogru = estimatePhaseCost(["market"], { market: 2_000_000 }, { market: 2 });
+  assert.strictEqual(dogru.nanoUsd, 1_000_000, "bolen yalniz maliyeti bilinen cagrilar olmali");
+  // Kırmızı halin ta kendisi: bölen 3 olsaydı ortalama 666.667'ye düşerdi.
+  const seyrelmis = estimatePhaseCost(["market"], { market: 2_000_000 }, { market: 3 });
+  assert.strictEqual(seyrelmis.nanoUsd, 666_667);
+  assert.ok(seyrelmis.nanoUsd < dogru.nanoUsd, "seyrelme kestirimi DUSURUR, yani ucuz gosterir");
+}
+
+console.log("ESTIMATE_TEST_OK: koltuk bazli kestirim + gozlemsiz koltuk tahmin edilmez, sayilir + bolen seyrelmez");
