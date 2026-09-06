@@ -81,9 +81,13 @@ export function validateSummary(data: unknown, expectedSeats: readonly string[])
  * "önceki turda ben demiştim" gibi imalar) M2-C anonimleştirme katmanının işidir ve envanterde
  * borç olarak durur.
  */
-export function anonymizeSummary(value: SummaryOutput, seatLabels: readonly string[] = []): string {
-  const maskele = (metin: string) =>
-    seatLabels.reduce((acc, etiket) => {
+/**
+ * Koltuk adlarını metin İÇİNDE maskeler. Ayrı bir işlev, çünkü kimliksizlik yalnız özetin değil,
+ * ajanlar arasında taşınan HER metnin kuralıdır (§6.1): sıralamalar da bu kapıdan geçer.
+ * Etiketi başından kesmek yetmez, ad cümlenin ortasında da geçebilir.
+ */
+export function maskSeatNames(metin: string, seatLabels: readonly string[] = []): string {
+  return seatLabels.reduce((acc, etiket) => {
       if (!etiket) return acc;
       const kacisli = etiket.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       // HARF SINIRI. Düz bir arama sözcük içini bozar: "Mimari kararlar" -> "bir koltuki kararlar",
@@ -95,7 +99,11 @@ export function anonymizeSummary(value: SummaryOutput, seatLabels: readonly stri
       // bir "market" sözcüğü de maskelenir. Doğru çözüm koltuğa maskelemede kullanılacak ayrı bir
       // ad vermektir ve M2-B "kadro = veri" işine borçtur.
       return acc.replace(new RegExp(`(?<![\\p{L}\\p{N}])${kacisli}(?![\\p{L}\\p{N}])`, "giu"), "bir koltuk");
-    }, metin);
+  }, metin);
+}
+
+export function anonymizeSummary(value: SummaryOutput, seatLabels: readonly string[] = []): string {
+  const maskele = (metin: string) => maskSeatNames(metin, seatLabels);
   const satirlar = value.points.map((p, i) => `- Görüş ${i + 1}: ${maskele(p.point)}`);
   return [maskele(value.summary), "", ...satirlar].join("\n");
 }

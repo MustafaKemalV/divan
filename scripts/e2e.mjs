@@ -776,6 +776,56 @@ async function run() {
     results.push({ id: "PROMPT", ok: false, err: e.message });
     console.log(`  DUSTU: ${e.message}`);
   }
+
+  // -------------------------------------------------- sıralama kimliksizliği (M2-A3 F-3)
+  // GEREKÇE-KANITI: yalnız "market: " ön ekini kesmek yetmiyordu; sıralamanın METNİ içindeki
+  // koltuk adı "SIRALAMALAR (kimliksiz)" başlığının altında olduğu gibi ilerliyordu. Ölçüm blokun
+  // İÇİNE bakar, ön ekin varlığına değil.
+  console.log(`\n[KANIT] Siralama kimliksizligi: blogun ICINDE koltuk adi kaliyor mu?`);
+  try {
+    process.env.DIVAN_CHECKPOINT_DB = join(TMP, "anon.sqlite");
+    const { buildCouncilGraph } = await import("../src/core/graph/graph.ts");
+    const { StubSeatRunner } = await import("../src/core/graph/seatRunner.ts");
+    const { SEATS } = await import("../src/core/seats/seats.ts");
+    const { Command } = await import("@langchain/langgraph");
+
+    const izler = [];
+    const inner = new StubSeatRunner();
+    const graph = buildCouncilGraph({
+      async run(seatId, input) {
+        izler.push({ phase: input.phase, ctx: input.context ?? "" });
+        return inner.run(seatId, input);
+      },
+    });
+    const cfg = { configurable: { thread_id: "anon-siralama" } };
+    const drain = async (input) => {
+      for await (const _ of await graph.stream(input, { ...cfg, streamMode: "updates" })) void _;
+    };
+    await drain({ idea: LONG, maxCalls: 100 });
+    await drain(new Command({ resume: "hmw" }));
+    await drain(new Command({ resume: "cerceve" }));
+    await drain(new Command({ resume: "onay" }));
+
+    const adlar = SEATS.flatMap((s) => [s.id, s.title]);
+    let sizanToplam = 0;
+    for (const faz of ["F5:draft", "F5:output"]) {
+      const iz = izler.findLast((i) => i.phase === faz);
+      check(Boolean(iz), `${faz} cagrisi hic yapilmamis`);
+      const blok = (iz.ctx.match(/SIRALAMALAR \(kimliksiz\):\n([\s\S]*?)(\n\n|$)/) ?? [])[1] ?? "";
+      check(blok.length > 0, `${faz} baglaminda SIRALAMALAR blogu yok`);
+      const sizan = adlar.filter((a) =>
+        new RegExp(`(?<![\\p{L}\\p{N}])${a}(?![\\p{L}\\p{N}])`, "iu").test(blok),
+      );
+      sizanToplam += sizan.length;
+      console.log(`  ${faz.padEnd(10)} blok ${String(blok.length).padStart(3)} krk | kimlik sizintisi: ${sizan.join(", ") || "yok"}`);
+    }
+    check(sizanToplam === 0, `siralama metninde ${sizanToplam} kimlik sizintisi kaldi`);
+    results.push({ id: "ANON-SIRALAMA", ok: true });
+    console.log(`  GECTI (iki dugum de ayni maskeleme kapisindan geciyor)`);
+  } catch (e) {
+    results.push({ id: "ANON-SIRALAMA", ok: false, err: e.message });
+    console.log(`  DUSTU: ${e.message}`);
+  }
 }
 
 // ---------------------------------------------------------------- giriş

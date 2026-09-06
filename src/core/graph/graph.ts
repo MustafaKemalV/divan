@@ -22,7 +22,7 @@ import type { SeatRunInput, SeatRunOutput } from "./seatRunner.ts";
 import { usageOf, formatUsd, toNanoUsd } from "./usage.ts";
 import { estimatePhaseCost } from "./estimate.ts";
 import { runPhaseSeats, type SeatOutcome } from "./phaseRun.ts";
-import { anonymizeSummary, speakingSeats, validateSummary } from "./summary.ts";
+import { anonymizeSummary, maskSeatNames, speakingSeats, validateSummary } from "./summary.ts";
 import { buildEnvelope, latestSummary, rawOfPhase as rawOf } from "./context.ts";
 
 /** Faz ham metni (özet kayıtları dışlanır, bkz. context.ts). */
@@ -313,6 +313,18 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
 
   /** Maskeleme için bilinen koltuk adları (id + Türkçe başlık). */
   const seatLabels = SEATS.flatMap((s) => [s.id, s.title]);
+
+  /**
+   * F5 sıralamalarını KİMLİKSİZ hale getirir (§6.1). Ölçülen kırmızı: yalnız "market: " ön eki
+   * kesiliyordu, sıralamanın METNİ içindeki koltuk adı ("...market...") olduğu gibi Baş Danışman'a
+   * ve final denetime gidiyordu. Blok "SIRALAMALAR (kimliksiz)" başlığını taşıdığı için sızıntı
+   * ayrıca yanıltıcıydı: söz verilen şey verilmiyordu. Ön ek kesme ve metin maskeleme artık aynı
+   * yerde, iki düğüm de buradan geçiyor; ikinci bir çağrı yeri eklenirse de aynı kapıyı kullanır.
+   */
+  const kimliksizSiralamalar = (rankings: readonly string[]) =>
+    rankings
+      .map((r, i) => `- Sıralayıcı ${i + 1}: ${maskSeatNames(r.replace(/^[^:]+:\s*/, ""), seatLabels)}`)
+      .join("\n");
 
   /**
    * Faz özeti (DESIGN §6 özet kotası). Konuşan her koltuk özette en az bir maddeyle temsil
@@ -748,9 +760,7 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
       const oncekiDusenler = dusenItirazlar(state);
       const draftContext = [
         `F4 ÖZETİ:\n${summaryOf(state, "F4")}`,
-        `SIRALAMALAR (kimliksiz):\n${state.rankings
-          .map((r, i) => `- Sıralayıcı ${i + 1}: ${r.replace(/^[^:]+:\s*/, "")}`)
-          .join("\n")}`,
+        `SIRALAMALAR (kimliksiz):\n${kimliksizSiralamalar(state.rankings)}`,
         `MUHALEFET NOTU (Denetçi'nin HAM metni; yumuşatma, kısaltma ve gömme YETKİN YOK):\n${
           stillUnmet.map((j) => j.rawText).join("\n") || "(blocking muhalefet yok)"
         }`,
@@ -804,9 +814,7 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
         `MUHALEFET NOTU (senin ham metnin; belgede aynen duruyor mu?):\n${
           state.dissentNote || "(blocking muhalefet yok)"
         }`,
-        `SIRALAMALAR (kimliksiz):\n${state.rankings
-          .map((r, i) => `- Sıralayıcı ${i + 1}: ${r.replace(/^[^:]+:\s*/, "")}`)
-          .join("\n")}`,
+        `SIRALAMALAR (kimliksiz):\n${kimliksizSiralamalar(state.rankings)}`,
         `F4 ÖZETİ:\n${summaryOf(state, "F4")}`,
         `ŞAH'IN KARARI:\n${state.decision ?? "(yok)"}`,
       ].join("\n\n");

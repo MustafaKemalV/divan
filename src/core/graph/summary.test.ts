@@ -3,7 +3,7 @@
 // Bekçi görevi: özetleyicinin bir koltuğu sessizce düşürmesi mümkün olmasın.
 
 import assert from "node:assert";
-import { validateSummary, speakingSeats, anonymizeSummary, SILENT_MARK } from "./summary.ts";
+import { validateSummary, speakingSeats, anonymizeSummary, maskSeatNames, SILENT_MARK } from "./summary.ts";
 
 const nokta = (seatId: string) => ({ seatId, point: `${seatId} katkisi` });
 const tam = {
@@ -70,4 +70,18 @@ assert.ok(anon.includes("Görüş 1") && anon.includes("Görüş 2"), "gorusler 
   assert.ok(cikti.includes("bir koltuk dedi"), `maskeleme uygulanmali: ${cikti}`);
 }
 
-console.log("SUMMARY_TEST_OK: kota (dusen koltuk yakalanir) + susan muafiyeti + tasinan metin kimliksiz + harf siniri");
+// 7) MASKELEYİCİ DIŞA AÇIK (M2-A3 F-3). GEREKÇE-KANITI: özet dışındaki metinler de aynı kuraldan
+//    geçmeli; ön ek kesmek yetmez, ad cümlenin ortasında da geçer.
+{
+  const etiketler = ["market", "Pazar Analisti", "architect"];
+  assert.strictEqual(
+    maskSeatNames("market ve architect ayni siralamayi verdi", etiketler),
+    "bir koltuk ve bir koltuk ayni siralamayi verdi",
+  );
+  // On ek kesme tek basina yetmez: "market: " atilsa bile metindeki ikinci ad kalirdi.
+  assert.ok(!maskSeatNames("market: architect birinci", etiketler).includes("architect"));
+  // Harf siniri korunur: sozcuk ici bozulmaz.
+  assert.strictEqual(maskSeatNames("marketing stratejisi", etiketler), "marketing stratejisi");
+}
+
+console.log("SUMMARY_TEST_OK: kota (dusen koltuk yakalanir) + susan muafiyeti + tasinan metin kimliksiz + harf siniri + maskeleyici disa acik");
