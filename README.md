@@ -50,8 +50,12 @@ The interesting artefact in this repository may be
 design promises, what actually enforces it (graph edge, schema, code, test, or nothing yet), the
 evidence for that claim, and whether the row is a new mechanism or a debt that was paid off.
 
-At the time of writing: 46 mechanisms enforced, 20 still owed (12 planned for later milestones,
-8 opened by an independent line-by-line review of this codebase). The debts are listed by name.
+At the time of writing: 46 mechanisms enforced, 22 still owed (12 planned for later milestones,
+8 opened by an independent line-by-line review of this codebase, one prompt-only, one partial).
+The debts are listed by name. Each row is one promise the design makes: fixing a bug strengthens
+an existing row's evidence rather than adding a new row, so the count cannot inflate itself.
+Process guarantees that come from the contributor rules rather than the design, such as the single
+test chain that gates every commit, are listed separately and not counted here.
 
 Measurements from real runs, including per seat costs and what they revealed, are in
 [docs/M2-OLCUMLER.md](docs/M2-OLCUMLER.md). Estimates are labelled as estimates and never mixed
