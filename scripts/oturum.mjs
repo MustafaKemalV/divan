@@ -13,7 +13,8 @@
  *   npm run oturum -- --devam <threadId>
  *
  * Yarım oturum yanmış para demektir: checkpointer durumu zaten tutuyor, tekrar baştan koşmak
- * ödenmiş çağrıları ikinci kez ödemektir.
+ * ödenmiş çağrıları ikinci kez ödemektir. Bu, kapıda bekleyen oturum için de ÇÖKEN oturum için de
+ * geçerlidir: bir düğüm çöktüyse `--devam` onu tanır ve o düğümden sürdürür (U-14).
  *
  * Varsayılan GERÇEK modellerdir. Sahte koşum için: DIVAN_RUNNER=stub npm run oturum -- fikir.txt
  */
@@ -301,14 +302,26 @@ async function main() {
       return;
     }
     console.log(`  su ana kadar  : ${v.callCount ?? 0} cagri, $${((v.costNanoUsd ?? 0) / 1e9).toFixed(6)}`);
-    if (!st.bekleyenKapi) {
-      console.log(`\n  Bu oturumda bekleyen kapi yok (durum: ${(st.next ?? []).join(",") || "tamamlanmis"}).`);
+    const bekleyenDugum = (st.next ?? [])[0];
+    if (st.bekleyenKapi) {
+      console.log(`  bekleyen kapi : ${st.bekleyenKapi.gate}\n`);
+      durak = { type: "gate", gate: st.bekleyenKapi.gate, payload: st.bekleyenKapi.payload, threadId };
+    } else if (bekleyenDugum) {
+      // ÇÖKMÜŞ OTURUM (U-14). Bekleyen kapı yok ama graf bir düğümde duruyor: o düğüm çöktü.
+      // Buraya kadar bu durum "oturum bitmiş" sayılıyordu ve ödenmiş çağrılar çöpe gidiyordu.
+      // Checkpoint zaten sağlam; re-table o düğümün ÖNCESİNDEN sürdürür, yani tamamlanmış
+      // düğümler yeniden koşmaz ve yeniden faturalanmaz.
+      console.log(`  durum         : bekleyen kapi YOK, graf "${bekleyenDugum}" dugumunde duruyor`);
+      console.log(`                  -> oturum orada COKTU`);
+      console.log(`  kurtarma      : o dugumden surduruluyor; odenmis ${v.callCount ?? 0} cagri yeniden faturalanmaz\n`);
+      gunlukYaz({ type: "cokme-kurtarma", dugum: bekleyenDugum, cagri: v.callCount ?? 0 });
+      durak = await gonder({ threadId, reTableToNode: bekleyenDugum });
+    } else {
+      console.log(`\n  Bu oturum tamamlanmis: bekleyen kapi da bekleyen dugum de yok.`);
       const yol = ciktiYaz(threadId, st, st.runnerMode, 0, sure);
       console.log(`  cikti      : ${yol}`);
       return;
     }
-    console.log(`  bekleyen kapi : ${st.bekleyenKapi.gate}\n`);
-    durak = { type: "gate", gate: st.bekleyenKapi.gate, payload: st.bekleyenKapi.payload, threadId };
   } else {
     durak = await gonder({ threadId, idea: fikir, attachments: ekler });
   }

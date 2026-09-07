@@ -65,11 +65,14 @@ kullanım kaydı, özet zinciri, kimlik katmanı + oturum zarfı, F5 girdileri.
 - Seçilen HMW metni F2 ve sonrasındaki her ajan çağrısının girdisinde; F3/F5'te koltuğun kimlik metni sistem promptunda; bağlam sıkıştırması kanıtı yine 0 sızıntı veriyor.
 - Taslak karar girdisi muhalefet notunun ham metnini içeriyor; final denetim girdisi taslağı içeriyor.
 
+**U-14 Blok 3'ten capstone öncesine alındı** (2026-09-07); gerekçe: çöken oturumun ödenmiş
+çağrıları kurtarılamıyor, route tarafı hazır.
+
 **Blok 3 (capstone SONRASI, borç):** U-9 tek koltuk-çağrısı yolu (AbortSignal ile gerçek iptal,
 her yerde tek yeniden deneme, graf-global tamponun kalkması); U-10 kapı sözleşmesi tablosu (D-5);
 U-11 iki katlı tavan (D-8); U-12 seçenek defteri, sıralama şeması, Kendall tau, tam-uyum bayrağı,
-numaralı itiraz ve yönlendirme (D-3, D-4); U-13 ek belge eşiği ve maliyet ölçümü (D-7); U-14
-sürücüde çökmüş oturum teşhisi; U-15 altyapı kesilmesinin transkriptte doğru etiketlenmesi.
+numaralı itiraz ve yönlendirme (D-3, D-4); U-13 ek belge eşiği ve maliyet ölçümü (D-7); U-15 altyapı kesilmesinin transkriptte doğru
+etiketlenmesi.
 
 **Fable kontrol listesi:**
 - [ ] Zarf her çağrıda mı, KAPI 2'den sonra donuyor mu?

@@ -70,7 +70,15 @@ export const SMALL_IDEA_MAX_CHARS = 60;
  *   [TEST:slow:<koltuk>]   -> o koltuk gecikir (paralel tamamlanma sırası bozulur)
  *   [TEST:silent:<koltuk>] -> o koltuk hiç cevap vermez (koltuk sustu dalı)
  *   [TEST:kesik:<koltuk>]  -> o koltuk maliyeti BİLİNEN bir kesilmeyle düşer (çift sayım bekçisi)
+ *   [TEST:cokme:<faz>]     -> o faz BİR KEZ çöker, sonraki denemede döner (çöken oturum kurtarma, U-14)
  */
+/**
+ * [TEST:cokme:<faz>] için tek seferlik çökme kaydı (U-14). Süreç ömrü boyunca yaşar: ilk deneme
+ * hata fırlatır, aynı fazın İKİNCİ denemesi normal döner. Kalıcı bir çökme sürdürülemeyeceği için
+ * senaryo ancak böyle kurulabilir; kurtarmanın kanıtı, kurtarılan koşumun kendisidir.
+ */
+const cokenFazlar = new Set<string>();
+
 export class StubSeatRunner implements SeatRunner {
   async run(seatId: string, input: SeatRunInput): Promise<SeatRunOutput> {
     const { phase, idea } = input;
@@ -97,6 +105,14 @@ export class StubSeatRunner implements SeatRunner {
         maxTokens: 2048,
         usage: { completionTokens: 2048, totalTokens: 3000, cost: 0.01 },
       });
+    }
+
+    // [TEST:cokme:<faz>] -> tek koltuklu bir düğümün BİR KEZ çökmesi (U-14 kurtarma senaryosu).
+    // Faz adındaki ":" işaret içinde "-" yazılır: [TEST:cokme:F4-judgment].
+    const cokme = idea.match(/\[TEST:cokme:([\w-]+)\]/);
+    if (cokme && cokme[1] === phase.replace(":", "-") && !cokenFazlar.has(phase)) {
+      cokenFazlar.add(phase);
+      throw new Error(`stub: "${phase}" dugumu coktu (tek seferlik)`);
     }
 
     // --- Baş Danışman: brifing + triyaj, HMW, faz özetleri, taslak karar ---

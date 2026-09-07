@@ -88,6 +88,11 @@ async function post(body) {
     .map((l) => JSON.parse(l.slice(6)));
 }
 
+/** GET /api/council?threadId=... -> sürücünün `--devam`'da okuduğu durumun aynısı. */
+async function durum(threadId) {
+  return (await fetch(`${BASE}/api/council?threadId=${threadId}`)).json();
+}
+
 const stopEvent = (ev) => [...ev].reverse().find((e) => ["gate", "done", "error"].includes(e.type));
 const nodesOf = (ev) => ev.filter((e) => e.type === "node-update").map((e) => e.node);
 const countNode = (ev, name) => nodesOf(ev).filter((n) => n === name).length;
@@ -371,6 +376,53 @@ async function run() {
         `${s.metrics.costUnknownCalls} bilinmeyen / ${s.metrics.callCount} cagri`,
     );
     console.log(`  kanit: ${s.metrics.callCount} cagri, ${s.metrics.costUnknownCalls} bilinmeyen, $${s.metrics.costUsd}`);
+  });
+
+  // S19: çöken oturum kurtarılabilir (U-14). Buraya kadar çökme = yanan para.
+  await scenario("S19", "Coken oturum kurtarilir: bekleyen KAPI yok, bekleyen DUGUM var", async () => {
+    const T = "e2e-s19";
+    // Tek koltuklu bir düğüm (f4_judgment, Denetçi) bir kez çöker.
+    await post({ threadId: T, idea: `${LONG} [TEST:cokme:F4-judgment]` });
+    await post({ threadId: T, resume: "hmw" });
+    const ev = await post({ threadId: T, resume: "cerceve onaylandi" });
+    const s = stopEvent(ev);
+    check(s.type === "error", `cokme bir error olayi uretmeli, gelen: ${s.type}`);
+    check(!nodesOf(ev).includes("f4_judgment"), "coken dugum tamamlanmis sayilamaz");
+
+    // KIRMIZI'nın kendisi: sürücünün baktığı yer. Kapı yok, ama graf bir düğümde duruyor.
+    // Eski sürücü tam burada "bekleyen kapi yok" deyip oturumu bitmiş sayıyordu.
+    const st = await durum(T);
+    check(!st.bekleyenKapi, "coken oturumda bekleyen kapi OLMAMALI (kirmizinin sebebi bu)");
+    check((st.next ?? []).includes("f4_judgment"), `bekleyen dugum f4_judgment olmali: ${JSON.stringify(st.next)}`);
+    const cokmedekiCagri = st.values.callCount;
+    check(cokmedekiCagri > 15, `cokmeye kadar ciddi bir para harcanmis olmali: ${cokmedekiCagri}`);
+    console.log(
+      `  kirmizi: eski surucu burada "bekleyen kapi yok" deyip oturumu bitmis sayardi ` +
+        `-> odenmis ${cokmedekiCagri} cagri coper`,
+    );
+
+    // YEŞİL: sürücünün yeni davranışı, o düğümden sürdürme.
+    const ev2 = await post({ threadId: T, reTableToNode: st.next[0] });
+    const tamamlananlar = ["f0_briefing", "f0_hmw", "f1_frame", "f2_ideation", "f3_cross", "f4_feasibility", "f4_audit"];
+    const yenidenKosanlar = nodesOf(ev2).filter((n) => tamamlananlar.includes(n));
+    check(yenidenKosanlar.length === 0, `tamamlanmis dugumler yeniden kosmamali: ${yenidenKosanlar.join(",")}`);
+    check(nodesOf(ev2).includes("f4_judgment"), "coken dugum yeniden kosmali");
+
+    let son = stopEvent(ev2);
+    check(son.gate === "KAPI3", `kurtarma KAPI3'e ulasmali: ${son.gate ?? son.type}`);
+    son = stopEvent(await post({ threadId: T, resume: "karar" }));
+    check(son.type === "done", `oturum tamamlanmali: ${son.type}`);
+
+    // Para: yeniden faturalama olsaydı sayaç ~27 degil ~47 olurdu (tamamlanmis 20 cagri + kalan).
+    check(
+      son.metrics.callCount <= 28,
+      `onceki cagrilar yeniden faturalanmamali; beklenen <=28, gelen ${son.metrics.callCount}`,
+    );
+    check(son.metrics.callCount >= cokmedekiCagri, "sayac geriye gitmemeli");
+    console.log(
+      `  kanit: cokmede ${cokmedekiCagri} cagri -> kurtarma sonrasi ${son.metrics.callCount} cagri ` +
+        `(yeniden kosan tamamlanmis dugum: 0)`,
+    );
   });
 
   // S15: KURTARMA ZİNCİRİ. Güvenli duruş bir çıkmaz sokak olmamalı: ihlal -> sebepli duruş ->
