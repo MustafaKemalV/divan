@@ -24,6 +24,7 @@ import { estimatePhaseCost } from "./estimate.ts";
 import { runPhaseSeats, type SeatOutcome } from "./phaseRun.ts";
 import { anonymizeSummary, maskSeatNames, speakingSeats, validateSummary } from "./summary.ts";
 import { renderAudit, renderJudgment } from "./render.ts";
+import { cancelReason, contractViolation, matchGateAnswer } from "./gate.ts";
 import { buildEnvelope, defenseContext, latestSummary, rawOfPhase as rawOf } from "./context.ts";
 
 /** Faz ham metni (özet kayıtları dışlanır, bkz. context.ts). */
@@ -730,32 +731,78 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
     // OLAY-TETİKLİ DÖNÜŞ (b): hüküm turunda blocking "karsilanmadi" varsa erken brifing (Şah).
     .addNode("blocking_check", async (state: DivanStateType) => {
       const unmet = state.judgment.filter((j) => j.blocking && j.status === "karsilanmadi");
-      if (unmet.length > 0) {
-        interrupt({ gate: "ERKEN_BRIFING", blocking: unmet.map((u) => u.rawText) });
+      if (unmet.length === 0) return {};
+      // T3-3: yanıt ARTIK OKUNUYOR. Önce interrupt'ın dönüşü tamamen yok sayılıyordu; Şah "iptal"
+      // yazsa bile F5 koşuyordu, yani kapı bir bilgilendirmeydi, karar noktası değildi.
+      const KABUL = ["devam", "re-table:<düğüm>", "iptal"];
+      const answer = interrupt({
+        gate: "ERKEN_BRIFING",
+        blocking: unmet.map((u) => u.rawText),
+        kabulEdilen: KABUL,
+        kurtarma: `Akış durursa re-table ile istediğiniz düğümden devam edilebilir; durum korunur.`,
+      });
+      const eslesen = matchGateAnswer(answer, KABUL);
+      if (eslesen === "devam") return {};
+      if (eslesen === "iptal") return { endReason: cancelReason("ERKEN_BRIFING", "blocking_check") };
+      if (eslesen?.startsWith("re-table:")) {
+        // Re-table GRAF İÇİNDEN yapılmaz: checkpoint geçmişinden çatallanmayı rota yürütür
+        // (reTableToNode). Sürücü bu yanıtı zaten oraya çevirir; doğrudan API kullanan biri
+        // buraya düşerse sessizce sürdürmek yerine ne yapması gerektiğini söyleriz.
+        return {
+          endReason:
+            `Şah re-table istedi ("${eslesen}"). Bu istek graf içinden değil, ayrı bir çağrıyla ` +
+            `yürür: reTableToNode ile hedef düğümü göndererek devam edin. Durum korunur.`,
+        };
       }
-      return {};
+      return { endReason: contractViolation("ERKEN_BRIFING", answer, KABUL, "blocking_check") };
     })
     // OLAY-TETİKLİ DÖNÜŞ (d): iadeye rağmen denetim mekanik şartları taşımıyor (§6.3.1).
     .addNode("gate_audit_missing", async (state: DivanStateType) => {
-      const action = interrupt({
+      // T3-3: "iptal" dışındaki HER yanıt devam sayılıyordu; "devamm" yazımı akışı sürdürüyordu.
+      const KABUL = ["devam", "iptal"];
+      const answer = interrupt({
         gate: "DENETIM_EKSIK",
         reason: state.auditIssue,
         retries: state.auditRetries,
-        kabulEdilen: ["devam", "iptal"],
-      }) as string;
-      return { ...flushUsage(), auditGateAction: action };
+        kabulEdilen: KABUL,
+        kurtarma: `Akış durursa re-table ile "gate_audit_missing" öncesinden devam edilebilir.`,
+      });
+      const eslesen = matchGateAnswer(answer, KABUL);
+      if (eslesen === "devam") return { ...flushUsage(), auditGateAction: "devam" };
+      return {
+        ...flushUsage(),
+        auditGateAction: eslesen ?? "sozlesme-disi",
+        endReason:
+          eslesen === "iptal"
+            ? cancelReason("DENETIM_EKSIK", "gate_audit_missing")
+            : contractViolation("DENETIM_EKSIK", answer, KABUL, "gate_audit_missing"),
+      };
     })
     // Kilit blok dalı, 1. kez: hüküm turunu yeniden koştur (sayaç; çağrı harcamaz).
     .addNode("judgment_retry", async () => ({ judgmentRetries: 1 }))
     // OLAY-TETİKLİ DÖNÜŞ (c): retry'a rağmen hüküm eksik. Sessiz bitiş YOK, Şah'a çık.
     .addNode("gate_judgment_missing", async (state: DivanStateType) => {
-      const action = interrupt({
+      // T3-3: "retry" dışındaki HER yanıt SESSİZCE bitiriyordu; `done` olayı normal görünüyor,
+      // `endReason` boş kalıyordu. Oturumun neden bittiği kayda geçmiyordu.
+      const KABUL = ["retry", "iptal"];
+      const answer = interrupt({
         gate: "HUKUM_EKSIK",
         judgmentComplete: state.judgmentComplete,
         judgmentCount: state.judgment.length,
         retries: state.judgmentRetries,
-      }) as string;
-      return { ...flushUsage(), judgmentGateAction: action };
+        kabulEdilen: KABUL,
+        kurtarma: `Akış durursa re-table ile "gate_judgment_missing" öncesinden devam edilebilir.`,
+      });
+      const eslesen = matchGateAnswer(answer, KABUL);
+      if (eslesen === "retry") return { ...flushUsage(), judgmentGateAction: "retry" };
+      return {
+        ...flushUsage(),
+        judgmentGateAction: eslesen ?? "sozlesme-disi",
+        endReason:
+          eslesen === "iptal"
+            ? cancelReason("HUKUM_EKSIK", "gate_judgment_missing")
+            : contractViolation("HUKUM_EKSIK", answer, KABUL, "gate_judgment_missing"),
+      };
     })
     // ---- F5: kriter bazlı sıralama (tam kurul) ----
     .addNode("f5_ranking", async (state: DivanStateType) => {
@@ -899,15 +946,22 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
     .addEdge("bd_summary_f4s", "blocking_check")
     // ERKEN-UZLAŞI KİLİDİ (§6.3): hüküm turu tamam + blocking listeli değilse F5 açılmaz.
     // Blok dalı END'e DÜŞMEZ: önce yeniden koşum, sonra Şah kapısı.
-    .addConditionalEdges("blocking_check", earlyConsensusLockRouter, {
-      f5_ranking: "f5_ranking",
-      f5s_ranking: "f5s_ranking",
-      judgment_retry: "judgment_retry",
-      gate_judgment_missing: "gate_judgment_missing",
-    })
+    .addConditionalEdges(
+      "blocking_check",
+      // ERKEN_BRIFING kapısı sebepli bir duruş yazdıysa akış orada biter (T3-3).
+      (state: DivanStateType) => (state.endReason ? "abort" : earlyConsensusLockRouter(state)),
+      {
+        f5_ranking: "f5_ranking",
+        f5s_ranking: "f5s_ranking",
+        judgment_retry: "judgment_retry",
+        gate_judgment_missing: "gate_judgment_missing",
+        abort: END,
+      },
+    )
     .addConditionalEdges(
       "gate_audit_missing",
-      (state: DivanStateType) => (state.auditGateAction === "iptal" ? "abort" : modeRouter(state)),
+      // Yalnız açık "devam" sürdürür; iptal ve sözleşme dışı yanıt sebebiyle birlikte durur.
+      (state: DivanStateType) => (state.auditGateAction === "devam" ? modeRouter(state) : "abort"),
       { full: "f4_revision", small: "f4s_judgment", abort: END },
     )
     .addConditionalEdges("judgment_retry", modeRouter, {

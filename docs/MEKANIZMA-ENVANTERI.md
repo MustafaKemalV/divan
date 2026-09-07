@@ -104,7 +104,7 @@ Son güncelleme: M2-A3 (bağlam mimarisi revizyonu; Blok 1 kapandı, kapanış t
 | Mekanizma | Zorlayan katman | Kanıt | Köken |
 |---|---|---|---|
 | Tek koltuk-çağrısı yolu (tek düğümlerde de yeniden deneme, gerçek iptal) | **YOK** | zaman aşımı `AbortSignal` taşımıyor, istek iptal edilmiyor; yeniden deneme yalnız paralel fazlarda | borç (U-9) |
-| Kapı sözleşmesi tek tablo | **KISMİ** | bütçe kapısı sözleşmeyi ilan ediyor; DENETIM_EKSIK / HUKUM_EKSIK / ERKEN_BRIFING tutarsız | borç (U-10) |
+| Kapı sözleşmesi (D-5) | kod + test (asgari) | dört kapı da `kabulEdilen` ilan eder ve yanıtı okur; tanınmayan yanıt akışı sürdürmez, sebepli duruş üretir (`gate.ts`, `gate.test.ts`, e2e S06 + S20). **Kalan borç (U-10):** tek sözleşme TABLOSU yok, kabul listeleri düğüm başına yazılı; sözleşme dışı yanıtta kapı yerinde YENİDEN AÇILMIYOR, güvenli duruş + re-table ile kurtarma var | M2-A3: kanıt güncellendi |
 | İki katlı tavan (mekanizma çağrıları sert tavana tabi) | **YOK** | iade, yeniden deneme ve özet çağrıları hiçbir tavana sayılmıyor | borç (U-11) |
 | Seçenek defteri + şema-bağlı sıralama (Kendall tau'nun ön şartı) | **YOK** | ortak seçenek ve kriter listesi yok | borç (U-12) |
 | Kalıcı kimlikli itiraz ve kriter | **YOK** | düşen itiraz izi hâlâ ADLA eşleşiyor (M1 kapısı borcu) | borç (U-12) |
@@ -130,11 +130,12 @@ sayısının dışında dururlar.
 | Tek test zinciri ve commit kapısı | komut | `npm test` tek komutta `tsc --noEmit` + bütün birim testleri + e2e koşar; commit `npm test && git commit` zinciriyle atılır, test düşerse commit çalışmaz. Kırmızı: kasıtlı bozulan bir birim testi zinciri düşürdü. Öncesinde on birim testi hiçbir komuta bağlı değildi ve `tsc` zincirde yoktu |
 
 ## Özet
-Bu tablolarda **47 zorlanan mekanizma, 21 borç** var (toplam 68 satır); sayılar satır satır
+Bu tablolarda **48 zorlanan mekanizma, 20 borç** var (toplam 68 satır); sayılar satır satır
 sayıldı, tahmin edilmedi. Borçların dağılımı: sonraki milestone'lara planlı 12 (M2-A2 iki, M2-B
-iki, M2-C iki, M2-D bir, M3 iki, M4 iki, M5 bir), Fable M2-A3 incelemesinden 7 (U-9..U-13, U-15),
-bir SADECE-PROMPT satırı ve bir kısmi satır. U-14 capstone öncesine çekilip kapandığı için Blok 3
-borcu sekizden yediye indi.
+iki, M2-C iki, M2-D bir, M3 iki, M4 iki, M5 bir), Fable M2-A3 incelemesinden 6 (U-9, U-11, U-12
+iki satır, U-13, U-15), bir SADECE-PROMPT satırı ve bir kısmi satır. Blok 3 borcu sekizden altıya
+indi: U-14 capstone öncesine çekilip kapandı, U-10 ise asgari haliyle (dört kapının sözleşmeyi
+ilan etmesi ve yanıtı okuması) kapandı, tek tablo hâlâ borç.
 
 **Sayı bu turda düştü, ama kaybedilen bir mekanizma yok.** Sebep satır kuralı: M2-A3 Blok 1'in
 dokuz kalemi kendi başlarına satır olmaktan çıkıp ait oldukları VAADİN kanıtına işlendi. Örnek:

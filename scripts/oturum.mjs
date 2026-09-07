@@ -203,8 +203,24 @@ async function kapiyiSor(e) {
     return Number.isFinite(n) && n > 0 ? n : c;
   }
 
-  console.log(JSON.stringify(p, null, 2));
-  return (await rl.question("\nYanitin: ")).trim();
+  // Olay-tetikli kapılar (T3-3). Hepsi kabul listesini İLAN EDER; sözleşme dışı yanıt akışı
+  // sürdürmez, sebebi yazılı bir duruş üretir.
+  if (e.gate === "ERKEN_BRIFING") {
+    console.log("Hukum turunda BLOCKING 'karsilanmadi' kalan maddeler (Denetci'nin ham metni):");
+    console.log(fmtListe(p.blocking));
+    console.log(`\nre-table icin dugum adi yazin, ornek: re-table:f2_ideation`);
+  } else if (e.gate === "DENETIM_EKSIK") {
+    console.log(`Denetim mekanik sartlari tasimiyor: ${p.reason}`);
+    console.log(`Iade sayisi: ${p.retries} (§6: tek iade hakki kullanildi)`);
+  } else if (e.gate === "HUKUM_EKSIK") {
+    console.log(`Hukum turu eksik: ${p.judgmentCount} madde, yeniden kosum ${p.retries}`);
+    console.log(`Hukum tamamlandi mi: ${p.judgmentComplete}`);
+  } else {
+    console.log(JSON.stringify(p, null, 2));
+  }
+  if (p.kurtarma) console.log(`\n${p.kurtarma}`);
+  const kabul = (p.kabulEdilen ?? []).join(" | ");
+  return (await rl.question(`\nYanit${kabul ? ` (${kabul})` : "in"}: `)).trim();
 }
 
 function ciktiYaz(threadId, state, runnerMode, sureMs, sureKirilim) {
@@ -333,6 +349,16 @@ async function main() {
     // Şah'ın yanıtı da kayda girer: kapıda ne sorulduğu kadar ne cevaplandığı da replay'in parçası.
     gunlukYaz({ type: "sah-yaniti", gate: durak.gate, yanit, bekleyisMs: Date.now() - kapiBaslangic });
     console.log("");
+    // "re-table:<düğüm>" bir RESUME değildir: checkpoint geçmişinden çatallanma ayrı bir istektir
+    // ve graf içinden yapılmaz (T3-3). Sürücü yanıtı burada o isteğe çevirir.
+    const reTable = /^re-table:(.+)$/i.exec(yanit);
+    if (reTable) {
+      const hedef = reTable[1].trim();
+      console.log(`  re-table: "${hedef}" dugumunden yeniden kosuluyor; onceki cagrilar korunur\n`);
+      gunlukYaz({ type: "re-table", gate: durak.gate, dugum: hedef });
+      durak = await gonder({ threadId, reTableToNode: hedef });
+      continue;
+    }
     durak = await gonder({ threadId, resume: yanit });
   }
 

@@ -237,11 +237,20 @@ async function run() {
     let s = stopEvent(ev);
     check(s.gate === "HUKUM_EKSIK", `HUKUM_EKSIK bekleniyordu: ${s.gate ?? s.type}`);
     check(s.payload.judgmentCount === 0 && s.payload.retries === 1, "kapi payload'i eksik");
+    check(
+      Array.isArray(s.payload.kabulEdilen) && s.payload.kabulEdilen.join() === "retry,iptal",
+      `HUKUM_EKSIK kabul listesini ILAN etmeli: ${JSON.stringify(s.payload.kabulEdilen)}`,
+    );
+    // T3-3 KIRMIZI: "abort" bu kapinin sozlesmesinde YOK. Onceden sessizce bitiriyordu ve
+    // done.reason BOS geliyordu; oturumun neden bittigi hicbir yere yazilmiyordu.
     ev = await post({ threadId: "e2e-s06", resume: "abort" });
     s = stopEvent(ev);
-    check(s.type === "done", "Sah abort dediginde oturum kapanmali");
+    check(s.type === "done", "sozlesme disi yanit akisi surdurmemeli");
     check(!nodesOf(ev).some((n) => n.startsWith("f5")), "kilit acilmadan F5 KOSMAMALI");
-    console.log(`  kanit: kapi acildi, F5 kosmadi, oturum Sah kararyla kapandi`);
+    check(!!s.reason, "durus SEBEPLI olmali (kirmizida bostu)");
+    check(s.reason.includes("retry | iptal"), `sebep kabul listesini soylemeli: ${s.reason}`);
+    check(s.reason.includes("re-table"), "sebep kurtarma yolunu soylemeli");
+    console.log(`  kanit: sozlesme disi yanit -> sebepli durus, F5 kosmadi`);
   });
 
   // S07: küçük kurulda da blocking muhalefet Şah'a çıkar
@@ -434,6 +443,42 @@ async function run() {
 
   // S15: KURTARMA ZİNCİRİ. Güvenli duruş bir çıkmaz sokak olmamalı: ihlal -> sebepli duruş ->
   // re-table -> durum ve sayaç intakt -> devam -> tamamlanma.
+  await scenario("S20", "Kapi sozlesmesi: DENETIM_EKSIK ve ERKEN_BRIFING yanitlari okunur", async () => {
+    // (a) DENETIM_EKSIK: yazim hatasi ONAY DEGILDIR. Kirmizida "devamm" akisi surduruyordu.
+    await post({ threadId: "e2e-s20a", idea: `${LONG} [TEST:badurl]` });
+    await post({ threadId: "e2e-s20a", resume: "hmw" });
+    let ev = await post({ threadId: "e2e-s20a", resume: "cerceve onaylandi" });
+    let s = stopEvent(ev);
+    check(s.gate === "DENETIM_EKSIK", `DENETIM_EKSIK bekleniyordu: ${s.gate ?? s.type}`);
+    ev = await post({ threadId: "e2e-s20a", resume: "devamm" });
+    s = stopEvent(ev);
+    check(countNode(ev, "f4_revision") === 0, "yazim hatasi akisi SURDURMEMELI");
+    check(!!s.reason && s.reason.includes("devamm"), `durus sebebi yaniti anmali: ${s.reason}`);
+
+    // Ayni kapida acik "devam" ise akisi surdurur: sozlesme kapiyi kilitlemez, disiplinli yapar.
+    await post({ threadId: "e2e-s20b", idea: `${LONG} [TEST:badurl]` });
+    await post({ threadId: "e2e-s20b", resume: "hmw" });
+    await post({ threadId: "e2e-s20b", resume: "cerceve onaylandi" });
+    ev = await post({ threadId: "e2e-s20b", resume: "devam" });
+    check(countNode(ev, "f4_revision") > 0, "acik 'devam' akisi surdurmeli");
+
+    // (b) ERKEN_BRIFING: kirmizida yanit HIC okunmuyordu, "iptal" yazilsa bile F5 kosuyordu.
+    await post({ threadId: "e2e-s20c", idea: `${LONG} [TEST:blocking]` });
+    await post({ threadId: "e2e-s20c", resume: "hmw" });
+    ev = await post({ threadId: "e2e-s20c", resume: "cerceve onaylandi" });
+    s = stopEvent(ev);
+    check(s.gate === "ERKEN_BRIFING", `ERKEN_BRIFING bekleniyordu: ${s.gate ?? s.type}`);
+    check(
+      Array.isArray(s.payload.kabulEdilen) && s.payload.kabulEdilen.includes("re-table:<düğüm>"),
+      `ERKEN_BRIFING kabul listesi re-table icermeli: ${JSON.stringify(s.payload.kabulEdilen)}`,
+    );
+    ev = await post({ threadId: "e2e-s20c", resume: "iptal" });
+    s = stopEvent(ev);
+    check(!nodesOf(ev).some((n) => n.startsWith("f5")), "iptal dendiginde F5 KOSMAMALI");
+    check(!!s.reason && s.reason.includes("iptal etti"), `iptal sebepli olmali: ${s.reason}`);
+    console.log(`  kanit: uc kapi da yaniti okuyor; taninmayan yanit sebepli durus uretiyor`);
+  });
+
   await scenario("S15", "Guvenli durus kurtarilabilir: ihlal -> re-table -> tamamlanma", async () => {
     await post({ threadId: "e2e-s15", idea: LONG, maxCalls: 5 });
     await post({ threadId: "e2e-s15", resume: "hmw" });
