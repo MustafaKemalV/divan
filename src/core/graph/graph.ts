@@ -518,7 +518,8 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
       const out = await run(state, "auditor", {
         phase: "F1:frame",
         idea: state.idea,
-        context: state.selectedHmw ?? undefined,
+        // T3-8: seçilen HMW oturum ZARFINDA zaten var; bağlama ikinci kez konursa aynı metin
+        // tek çağrıda iki kez gider. Zarf tek kaynaktır (D-2), düğüm onu tekrarlamaz.
       });
       return {
         ...flushUsage(),
@@ -548,7 +549,7 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
         phase: "F2:idea",
         idea: state.idea,
         attachmentSummary: state.attachmentSummary,
-        context: state.approvedFrame ?? undefined,
+        // T3-8: Şah'ın onayladığı çerçeve oturum ZARFINDA zaten var (D-2); tekrarlanmaz.
       }));
       return { ...budget, ...update };
     })
@@ -686,7 +687,8 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
         phase: "F2s:idea",
         idea: state.idea,
         attachmentSummary: state.attachmentSummary,
-        context: state.selectedHmw ?? undefined,
+        // T3-8: seçilen HMW oturum ZARFINDA zaten var; bağlama ikinci kez konursa aynı metin
+        // tek çağrıda iki kez gider. Zarf tek kaynaktır (D-2), düğüm onu tekrarlamaz.
       }));
       return { ...budget, ...update };
     })

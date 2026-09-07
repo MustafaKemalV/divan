@@ -984,6 +984,51 @@ async function run() {
     results.push({ id: "KANIT-T35", ok: false, err: e.message });
   }
 
+  // T3-8'in kalici bekcisi. KIRMIZI: ayni metin tek cagrida IKI kez gidiyordu; zarf onu zaten
+  // tasirken dugum baglamina da konuyordu (F1 secilen HMW, F2 onayli cerceve, F2s secilen HMW).
+  console.log(`\n[KANIT] Zarf tekrari: ayni metin bir cagrida kac kez gidiyor (T3-8)?`);
+  try {
+    const { buildCouncilGraph } = await import("../src/core/graph/graph.ts");
+    const { StubSeatRunner } = await import("../src/core/graph/seatRunner.ts");
+    const { buildUserMessage } = await import("../src/core/graph/userMessage.ts");
+    const { Command } = await import("@langchain/langgraph");
+    const HMW = "HMW-PARMAKIZI-7";
+    const CERCEVE = "CERCEVE-PARMAKIZI-42";
+    const mesajlar = [];
+    const inner = new StubSeatRunner();
+    const graph = buildCouncilGraph({
+      async run(seatId, input) {
+        const out = await inner.run(seatId, input);
+        mesajlar.push({ seatId, phase: input.phase, mesaj: buildUserMessage(input) });
+        return out;
+      },
+    });
+    const cfg = { configurable: { thread_id: "e2e-t38" } };
+    const drain = async (i) => {
+      for await (const _ of await graph.stream(i, { ...cfg, streamMode: "updates" })) void _;
+    };
+    await drain({ idea: LONG, maxCalls: 100 });
+    await drain(new Command({ resume: HMW }));
+    await drain(new Command({ resume: CERCEVE }));
+
+    const say = (m, ara) => m.split(ara).length - 1;
+    for (const [faz, iz] of [["F1:frame", HMW], ["F2:idea", CERCEVE]]) {
+      for (const c of mesajlar.filter((x) => x.phase === faz)) {
+        const kez = say(c.mesaj, iz);
+        check(kez === 1, `${faz}/${c.seatId}: "${iz}" ${kez} kez gitmis, 1 olmali`);
+        // Metin KAYBOLMADI, zarfta duruyor: tekrar kalkti diye cerceve dusmedi.
+        check(c.mesaj.indexOf(iz) < c.mesaj.indexOf("FİKİR:"), `${faz}: metin zarf blogunda kalmali`);
+      }
+      const ornek = mesajlar.find((x) => x.phase === faz);
+      console.log(`  ${faz.padEnd(9)} mesaj ${String(ornek.mesaj.length).padStart(5)} krk | "${iz}" 1 kez, zarf blogunda`);
+    }
+    console.log(`  GECTI (kirmizida ikisi de 2 kez gidiyordu)`);
+    results.push({ id: "KANIT-T38", ok: true });
+  } catch (e) {
+    console.log(`  DUSTU: ${e.message}`);
+    results.push({ id: "KANIT-T38", ok: false, err: e.message });
+  }
+
   console.log(`\n[KANIT] Prompt kapsami: grafin cagirdigi her koltuk-faz cifti dosyada var mi?`);
   try {
     const { loadPrompt, loadIdentity, buildSystemPrompt, promptFileName } = await import(
