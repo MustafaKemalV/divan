@@ -200,3 +200,87 @@ bir sonraki projeksiyon aynı hatayla kurulmasın.
 Tam oturumun gerçek rakamı henüz **yok**: capstone koşumu iptal edildi ve yeniden koşulacak. O
 ölçüm geldiğinde buradaki band ya doğrulanacak ya da yine revize edilecek, ve hangisi olursa
 yazılacak.
+
+## Capstone öncesi hazırlık (2026-09-07)
+
+Bu bölüm ölçüm değil HAZIRLIKTIR. İçindeki maliyet rakamı **kestirimdir** ve öyle etiketlidir;
+gerçek rakamı capstone koşumunun kendisi verecek. Ölçülmüş olan tek şey, aşağıda ayrıca
+işaretlenen yarım oturumdur.
+
+### Kadro canlı doğrulandı (ölçüm)
+
+Config'deki 14 model kimliği (7 pin + 7 fallback) OpenRouter'ın ücretsiz model listesinden
+sorgulandı: hepsi bugün mevcut, düşen kimlik yok. Listelenen fiyatlar (2026-09-07):
+
+| Koltuk | Model | Girdi $/M | Çıktı $/M |
+|---|---|---|---|
+| Mimar | anthropic/claude-opus-4.8 | 5.00 | 25.00 |
+| Baş Danışman | anthropic/claude-sonnet-5 | 2.00 | 10.00 |
+| Müh-1 | openai/gpt-5.1 | 1.25 | 10.00 |
+| Vizyoner | x-ai/grok-4.6 | 2.00 | 6.00 |
+| Müh-2 | qwen/qwen3-max | 0.78 | 3.90 |
+| Pazar Sesi | google/gemini-3.7-flash | 0.75 | 3.75 |
+| Denetçi | deepseek/deepseek-v4-pro | 0.96 | 1.91 |
+
+Mimar'ın çıktı fiyatı Denetçi'ninkinin on üç katı. Yarım oturumda iki Anthropic koltuğunun
+faturanın %64'ünü tutması bir tesadüf değil, bu tablonun doğrudan sonucudur.
+
+**Prob önbelleği bayat:** 2 Eylül'de yazılmış, TTL 24 saat. Bu yüzden koşumun İLK adımı prob
+tazelemesidir (ölçülmüş maliyeti $0.006063). Gerekçe: bir model şema disiplinini kaybettiyse bunu
+kırk sentlik koşumda değil, altı milyemlik probda öğrenmek gerekir.
+
+### Çağrı planı: 27 (ölçüm, para harcamadan)
+
+Stub oturumunun ham olay günlüğünden çıkarıldı, DESIGN §5'in 26-28 bandının içinde:
+
+| Faz | Çağrı | | Koltuk | Çağrı |
+|---|---|---|---|---|
+| F0 brifing + HMW | 2 | | Baş Danışman | 6 |
+| F1 çerçeve | 1 | | Denetçi | 5 |
+| F2 üretim + özet | 5 | | Müh-1 | 5 |
+| F3 çapraz + özet | 5 | | Mimar | 5 |
+| F4 fizibilite + denetim + revizyon + hüküm + özet | 8 | | Pazar Sesi | 3 |
+| F5 sıralama + taslak + final denetim | 6 | | Vizyoner | 2 |
+| **Toplam** | **27** | | Müh-2 | 1 |
+
+### Maliyet: kestirim (ölçüm DEĞİL)
+
+İptal edilen koşum tam olarak 18 çağrıda durmuştu (17 planlı + 1 denetim iadesi) ve $0.208651
+harcamıştı; bu ÖLÇÜMDÜR. Geriye kalan 10 çağrı şunlar: revizyon 2, hüküm 1, F4 özeti 1, F5
+sıralama 4, taslak 1, final denetim 1. Hepsi geç faz çağrısı, yani bağlamları daha ağır; ucuz
+olmaları beklenmiyor.
+
+**KESTİRİM: $0.32 ile $0.41** (prob tazelemesi dahil). Bu bandın sınırı açıkça söylenmeli:
+"çağrı başına ortalama çarpı 27" hesabı bu repoda bir kez yanıldı ve neden yanıldığı yukarıda
+yazılı. Band, ortalamayla değil, ölçülmüş yarım oturumun üstüne kalan on çağrının KOLTUK
+dağılımına bakılarak kuruldu; yine de kestirimdir ve koşum sonrası ya doğrulanacak ya revize
+edilecek.
+
+**Süre:** yarım oturum 713 saniye sürmüştü ama o koşum sıralıydı. F2, F3, F4 fizibilite, revizyon
+ve F5 sıralama artık paralel koşuyor; kazanç henüz ölçülmedi, bu koşum onu da ölçecek.
+
+### Bu koşumda EKSİK olacak mekanizmalar
+
+- **Web araması kodda yok.** `search.perPhaseCap` yalnız config şemasında duruyor; `client.ts`,
+  `gateway.ts` ve `openrouterRunner.ts`'in hiçbirinde plugin yok. Denetçi "Doğrulanmış" rozetini
+  gerçek aramayla değil, hafızasından çıkardığı bir URL ile hak edecek. URL zorunluluğu kodda var,
+  URL'nin gerçekliği yok (§6.2'nin bilinen sınırı, M2-C).
+- **Karar belgesi şablona basılmayacak.** `templates/` altındaki iki şablon hiçbir kaynak
+  dosyadan referans edilmiyor; belge üretimi M3. Çıktı, sürücünün yazdığı transkript ve künyedir.
+- **Triyaj sınıfı hâlâ model kanaati** (M2-B), KAPI 1'de "kanaat" işaretiyle gelecek.
+- **§6.1'in adanmış katmanı yok.** Fazlar arası taşınan her metin maskeden geçiyor ve F3 yalnız
+  maskelenmiş F2 özetini görüyor; açık kalan, dolaylı tanıma (üslup, konu, ima).
+
+### Parayı yakabilecek üç yer (kod okunarak çıkarıldı)
+
+1. **Tek koltuklu çağrılarda ne zaman aşımı var ne yeniden deneme (U-9).** `runPhaseSeats`
+   korkulukları yalnız çok koltuklu fazlara uygulanıyor: 27 çağrının 17'si korumalı, **10'u
+   değil** (iki F0, F1 çerçeve, üç faz özeti, denetim, hüküm, taslak, final denetim). Geçici bir
+   sağlayıcı hatası bunların herhangi birinde düğümü çökertir. Karar: Blok 3'te kalıyor, çünkü
+   para koşumundan hemen önce on çağrı yerine dokunmak fazladan risktir.
+2. **Çöken oturum kurtarılamıyor (U-14).** Düğüm çökünce route bir `error` olayı gönderip akışı
+   kapatıyor; sürücü `--devam`'da bekleyen kapı bulamayınca oturumu bitmiş sayıyor. Yani 22.
+   çağrıda çöken bir oturumda ödenmiş 22 çağrı çöpe gidiyor. Route tarafı zaten hazır
+   (`reTableToNode` checkpoint geçmişinden sürüyor). **Karar: U-14 capstone öncesine çekildi.**
+3. **İade, yeniden deneme ve özet çağrıları hiçbir tavana sayılmıyor (U-11).** Geçen koşumda
+   denetim bir kez iade edilmişti; 27 planlı çağrı pratikte 28-30'a çıkabilir ve tavan 30.
