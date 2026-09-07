@@ -950,6 +950,31 @@ async function run() {
     results.push({ id: "KANIT-T32", ok: false, err: e.message });
   }
 
+  // T3-5'in kalici bekcisi. KIRMIZI: F5:ranking baglami 274 krk ve F3 ozeti YOKTU; siralayicilar
+  // secenekleri degil, secenekler hakkinda soylenenleri goruyordu.
+  console.log(`\n[KANIT] F5 girdisi: seceneklerin dogdugu faz ozeti gidiyor mu (T3-5)?`);
+  try {
+    let eksik = 0;
+    for (const faz of ["F5:ranking", "F5:draft"]) {
+      for (const c of spyCalls.filter((x) => x.phase === faz)) {
+        const f3 = c.context.includes("F3 ÖZETİ");
+        const f4 = c.context.includes("F4 ÖZETİ") || c.context.includes("F4 ÖZETI");
+        if (!f3 || !f4) eksik++;
+        console.log(`  ${faz.padEnd(11)} ${c.seatId.padEnd(12)} ${String(c.context.length).padStart(5)} krk | F3:${f3 ? "VAR" : "YOK"} F4:${f4 ? "VAR" : "YOK"}`);
+      }
+    }
+    check(eksik === 0, `${eksik} cagrida secenek fazinin ozeti eksik`);
+    // Ham transkript YINE tasinmiyor: kopru ozetle kuruldu, sikistirma delinmedi.
+    for (const c of spyCalls.filter((x) => x.phase === "F5:ranking")) {
+      check(!/\bvisionary:|\barchitect:/.test(c.context), "F5'e ham F3 transkripti sizmamali");
+    }
+    console.log(`  GECTI (kirmizida F3 ozeti YOKTU, baglam 274 krk idi)`);
+    results.push({ id: "KANIT-T35", ok: true });
+  } catch (e) {
+    console.log(`  DUSTU: ${e.message}`);
+    results.push({ id: "KANIT-T35", ok: false, err: e.message });
+  }
+
   console.log(`\n[KANIT] Prompt kapsami: grafin cagirdigi her koltuk-faz cifti dosyada var mi?`);
   try {
     const { loadPrompt, loadIdentity, buildSystemPrompt, promptFileName } = await import(

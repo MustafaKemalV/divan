@@ -25,7 +25,7 @@ import { runPhaseSeats, type SeatOutcome } from "./phaseRun.ts";
 import { anonymizeSummary, maskSeatNames, speakingSeats, validateSummary } from "./summary.ts";
 import { renderAudit, renderJudgment } from "./render.ts";
 import { cancelReason, contractViolation, matchGateAnswer } from "./gate.ts";
-import { buildEnvelope, defenseContext, latestSummary, rawOfPhase as rawOf } from "./context.ts";
+import { buildEnvelope, defenseContext, latestSummary, rankingContext, rawOfPhase as rawOf } from "./context.ts";
 
 /** Faz ham metni (özet kayıtları dışlanır, bkz. context.ts). */
 function rawOfPhase(state: DivanStateType, phasePrefix: string): string {
@@ -755,12 +755,12 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
             "Şah bütçe kapısında iptal etti (F5s girişi). KURTARMA: re-table ile devam edilebilir, durum korunur.",
         };
       }
-      const f4Summary = summaryOf(state, "F4");
+      // Küçük kurulda F3 hiç koşmaz: seçenekler F2'de doğar, köprü oradan kurulur (T3-5).
       const { outcomes, update } = await runPhase(state, "F5s:ranking", SMALL_RANKERS, () => ({
         phase: "F5s:ranking",
         idea: state.idea,
         attachmentSummary: state.attachmentSummary,
-        context: f4Summary,
+        context: rankingContext(summaryOf(state, "F2"), summaryOf(state, "F4")),
       }));
       const ranks = outcomes.filter((o) => o.out).map((o) => `${o.seatId}: ${o.out?.content}`);
       return { ...budget, ...update, rankings: ranks };
@@ -856,12 +856,14 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
             "Şah bütçe kapısında iptal etti (F5 girişi). KURTARMA: re-table ile devam edilebilir, durum korunur.",
         };
       }
-      const f4Summary = summaryOf(state, "F4");
+      // T3-5: sıralama SEÇENEKLERİ sıralar, ama seçeneklerin doğduğu faz F3'tü ve F3 özeti
+      // buraya hiç gelmiyordu; sıralayıcılar yalnız F4'ün fizibilite/denetim özetini görüyordu.
+      // Ortak seçenek defteri (D-3) Blok 3'te gelene kadar köprü budur (DESIGN §5).
       const { outcomes, update } = await runPhase(state, "F5:ranking", RANKERS, () => ({
         phase: "F5:ranking",
         idea: state.idea,
         attachmentSummary: state.attachmentSummary,
-        context: f4Summary,
+        context: rankingContext(summaryOf(state, "F3"), summaryOf(state, "F4")),
       }));
       // Susan koltuk sıralamaya GİRMEZ: eksik ses uydurulmaz, silentSeats'te görünür.
       const ranks = outcomes.filter((o) => o.out).map((o) => `${o.seatId}: ${o.out?.content}`);
@@ -875,6 +877,8 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
       // anlamsızdır. Sıralamalar KİMLİKSİZ verilir (§6.1): kim ne dedi değil, ne dendi.
       const oncekiDusenler = dusenItirazlar(state);
       const draftContext = [
+        // T3-5: taslak da seçeneklerin doğduğu fazı görmeli, yalnız haklarında söyleneni değil.
+        `F3 ÖZETİ (seçenekler burada doğdu):\n${summaryOf(state, "F3") || summaryOf(state, "F2")}`,
         `F4 ÖZETİ:\n${summaryOf(state, "F4")}`,
         `SIRALAMALAR (kimliksiz):\n${kimliksizSiralamalar(state.rankings)}`,
         `MUHALEFET NOTU (Denetçi'nin HAM metni; yumuşatma, kısaltma ve gömme YETKİN YOK):\n${

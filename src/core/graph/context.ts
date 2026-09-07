@@ -113,3 +113,19 @@ export function defenseContext(auditText: string, judgmentText: string, previous
   if (previousDefenses.trim()) bloklar.push(`ÖNCEKİ SAVUNMA TURLARI:\n${previousDefenses.trim()}`);
   return bloklar.join("\n\n");
 }
+
+/**
+ * Sıralama ve taslak bağlamı (DESIGN §5, M2-A3 T3-5). Sıralayıcılar SEÇENEKLERİ sıralar ama
+ * seçeneklerin doğduğu faz F3'tür; buraya yalnız F4 özeti (fizibilite ve denetim) gidiyordu, yani
+ * kurul neyi sıraladığını değil, sıraladığı şey hakkında ne söylendiğini görüyordu.
+ *
+ * Ortak seçenek defteri (D-3) Blok 3'te gelecek; o zamana kadar köprü budur. Özet başlıkları
+ * açıkça yazılır: hangi metnin hangi fazdan geldiği belli olmalı, yoksa iki özet tek bir gövdeye
+ * karışır ve "F3'te bunu konuşmuştuk" denemez.
+ */
+export function rankingContext(f3Summary: string, f4Summary: string): string {
+  const bloklar: string[] = [];
+  if (f3Summary.trim()) bloklar.push(`F3 ÖZETİ (seçenekler burada doğdu):\n${f3Summary.trim()}`);
+  if (f4Summary.trim()) bloklar.push(`F4 ÖZETİ (fizibilite, denetim, hüküm):\n${f4Summary.trim()}`);
+  return bloklar.join("\n\n");
+}
