@@ -3,7 +3,7 @@
 // Bekçi görevi: özet zinciri bir daha kendi kuyruğunu yemesin.
 
 import assert from "node:assert";
-import { buildEnvelope, latestSummary, rawOfPhase, isSummaryRecord } from "./context.ts";
+import { buildEnvelope, defenseContext, latestSummary, rawOfPhase, isSummaryRecord } from "./context.ts";
 
 // 1) GEREKÇE-KANITI: hüküm turu yeniden koşunca aynı faz için İKİ özet olur.
 //    Kırmızı hal ilkini okuyordu, yani F5 sıralaması geçersizleşmiş bilgiyle yapılıyordu.
@@ -76,4 +76,24 @@ assert.strictEqual(isSummaryRecord("F4:audit"), false);
   assert.strictEqual(buildEnvelope({}, "F5:ranking"), "", "hicbir parca yoksa zarf bos doner");
 }
 
-console.log("CONTEXT_TEST_OK: son ozet okunur (bayat degil) + ozet kaydi ham baglama girmez + oturum zarfi kademeli");
+// 6) SAVUNMA BAĞLAMI (T3-2): denetim + son hüküm + önceki savunmalar, bu sırada.
+//    KIRMIZI hal: bağlam yalnız denetimdi; ikinci turda savunucu hangi maddenin blocking
+//    kaldığını göremiyordu, yani döngünün amacı olan "şu maddeye cevap ver" kurulmuyordu.
+{
+  const denetim = "DENETİM\nPremortem: dagitim maliyeti.";
+  const hukum = "HÜKÜM TURU\n- birim ekonomisi: karsilanmadi [BLOCKING]";
+  const savunmalar = "engineer1: ilk turda soyle savundum";
+
+  const ilkTur = defenseContext(denetim, "", "");
+  assert.ok(ilkTur.includes("DENETİM"), "ilk turda denetim gitmeli");
+  assert.ok(!ilkTur.includes("ÖNCEKİ HÜKÜM"), "ilk turda hukum yok, bos blok acilmamali");
+  assert.ok(!ilkTur.includes("ÖNCEKİ SAVUNMA"), "ilk turda onceki savunma yok");
+
+  const ikinciTur = defenseContext(denetim, hukum, savunmalar);
+  assert.ok(ikinciTur.includes("BLOCKING"), "ikinci turda blocking madde gorulmeli");
+  assert.ok(ikinciTur.includes("ilk turda soyle savundum"), "onceki savunma turlari gorulmeli");
+  const sira = ["DENETİM", "ÖNCEKİ HÜKÜM TURU", "ÖNCEKİ SAVUNMA TURLARI"].map((x) => ikinciTur.indexOf(x));
+  assert.ok(sira[0] < sira[1] && sira[1] < sira[2], `sira denetim -> hukum -> savunmalar olmali: ${sira}`);
+}
+
+console.log("CONTEXT_TEST_OK: son ozet okunur (bayat degil) + ozet kaydi ham baglama girmez + oturum zarfi kademeli + savunma baglami hukmu gorur");

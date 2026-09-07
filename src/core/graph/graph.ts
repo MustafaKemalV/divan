@@ -24,7 +24,7 @@ import { estimatePhaseCost } from "./estimate.ts";
 import { runPhaseSeats, type SeatOutcome } from "./phaseRun.ts";
 import { anonymizeSummary, maskSeatNames, speakingSeats, validateSummary } from "./summary.ts";
 import { renderAudit, renderJudgment } from "./render.ts";
-import { buildEnvelope, latestSummary, rawOfPhase as rawOf } from "./context.ts";
+import { buildEnvelope, defenseContext, latestSummary, rawOfPhase as rawOf } from "./context.ts";
 
 /** Faz ham metni (özet kayıtları dışlanır, bkz. context.ts). */
 function rawOfPhase(state: DivanStateType, phasePrefix: string): string {
@@ -575,12 +575,22 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
         };
       }
       const round = state.revisionRounds + 1;
-      const auditText = rawOfPhase(state, "F4:audit");
+      // T3-2: savunma, GEÇERLİ denetimi ve SON HÜKMÜ görür. Denetim yapılandırılmış halinden
+      // gelir (state.audit), transkriptten değil: böylece iade edilmiş [GEÇERSİZ] ilk deneme
+      // savunmaya malzeme olmaz. Geçerli denetim yoksa (Şah DENETIM_EKSIK kapısında "devam"
+      // dediyse) eksiklik SESSİZ geçilmez, ham metin açık bir uyarıyla taşınır.
+      const auditText = state.audit
+        ? renderAudit(state.audit)
+        : `[DENETİM MEKANİK ŞARTLARI TAŞIMIYOR: ${state.auditIssue}]\n${rawOfPhase(state, "F4:audit")}`;
       const { update } = await runPhase(state, "F4:revision", DEFENDERS, () => ({
         phase: "F4:revision",
         idea: state.idea,
         attachmentSummary: state.attachmentSummary,
-        context: auditText,
+        context: defenseContext(
+          auditText,
+          state.judgment.length > 0 ? renderJudgment(state.judgment) : "",
+          rawOfPhase(state, "F4:revision"),
+        ),
         round,
       }));
       return { ...budget, ...update, revisionRounds: 1 };

@@ -90,3 +90,26 @@ export function rawOfPhase(entries: readonly TranscriptLike[], phasePrefix: stri
     .map((t) => `${t.seatId}: ${t.content}`)
     .join("\n");
 }
+
+/**
+ * Savunma turunun bağlamı (DESIGN §5 F4, M2-A3 T3-2).
+ *
+ * Önce bağlam `rawOfPhase("F4:audit")` idi ve iki şeyi birden bozuyordu. Birincisi: savunucular
+ * yalnız denetimi görüyor, HÜKMÜ görmüyordu; ikinci ve üçüncü turda hangi maddenin "karşılanmadı"
+ * kaldığı bilinmeden savunma yapılıyordu, yani döngünün amacı olan "şu maddeye cevap ver" hiç
+ * kurulmuyordu. İkincisi: iade edilmiş `[GEÇERSİZ]` ilk deneme de transkriptte olduğu için
+ * bağlama giriyordu; reddedilmiş bir çıktı savunmaya malzeme olamaz (§6 iade semantiği reddi
+ * kaydeder, yürürlüğe koymaz).
+ *
+ * Numaralı yönlendirme (D-4: her koltuk yalnız KENDİ iddialarına yöneltilmiş itirazları görür)
+ * Blok 3'te gelir; burada kurulan şey içeriğin akışıdır, hedeflenmesi değil.
+ */
+export function defenseContext(auditText: string, judgmentText: string, previousDefenses: string): string {
+  const bloklar: string[] = [];
+  if (auditText.trim()) bloklar.push(auditText.trim());
+  if (judgmentText.trim()) {
+    bloklar.push(`ÖNCEKİ HÜKÜM TURU (savunman bu maddelere cevap vermeli):\n${judgmentText.trim()}`);
+  }
+  if (previousDefenses.trim()) bloklar.push(`ÖNCEKİ SAVUNMA TURLARI:\n${previousDefenses.trim()}`);
+  return bloklar.join("\n\n");
+}

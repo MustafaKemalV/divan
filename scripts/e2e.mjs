@@ -822,6 +822,62 @@ async function run() {
     results.push({ id: "KANIT-T31", ok: false, err: e.message });
   }
 
+  // T3-2'nin kalici bekcisi. KIRMIZI olcum (bu duzeltmeden once):
+  //   [TEST:drop] ikinci tur F4:revision baglami 502 krk, "BLOCKING" YOK, hukum hic yok;
+  //   [TEST:badurl1] savunma baglaminda reddedilmis "[GECERSIZ" denemesi VARDI.
+  console.log(`\n[KANIT] Savunma turu denetimi ve hukmu goruyor mu (T3-2)?`);
+  try {
+    const { buildCouncilGraph } = await import("../src/core/graph/graph.ts");
+    const { StubSeatRunner } = await import("../src/core/graph/seatRunner.ts");
+    const { Command } = await import("@langchain/langgraph");
+    const kos = async (tid, idea, resumes) => {
+      const calls = [];
+      const inner = new StubSeatRunner();
+      const graph = buildCouncilGraph({
+        async run(seatId, input) {
+          const out = await inner.run(seatId, input);
+          calls.push({ seatId, phase: input.phase, round: input.round ?? 0, context: input.context ?? "" });
+          return out;
+        },
+      });
+      const cfg = { configurable: { thread_id: tid } };
+      const drain = async (i) => {
+        for await (const _ of await graph.stream(i, { ...cfg, streamMode: "updates" })) void _;
+      };
+      await drain({ idea, maxCalls: 100 });
+      for (const r of resumes) await drain(new Command({ resume: r }));
+      return calls;
+    };
+
+    const drop = (await kos("e2e-t32-drop", `${LONG} [TEST:drop]`, ["hmw", "cerceve", "karar", "karar"]))
+      .filter((c) => c.phase === "F4:revision");
+    const ikinciTur = drop.filter((c) => c.round === 2);
+    check(ikinciTur.length > 0, "ikinci savunma turu kosmali ([TEST:drop])");
+    for (const c of ikinciTur) {
+      check(c.context.includes("BLOCKING"), `ikinci turda blocking madde gorulmeli: ${c.seatId}`);
+      check(c.context.includes("HÜKÜM TURU"), `ikinci turda hukum turu gorulmeli: ${c.seatId}`);
+    }
+    for (const c of drop.filter((x) => x.round === 1)) {
+      check(!c.context.includes("HÜKÜM TURU"), "ilk turda hukum yoktur, uydurulmamali");
+    }
+
+    const bad = (await kos("e2e-t32-bad", `${LONG} [TEST:badurl1]`, ["hmw", "cerceve", "karar"]))
+      .filter((c) => c.phase === "F4:revision");
+    for (const c of bad) {
+      check(!c.context.includes("[GEÇERSİZ"), "reddedilen deneme savunmaya malzeme olamaz");
+      check(c.context.includes("Hedef segment"), "iade sonrasi GECERLI denetim savunmaya gitmeli");
+    }
+    console.log(
+      `  kanit: ikinci tur baglami ${ikinciTur[0].context.length} krk (blocking + hukum + onceki savunma), ` +
+        `iade edilen deneme baglamda yok`,
+    );
+    console.log(`  GECTI`);
+    results.push({ id: "KANIT-T32", ok: true });
+  } catch (e) {
+    console.log(`  DUSTU: ${e.message}`);
+    results.push({ id: "KANIT-T32", ok: false, err: e.message });
+  }
+
   console.log(`\n[KANIT] Prompt kapsami: grafin cagirdigi her koltuk-faz cifti dosyada var mi?`);
   try {
     const { loadPrompt, loadIdentity, buildSystemPrompt, promptFileName } = await import(
