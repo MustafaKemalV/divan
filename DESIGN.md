@@ -76,14 +76,6 @@ Gerekçe notları:
 - **Kapı sözleşmesi tek tablodur (D-5):** Her kapı kabul ettiği yanıtları payload ile ilan eder; graf ve sürücü aynı tabloyu okur. Sözleşme dışı yanıt HİÇBİR kapıda akışı sürdürmez. `ERKEN_BRIFING` kabul kümesi: `devam` | `re-table:<düğüm>` | `iptal`.
 - **Ek bağlam (topraklama):** Şah fikrin yanına dosya iliştirebilir (README, şema, örnek kod). Gerekçe: kurul bir şey hakkında karar verirken onu TARİFİNDEN değil KENDİSİNDEN okumalı; topraklamanın (§6.2) girdi tarafı budur. Enjeksiyon BÜTÇE BİLİNÇLİDİR ve üç kuraldan oluşur: (a) tam metin yalnız F0'da Baş Danışman'a ve F4'te değerlendirenler ile Denetçi'ye gider, çünkü fizibilite ve denetim gerçek metni okumadan yapılamaz; (b) diğer bütün fazlar BD'nin ek ÖZETİ üzerinden görür, ham metin oralara taşınmaz; (c) ek metinler faz özetlerinin yerine geçmez, onların yanına eklenir. Ek belgelerin boyut eşiği config'dedir (D-7): eşik aşılırsa sessiz kırpma YAPILMAZ, açık red ve anlaşılır hata verilir; kırpılmış bir kaynak, kaynak sayılmaz. Eklerin maliyet payı çağrı başına kullanım kaydından ölçülür (§7); ölçülmeden "ucuz" varsayılmaz.
 
-### 5.2 Seçenek defteri ve şema-bağlı sıralama (D-3) [Blok 3'te kurulur]
-
-Sıralamanın (§6.5) üzerinde çalışacağı ortak bir seçenek listesi bugüne kadar yoktu; ona bakmadan Kendall tau hesaplanamaz.
-
-Seçeneklerin KAYNAĞI F2'dir: sessiz ideation fazında her ideatörün çıktısı tanım gereği bir seçenektir. F3 özeti bunları numaralı `options[]` olarak taşır; F3 birleştirebilir, ilerletebilir, yeni seçenek doğurabilir ama DÜŞÜREMEZ (özet kotası bunu zaten zorlar, ayrı bir mekanizma gerekmez).
-
-Kriterler iki kaynaktan gelir: config'de Şah'ın düzenleyebildiği varsayılan liste (yapılabilirlik, geri dönüş maliyeti, kanıt gücü, değer) ve Denetçi'nin `blocking` işaretlediği HER madde, otomatik olarak bir kriter olur. Sıralayıcılar şema-bağlı döner (`{kriterId: [seçenekId...]}`), böylece Kendall tau ve tam-uyum bayrağı hesaplanabilir kod olur. Fazladan model çağrısı gerekmez.
-
 ### 5.1 Kurul boyutu ve kadro seçimi [M2'de kurulur; M1'de sabit kadro + stub triyajı]
 
 **İlke: model gözlem üretir, kod sınıflandırır, Şah karar verir.** Baş Danışman'a "bu fikir küçük mü" diye SORULMAZ. Sorulursa tahmin eder, aynı fikir iki koşumda farklı sınıflanır ve kurulun boyutu bir modelin o anki eğilimine kalır. Bunun yerine F0 brifingi şema-bağlı dört GÖZLEM döndürür:
@@ -115,6 +107,14 @@ Baş Danışman fikrin eksenini bildirir, eşleştirmeyi config tablosu yapar. H
 - **Çeşitlilik uyarısı:** seçilen kadro ikiden az aileden geliyorsa UI uyarır. Engellemez (Şah bilerek yapıyor olabilir) ama sessizce de geçmez.
 
 Bunun yapısal sonucu: **kadro veridir.** Graf, hangi fazda kimin konuşacağını koddaki sabit listelerden değil, config + KAPI 1 seçiminden alır. (M1'de listeler sabittir; M2'de dinamikleştirilir, PLAN M2.)
+
+### 5.2 Seçenek defteri ve şema-bağlı sıralama (D-3) [Blok 3'te kurulur]
+
+Sıralamanın (§6.5) üzerinde çalışacağı ortak bir seçenek listesi bugüne kadar yoktu; ona bakmadan Kendall tau hesaplanamaz.
+
+Seçeneklerin KAYNAĞI F2'dir: sessiz ideation fazında her ideatörün çıktısı tanım gereği bir seçenektir. F3 özeti bunları numaralı `options[]` olarak taşır; F3 birleştirebilir, ilerletebilir, yeni seçenek doğurabilir ama DÜŞÜREMEZ (özet kotası bunu zaten zorlar, ayrı bir mekanizma gerekmez).
+
+Kriterler iki kaynaktan gelir: config'de Şah'ın düzenleyebildiği varsayılan liste (yapılabilirlik, geri dönüş maliyeti, kanıt gücü, değer) ve Denetçi'nin `blocking` işaretlediği HER madde, otomatik olarak bir kriter olur. Sıralayıcılar şema-bağlı döner (`{kriterId: [seçenekId...]}`), böylece Kendall tau ve tam-uyum bayrağı hesaplanabilir kod olur. Fazladan model çağrısı gerekmez.
 
 ## 6. Anti-yağcılık mekanikleri (detay)
 

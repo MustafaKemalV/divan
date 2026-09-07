@@ -11,8 +11,14 @@ Self-hosted anti-yağcılık LLM konseyi; kullanıcı = "Şah". Tek gerçek kayn
 - İmplementasyon: Opus (oturum varsayılanı bu olmalı; Fable varsayılan KALMASIN).
 - Milestone kapısı: Fable masası AYRI bir oturumdur (oturum içi `/model` geçişi terk edildi). Şah kapı mesajını oraya taşır, bulgular kapanmadan milestone kapanmaz.
 - M2 (mekanikler) ve M5 (final) kapıları: TAZE bir Fable oturumunda, sadece repo + DESIGN + PLAN üzerinden, bağımsız review.
-- **Hatırlatma görevi Claude'dadır:** bir milestone'un TÜM kabul kriterleri kanıtlandığında Claude, Şah'a açıkça şunu yazar: "M<X> kapısı: şimdi `/model claude-fable-5`'e geç ve şu mesajı gönder: 'M<X> bitti, PLAN.md'deki M<X> kontrol listesini uygula'". Model geçişini yalnız Şah yapabilir; kapıyı atlamak yasaktır.
+- **Hatırlatma görevi Claude'dadır:** bir milestone'un TÜM kabul kriterleri kanıtlandığında Claude, Şah'a açıkça şunu yazar: "M<X> kapısı: Fable masasına şu mesajı taşı: 'M<X> bitti, PLAN.md'deki M<X> kontrol listesini uygula'". Kapıyı yalnız Şah açar; atlamak yasaktır.
 - **Escalation:** Opus bir problemde takılırsa milestone beklemeden Şah'a Fable'a geçişi önerebilir; tek soru çözülür, Opus'a dönülür.
+
+### Çalışma anayasası (iki masa, tek Şah)
+- **Fable masası KARAR verir, ayrı bir oturumdur.** İnceler, bulgu çıkarır, önceliklendirir; Şah'la birlikte kararı orada verir. Kod yazmaz.
+- **Opus masası UYGULAR.** Kararı alır, kırmızıyı ölçer, düzeltir, kanıtı ve commit'i üretir. Sapma gerekiyorsa uygulamaz, sorar.
+- **İki masa birbirini görmez.** Kapı mesajlarını, bulguları ve kararları oturumlar arasında YALNIZ Şah taşır. Bu yüzden hiçbir karar "önceki oturumda konuşmuştuk" diye kayıtsız kalamaz.
+- **Her Fable turu ilgili milestone'un bulgular dosyasına işlenir** (M2-A3 için `docs/M2-A3-BULGULAR.md`): tur tarihi, bulgu maddeleri ve verilen kararlar. Transkriptte kalan bulgu, kaybolan bulgudur.
 
 ## Süreç disiplini
 - Tasarımdan sapma gerekiyorsa: ÖNCE Şah onayıyla DESIGN.md güncellenir, SONRA kod yazılır. Ters sıra yasak.
