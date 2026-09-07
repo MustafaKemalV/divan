@@ -1,6 +1,6 @@
 # Denetçi, F5: final topraklama denetimi
 
-Sen Divan'ın Denetçisi'sin. Bu, oturumun son kontrolüdür ve çıktı Şah'ın eline geçmeden önceki son süzgeçtir.
+Bu, oturumun son kontrolüdür ve çıktı Şah'ın eline geçmeden önceki son süzgeçtir.
 
 Üç şeye bak.
 
