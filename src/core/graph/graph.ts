@@ -23,6 +23,7 @@ import { usageOf, formatUsd, toNanoUsd } from "./usage.ts";
 import { estimatePhaseCost } from "./estimate.ts";
 import { runPhaseSeats, type SeatOutcome } from "./phaseRun.ts";
 import { anonymizeSummary, maskSeatNames, speakingSeats, validateSummary } from "./summary.ts";
+import { renderAudit, renderJudgment } from "./render.ts";
 import { buildEnvelope, latestSummary, rawOfPhase as rawOf } from "./context.ts";
 
 /** Faz ham metni (özet kayıtları dışlanır, bkz. context.ts). */
@@ -187,10 +188,13 @@ async function runAuditWithReturn(
   }
   outs.push(first);
   let check = validateAudit(first.data);
+  // SADIK TRANSKRİPT (T3-1): geçerli denetim, doğrulanmış İÇERİĞİYLE yazılır. Önceden yalnız
+  // `first.content` (yani data.summary) giriyordu ve premortem, iddialar, kaynaklar doğrulandığı
+  // yerde ölüyordu. Geçersiz çıktı DÜZELTİLMEZ, ham haliyle ve gerekçesiyle kalır (§6).
   entries.push({
     phase,
     seatId: "auditor",
-    content: check.ok ? first.content : `[GEÇERSİZ: ${check.reason}] ${first.content}`,
+    content: check.ok ? renderAudit(check.audit) : `[GEÇERSİZ: ${check.reason}] ${first.content}`,
   });
   let calls = 1;
 
@@ -209,7 +213,7 @@ async function runAuditWithReturn(
       phase,
       seatId: "auditor",
       content: check.ok
-        ? `[İADE SONRASI] ${second.content}`
+        ? `[İADE SONRASI]\n${renderAudit(check.audit)}`
         : `[İADE SONRASI DA GEÇERSİZ: ${check.reason}] ${second.content}`,
     });
   }
@@ -218,6 +222,8 @@ async function runAuditWithReturn(
     auditComplete: check.ok,
     auditIssue: check.ok ? "" : check.reason,
     auditRetries: calls - 1,
+    // Yapılandırılmış hali de state'e yazılır; yalnız GEÇERLİ olan (§6: geçersiz çıktı taşınmaz).
+    audit: check.ok ? check.audit : null,
     transcript: entries,
     callCount: calls,
   };
@@ -596,7 +602,15 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
         judgmentHistory: [{ round: state.judgmentHistory.length + 1, items: judgment }],
         judgmentComplete: true,
         prevUnmetCount: prevUnmet,
-        transcript: [{ phase: "F4:judgment", seatId: "auditor", content: out.content }],
+        // Kriter tablosu transkripte de girer (T3-1): F4 özetini yazan Baş Danışman ve savunma
+        // turu, hangi maddenin blocking kaldığını ancak burada görebilir.
+        transcript: [
+          {
+            phase: "F4:judgment",
+            seatId: "auditor",
+            content: renderJudgment(judgment, typeof out.data?.summary === "string" ? out.data.summary : out.content),
+          },
+        ],
         callCount: 1,
       };
     })
@@ -667,7 +681,13 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
         judgment,
         judgmentHistory: [{ round: state.judgmentHistory.length + 1, items: judgment }],
         judgmentComplete: true,
-        transcript: [{ phase: "F4s:judgment", seatId: "auditor", content: out.content }],
+        transcript: [
+          {
+            phase: "F4s:judgment",
+            seatId: "auditor",
+            content: renderJudgment(judgment, typeof out.data?.summary === "string" ? out.data.summary : out.content),
+          },
+        ],
         callCount: 1,
       };
     })

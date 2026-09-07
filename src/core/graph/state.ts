@@ -4,6 +4,7 @@
 // ileriye yalnız token-kapaklı BD faz özetleri (phaseSummaries) gider. Framework-bağımsız.
 
 import { Annotation } from "@langchain/langgraph";
+import type { AuditOutput } from "./audit.ts";
 
 /** Koltuk bazlı sayaçları toplayarak birleştirir (reducer yardımcısı). */
 function mergeAdd(prev: Record<string, number>, next: Record<string, number>): Record<string, number> {
@@ -155,6 +156,14 @@ export const DivanState = Annotation.Root({
     default: () => 0,
   }),
   auditGateAction: Annotation<string | null>({
+    reducer: (_prev, next) => next,
+    default: () => null,
+  }),
+  // ÜZERİNE-YAZAN: GEÇERLİ denetimin yapılandırılmış tam hali (premortem, etiketli iddialar,
+  // kaynaklar, en zayıf halka). Transkript artık sadık (render.ts) ama yapı da durmalı: karar
+  // belgesinin kanıt defteri (§9.1) ve F5'in topraklama denetimi bunun üstüne kurulacak.
+  // Geçersiz denetim buraya YAZILMAZ; ham hali transkriptte kalır (§6 beyan bütünlüğü).
+  audit: Annotation<AuditOutput | null>({
     reducer: (_prev, next) => next,
     default: () => null,
   }),

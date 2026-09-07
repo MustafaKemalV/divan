@@ -152,6 +152,13 @@ async function run() {
     );
     console.log(`  kanit: maliyet bilinmeyen ${s.metrics.costUnknownCalls}/${s.metrics.callCount} cagri (stub)`);
     check(s.metrics.callCount >= 26 && s.metrics.callCount <= 28, "DESIGN §5 tipik bant 26-28 disinda");
+    // T3-1: denetimin YAPILANDIRILMIS hali state'te durmali. Onceden hic yazilmiyordu; sema ile
+    // zorlanan kanit defteri dogrulandigi yerde oluyordu.
+    const st01 = await durum("e2e-s01");
+    check(Array.isArray(st01.values.audit?.claims), "state.audit yazilmali (T3-1)");
+    check(st01.values.audit.claims.length >= 3, `en az 3 iddia state'te durmali: ${st01.values.audit.claims.length}`);
+    check(!!st01.values.audit.premortem, "premortem state'te durmali");
+    console.log(`  kanit: state.audit ${st01.values.audit.claims.length} iddia + premortem + en zayif halka`);
     console.log(`  kanit: callCount=${s.metrics.callCount}, revizyonTuru=${s.metrics.revisionRounds}`);
   });
 
@@ -786,6 +793,35 @@ async function run() {
   // İlk yakaladığı sapma bu oldu: küçük kurulda Denetçi üretim turuna sokulmuştu ve §3'teki
   // "erken eleştiri üretimi bastırır" mekanizması o yolda sessizce kapanıyordu (M2-A, düzeltildi).
   // Yani buradaki "eksik dosya" hatası çoğu zaman eksik dosya değil, yanlış kadro demektir.
+  // T3-1'in kalici bekcisi. KIRMIZI olcum (bu duzeltmeden once, ayni olcerle):
+  //   F4:revision 80 krk, F4:judgment 786 krk, F4:summary 880 krk -> ucunde de iddia YOK,
+  //   "dogrulanmis" YOK, premortem YOK. Denetim dogrulanip atiliyordu.
+  console.log(`\n[KANIT] Denetim icerigi sonraki cagrilarin baglaminda mi (T3-1)?`);
+  try {
+    const IDDIA = "Hedef segment bu fiyata";
+    const PREMORTEM = "Bir yıl sonra başarısız olduk";
+    let eksik = 0;
+    for (const faz of ["F4:revision", "F4:judgment", "F4:summary"]) {
+      const cagrilar = spyCalls.filter((c) => c.phase === faz);
+      check(cagrilar.length > 0, `${faz} cagrisi bulunamadi`);
+      for (const c of cagrilar) {
+        const varMi = c.context.includes(IDDIA) && c.context.includes("dogrulanmis") && c.context.includes(PREMORTEM);
+        if (!varMi) eksik++;
+        console.log(
+          `  ${faz.padEnd(13)} ${c.seatId.padEnd(12)} ${String(c.context.length).padStart(5)} krk | ` +
+            `iddia:${c.context.includes(IDDIA) ? "VAR" : "YOK"} etiket:${c.context.includes("dogrulanmis") ? "VAR" : "YOK"} ` +
+            `premortem:${c.context.includes(PREMORTEM) ? "VAR" : "YOK"}`,
+        );
+      }
+    }
+    check(eksik === 0, `${eksik} cagrida denetim icerigi eksik`);
+    console.log(`  GECTI (kirmizida ucu de YOK'tu)`);
+    results.push({ id: "KANIT-T31", ok: true });
+  } catch (e) {
+    console.log(`  DUSTU: ${e.message}`);
+    results.push({ id: "KANIT-T31", ok: false, err: e.message });
+  }
+
   console.log(`\n[KANIT] Prompt kapsami: grafin cagirdigi her koltuk-faz cifti dosyada var mi?`);
   try {
     const { loadPrompt, loadIdentity, buildSystemPrompt, promptFileName } = await import(
