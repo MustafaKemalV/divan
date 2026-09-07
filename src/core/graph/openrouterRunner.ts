@@ -11,28 +11,9 @@ import { getSeat } from "../seats/seats.ts";
 import type { DivanConfig } from "../config/schema.ts";
 import { schemaForPhase } from "./schemas.ts";
 import type { SeatRunInput, SeatRunOutput, SeatRunner } from "./seatRunner.ts";
-
-/** Kullanıcı mesajı: fikir + ileri taşınan bağlam + tur bilgisi. Ham transkript BURADAN geçmez. */
-function buildUserMessage(input: SeatRunInput): string {
-  const parts: string[] = [];
-  // OTURUM ZARFI ilk blok: çerçeve her çağrıya gider (DESIGN §5 D-2).
-  if (input.envelope?.trim()) parts.push(input.envelope.trim());
-  parts.push(`FİKİR:\n${input.idea}`);
-  // Ek belgeler: TAM METİN yalnız verildiği fazlarda; diğer fazlar özet görür (DESIGN §5).
-  for (const ek of input.attachments ?? []) {
-    parts.push(`EK BELGE (${ek.name}):\n${ek.content}`);
-  }
-  if (!input.attachments?.length && input.attachmentSummary?.trim()) {
-    parts.push(`EK BELGELERİN ÖZETİ:\n${input.attachmentSummary.trim()}`);
-  }
-  if (input.context && input.context.trim()) {
-    parts.push(`BAĞLAM (önceki fazın özeti veya bu faz içi metin):\n${input.context.trim()}`);
-  }
-  if (input.seats?.length) parts.push(`BU FAZDA KONUŞAN KOLTUKLAR: ${input.seats.join(", ")}`);
-  if (input.round && input.round > 0) parts.push(`REVİZYON TURU: ${input.round}`);
-  if (input.retry && input.retry > 0) parts.push(`YENİDEN KOŞUM: ${input.retry}`);
-  return parts.join("\n\n");
-}
+// Kullanıcı mesajının kuruluşu ayrı ve SAF modülde: burada dururken bir birim testi ona
+// ulaşamıyordu (bu dosya `gateway` üzerinden `server-only` mührü taşır).
+import { buildUserMessage } from "./userMessage.ts";
 
 export class OpenRouterSeatRunner implements SeatRunner {
   // Node'un tip-soyma modu constructor parametre özelliğini desteklemez (ERR_UNSUPPORTED_
