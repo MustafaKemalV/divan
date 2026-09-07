@@ -54,6 +54,6 @@
   },
   "limits": {
     "schemaMaxTokens": 8192,
-    "textMaxTokens": 1600
+    "textMaxTokens": 2500
   }
 }

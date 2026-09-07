@@ -284,3 +284,30 @@ ve F5 sıralama artık paralel koşuyor; kazanç henüz ölçülmedi, bu koşum 
    (`reTableToNode` checkpoint geçmişinden sürüyor). **Karar: U-14 capstone öncesine çekildi.**
 3. **İade, yeniden deneme ve özet çağrıları hiçbir tavana sayılmıyor (U-11).** Geçen koşumda
    denetim bir kez iade edilmişti; 27 planlı çağrı pratikte 28-30'a çıkabilir ve tavan 30.
+
+### Metin tavanı 1600 -> 2500 (2026-09-07, T3-6)
+
+Şema çağrılarının tavanı ölçümle 8192'ye çıkarılmıştı; metin çağrılarının tavanı 1600'de kalmıştı
+ve bu sayı ölçüme dayanmıyordu.
+
+3 Eylül oturumunun (18 çağrı, gerçek modeller) metin çıktıları uzunluk sırasıyla:
+
+| Koltuk | Faz | Karakter |
+|---|---|---|
+| Müh-1 | F4 fizibilite | **3.554** |
+| Müh-1 | F3 çapraz | 2.209 |
+| Mimar | F4 fizibilite | 1.525 |
+| Pazar Sesi | F3 çapraz | 1.295 |
+| Denetçi | F1 çerçeve | 1.089 |
+
+**n=1'in söylediği:** o koşumda hiçbir metin çıktısı kesilmedi, hepsi tam bitti. Ama en uzun çıktı
+3.554 karakter, yani kaba ölçüyle 900-1000 token, ve akıl yürütme tokenı da aynı tavana sayılıyor.
+Yani Müh-1 tavanın yakınında çalışıyordu ve payı bilmiyoruz.
+
+**Karar:** tavan 2500. Gerekçe kesilme ölçümünün dersiyle aynı: kesilen çağrı da faturalanıyor ve
+karşılığında hiçbir şey vermiyor, yani düşük tavan parayı KURTARMIYOR, sadece karşılığını
+kaybettiriyor. Kullanılmayan tavan da para etmez: model kısa cevap veriyorsa tavan yüksek diye
+uzun yazmaz, çıktı token'ı ne üretildiyse o kadar faturalanır.
+
+Bu bir n=1 gözlemine dayanan ayardır ve capstone koşumundan sonra gerçek dağılımla yeniden
+bakılacak.
