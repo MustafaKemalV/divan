@@ -285,6 +285,48 @@ ve F5 sıralama artık paralel koşuyor; kazanç henüz ölçülmedi, bu koşum 
 3. **İade, yeniden deneme ve özet çağrıları hiçbir tavana sayılmıyor (U-11).** Geçen koşumda
    denetim bir kez iade edilmişti; 27 planlı çağrı pratikte 28-30'a çıkabilir ve tavan 30.
 
+### Ek belgelerin maliyet payı (kestirim, T3-9)
+
+Yukarıdaki band ekler OLMADAN kuruldu. Ek iliştirilirse tam metin yalnız F0 brifingine, üç
+fizibilite çağrısına ve denetime gider (§5 bütçe bilinçli enjeksiyon); diğer fazlar BD'nin ek
+özetini görür.
+
+Ölçülen dosya boyutları (`wc -m`, 2026-09-07):
+
+| Dosya | Karakter |
+|---|---|
+| `fikir.txt` | 809 |
+| webhook-verify README | 5.337 |
+| audit-chain README | 18.518 |
+| idem-client README | 11.561 |
+| **Üç README toplamı** | **35.416** |
+
+35.416 karakter, kaba ölçüyle (3,8 karakter/token) yaklaşık **9.300 token**. Bu, tam metni gören
+beş çağrının her birine ayrı ayrı gider; girdi fiyatları koltuktan koltuğa değiştiği için toplam
+çağrı sayısıyla değil, HANGİ koltuğun gördüğüyle belirlenir:
+
+| Çağrı | Koltuk | Girdi $/M | Ek payı |
+|---|---|---|---|
+| F0 brifing | Baş Danışman | 2,00 | $0,0186 |
+| F4 fizibilite | Müh-1 | 1,25 | $0,0117 |
+| F4 fizibilite | Müh-2 | 0,78 | $0,0073 |
+| F4 fizibilite | Mimar | 5,00 | $0,0466 |
+| F4 denetim | Denetçi | 0,96 | $0,0089 |
+| **Toplam** | | | **$0,093** |
+
+Bir denetim iadesi olursa $0,102. Yani **ek girdi payı kabaca 9-12 sent**, ve yarısı tek başına
+Mimar'ın: en pahalı koltuk aynı zamanda tam metni gören koltuklardan biri.
+
+**Ekli band: $0,42 ile $0,53.** (Eksiz band $0,32-0,41 idi.) Bu bir KESTİRİMDİR; ek metnin
+çıktı uzunluğunu da artırması muhtemel, o pay burada hesaplı değil.
+
+**Hangi ekler iliştirilecek: Şah koşum günü seçer.** Üçünü de iliştirmek kararın kalitesi
+açısından tutarlıdır, çünkü sorulan şey üçlünün ORTAK konumlandırması; ekleri kısmak, kurula
+karşılaştıramayacağı bir soru sormak olur.
+
+D-7'nin ek belge boyut EŞİĞİ hâlâ borç (U-13): şu an bir üst sınır yok, yani çok büyük bir ek
+sessizce pahalıya mal olabilir. Bu koşumda ekler elle seçildiği için risk kontrollü.
+
 ### Metin tavanı 1600 -> 2500 (2026-09-07, T3-6)
 
 Şema çağrılarının tavanı ölçümle 8192'ye çıkarılmıştı; metin çağrılarının tavanı 1600'de kalmıştı
