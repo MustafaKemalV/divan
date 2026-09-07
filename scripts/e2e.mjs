@@ -127,6 +127,15 @@ async function run() {
     check(s.gate === "KAPI1", `KAPI1 bekleniyordu: ${s.gate ?? s.type}`);
     check(s.payload.councilMode === "full", "triyaj full olmaliydi");
     check(s.payload.councilModeSource === "model-kanaati", "triyaj KANAAT olarak isaretlenmeli (§5.1 ara donem)");
+    // T3-7: not var olmayan bir yetkiyi vaat etmemeli. Kirmizida "Degistirebilirsiniz" diyordu.
+    check(
+      !/[Dd]eğiştirebilir/.test(s.payload.councilModeNote),
+      `KAPI 1 notu var olmayan yetkiyi vaat etmemeli: ${s.payload.councilModeNote}`,
+    );
+    check(
+      s.payload.councilModeNote.includes("değiştirilemez") && s.payload.councilModeNote.includes("M2-B"),
+      `KAPI 1 notu bugunku gercegi soylemeli: ${s.payload.councilModeNote}`,
+    );
     check(s.payload.options.length === 5, "tam kurulda 5 HMW bekleniyordu");
     check(nodesOf(ev).join(",") === "f0_briefing,f0_hmw", "F0 iki cagriya ayrilmali (DESIGN §5)");
 

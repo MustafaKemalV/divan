@@ -501,8 +501,12 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
         // DESIGN §5.1 ara dönem: sınıf henüz modelin KANAATİ, ölçüm değil. Kanaatin kanaat
         // olduğunu gizlemek, onu ölçüm sanmaktan daha büyük hatadır; bu yüzden kapıda işaretli.
         councilModeSource: "model-kanaati",
+        // T3-7: not "Değiştirebilirsiniz" diyordu ama bu kapı YALNIZ HMW yanıtını okuyor; kadro
+        // kapısı M2-B'de geliyor. Var olmayan bir yetkiyi vaat etmek, kanaati ölçüm sanmakla aynı
+        // hatanın başka biçimi: ikisi de Şah'a olduğundan fazlasını gösteriyor.
         councilModeNote:
-          "Kurul boyutu şu an Baş Danışman'ın kanaati (ölçüm değil, DESIGN §5.1 ara dönem). Değiştirebilirsiniz.",
+          "Kurul boyutu Baş Danışman'ın kanaati (DESIGN §5.1 ara dönem); " +
+          "bu sürümde kapıdan değiştirilemez, kadro kapısı M2-B'de.",
         options: state.hmwOptions,
       }) as string;
       return { ...flushUsage(), selectedHmw: selected };
