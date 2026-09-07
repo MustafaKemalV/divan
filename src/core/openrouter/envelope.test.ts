@@ -1,5 +1,5 @@
 // Cevap zarfı işleme birim testi (docs/CEVAP-ZARFI.md). Node native TS ile:
-//   node src/core/openrouter/gateway.test.ts
+//   node src/core/openrouter/envelope.test.ts
 //
 // Bu testin varlık sebebi gerçek bir arıza: ilk tam oturumda Denetçi'nin cevabı token tavanına
 // çarpıp boş döndü, sağlayıcı bunu finish_reason="length" ile söyledi, kod o alanı okumadı ve
@@ -48,4 +48,4 @@ assert.throws(() => classifyEnvelope({ content: "   ", finishReason: "stop" }, 2
 // 6) Normal cevap sorunsuz geçer
 assert.doesNotThrow(() => classifyEnvelope({ content: '{"ok": true}', finishReason: "stop", usage }, 8192));
 
-console.log("GATEWAY_TEST_OK: kesilme ayri hata sinifi + harcanan para tasinir + suzme/bos icerik sessiz gecmez");
+console.log("ENVELOPE_TEST_OK: kesilme ayri hata sinifi + harcanan para tasinir + suzme/bos icerik sessiz gecmez");

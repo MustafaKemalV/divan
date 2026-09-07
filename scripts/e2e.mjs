@@ -1078,7 +1078,9 @@ async function run() {
   // İÇİNE bakar, ön ekin varlığına değil.
   console.log(`\n[KANIT] Siralama kimliksizligi: blogun ICINDE koltuk adi kaliyor mu?`);
   try {
-    process.env.DIVAN_CHECKPOINT_DB = join(TMP, "anon.sqlite");
+    // NOT: burada DIVAN_CHECKPOINT_DB atamak ETKISIZDI ve kaldirildi. Checkpointer bir singleton;
+    // ilk import'ta hangi yolla kurulduysa oyle kalir, sonraki atama okunmaz. Etkisi olmayan bir
+    // satir, okuyana "burasi ayri bir veritabani kullaniyor" diye yanlis bilgi verir.
     const { buildCouncilGraph } = await import("../src/core/graph/graph.ts");
     const { StubSeatRunner } = await import("../src/core/graph/seatRunner.ts");
     const { SEATS } = await import("../src/core/seats/seats.ts");

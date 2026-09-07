@@ -39,3 +39,6 @@ oturum-ciktisi/
 
 # Sah'in gercek karar metni (kisisel; surucu herhangi bir dosya yolu kabul eder)
 fikir.txt
+
+# IntelliJ proje dosyalari (JAVA_MODULE ilan eder, bu repo TS)
+.idea/

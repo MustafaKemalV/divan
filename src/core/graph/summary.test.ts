@@ -70,7 +70,7 @@ assert.ok(anon.includes("Görüş 1") && anon.includes("Görüş 2"), "gorusler 
   assert.ok(cikti.includes("bir koltuk dedi"), `maskeleme uygulanmali: ${cikti}`);
 }
 
-// 7) MASKELEYİCİ DIŞA AÇIK (M2-A3 F-3). GEREKÇE-KANITI: özet dışındaki metinler de aynı kuraldan
+// 9) MASKELEYİCİ DIŞA AÇIK (M2-A3 F-3). GEREKÇE-KANITI: özet dışındaki metinler de aynı kuraldan
 //    geçmeli; ön ek kesmek yetmez, ad cümlenin ortasında da geçer.
 {
   const etiketler = ["market", "Pazar Analisti", "architect"];

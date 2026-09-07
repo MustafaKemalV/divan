@@ -263,7 +263,7 @@ function ciktiYaz(threadId, state, runnerMode, sureMs, sureKirilim) {
     "",
     "## Revizyonla dusen itirazlar",
     "",
-    ...((v.droppedObjections ?? []).map((d) => `- ${d}`) || []),
+    ...(v.droppedObjections ?? []).map((d) => `- ${d}`),
     "",
     "## Karar",
     "",
