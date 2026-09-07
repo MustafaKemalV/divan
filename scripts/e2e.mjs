@@ -479,6 +479,33 @@ async function run() {
     console.log(`  kanit: uc kapi da yaniti okuyor; taninmayan yanit sebepli durus uretiyor`);
   });
 
+  await scenario("S21", "Iade cagrisinda kesilme: dugum cokmez, kapi acilir, para sayilir", async () => {
+    // KIRMIZI: kesilme dali yalniz ILK cagrida vardi. Iade turunda gelen kesilme dugumu
+    // cokertiyordu ve cokunce flushUsage kosmadigi icin harcanan para da kayboluyordu.
+    const T = "e2e-s21";
+    await post({ threadId: T, idea: `${LONG} [TEST:badurl1] [TEST:kesik-iade]` });
+    await post({ threadId: T, resume: "hmw" });
+    const ev = await post({ threadId: T, resume: "cerceve onaylandi" });
+    const s = stopEvent(ev);
+    check(s.type === "gate", `cokme degil kapi bekleniyordu: ${s.type}`);
+    check(s.gate === "DENETIM_EKSIK", `DENETIM_EKSIK bekleniyordu: ${s.gate}`);
+    check(!ev.some((e) => e.type === "error"), "dugum cokmemeli");
+
+    const st = await durum(T);
+    check(
+      (st.values.infraFailures ?? []).includes("F4:audit/auditor"),
+      `altyapi arizasi kaydi tutulmali: ${JSON.stringify(st.values.infraFailures)}`,
+    );
+    // Kesilen cagrinin maliyeti BILINIYOR (saglayici bildirdi) ve toplama girmeli.
+    check(st.values.costNanoUsd > 0, `kesilen iade cagrisinin parasi toplamda olmali: ${st.values.costNanoUsd}`);
+    const son = st.values.transcript.at(-1).content;
+    check(String(son).includes("ALTYAPI ARIZASI"), `transkript arizayi soylemeli: ${String(son).slice(0, 60)}`);
+    console.log(
+      `  kanit: kapi=${s.gate}, infraFailures=${JSON.stringify(st.values.infraFailures)}, ` +
+        `maliyet=${st.values.costNanoUsd} nano`,
+    );
+  });
+
   await scenario("S15", "Guvenli durus kurtarilabilir: ihlal -> re-table -> tamamlanma", async () => {
     await post({ threadId: "e2e-s15", idea: LONG, maxCalls: 5 });
     await post({ threadId: "e2e-s15", resume: "hmw" });

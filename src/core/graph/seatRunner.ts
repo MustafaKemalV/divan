@@ -71,6 +71,7 @@ export const SMALL_IDEA_MAX_CHARS = 60;
  *   [TEST:silent:<koltuk>] -> o koltuk hiç cevap vermez (koltuk sustu dalı)
  *   [TEST:kesik:<koltuk>]  -> o koltuk maliyeti BİLİNEN bir kesilmeyle düşer (çift sayım bekçisi)
  *   [TEST:cokme:<faz>]     -> o faz BİR KEZ çöker, sonraki denemede döner (çöken oturum kurtarma, U-14)
+ *   [TEST:kesik-iade]      -> İADE turunda kesilme (iade çağrısının kesilme koruması, T3-4)
  */
 /**
  * [TEST:cokme:<faz>] için tek seferlik çökme kaydı (U-14). Süreç ömrü boyunca yaşar: ilk deneme
@@ -104,6 +105,17 @@ export class StubSeatRunner implements SeatRunner {
         reasoningTokens: 2048,
         maxTokens: 2048,
         usage: { completionTokens: 2048, totalTokens: 3000, cost: 0.01 },
+      });
+    }
+
+    // [TEST:kesik-iade] -> İADE turunda (retry >= 1) kesilme. Kesilme ilk çağrıda ele alınıyordu
+    // ama iade çağrısı korumasızdı; bu işaret o deliği görünür kılar (T3-4).
+    if (idea.includes("[TEST:kesik-iade]") && (input.retry ?? 0) >= 1) {
+      throw new TruncatedResponseError({
+        completionTokens: 8192,
+        reasoningTokens: 8192,
+        maxTokens: 8192,
+        usage: { completionTokens: 8192, totalTokens: 9000, cost: 0.02 },
       });
     }
 

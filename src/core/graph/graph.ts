@@ -167,25 +167,32 @@ async function runAuditWithReturn(
   const outs: SeatRunOutput[] = [];
   // Denetim de gerçek metni okur (DESIGN §5): kaynağı görmeden topraklama denetlenemez.
   const attachments = state.attachments;
+
+  /**
+   * ALTYAPI ARIZASI (kesilme) dalı. İADE İŞLEMEZ: iade, koltuğu kendi çıktısını düzeltmeye
+   * çağırmaktır; kesilmiş bir cevapta düzeltilecek bir çıktı yoktur ve aynı tavanla yeniden
+   * sormak aynı yere çarpar. Koltuğun şema disiplini siciline de yazılmaz.
+   *
+   * T3-4: bu dal önce YALNIZ ilk çağrıda vardı. İade çağrısı korumasızdı ve orada gelen bir
+   * kesilme düğümü çökertiyordu; çökünce flushUsage hiç koşmadığı için harcanan para da
+   * kayboluyordu. Kesilme nerede olursa olsun aynı arızadır.
+   */
+  const altyapiArizasi = (e: unknown, calls: number) => ({
+    auditComplete: false,
+    auditIssue: (e as Error).message,
+    auditRetries: calls - 1,
+    infraFailures: [`${phase}/auditor`],
+    transcript: [...entries, { phase, seatId: "auditor", content: `[ALTYAPI ARIZASI: ${(e as Error).message}]` }],
+    callCount: calls,
+  });
+  const kesilme = (e: unknown) => (e as Error).name === "TruncatedResponseError";
+
   let first: SeatRunOutput;
   try {
     first = await run("auditor", { phase, idea: state.idea, context, attachments, retry: 0 });
   } catch (e) {
-    // ALTYAPI ARIZASI (kesilme) ise İADE İŞLEMEZ: iade, koltuğu kendi çıktısını düzeltmeye
-    // çağırmaktır; kesilmiş bir cevapta düzeltilecek bir çıktı yoktur ve aynı tavanla yeniden
-    // sormak aynı yere çarpar. Bu, koltuğun şema disiplini siciline de yazılmaz.
-    const infra = (e as Error).name === "TruncatedResponseError";
-    if (!infra) throw e;
-    return {
-      auditComplete: false,
-      auditIssue: (e as Error).message,
-      auditRetries: 0,
-      infraFailures: [`${phase}/auditor`],
-      transcript: [
-        { phase, seatId: "auditor", content: `[ALTYAPI ARIZASI: ${(e as Error).message}]` },
-      ],
-      callCount: 1,
-    };
+    if (!kesilme(e)) throw e;
+    return altyapiArizasi(e, 1);
   }
   outs.push(first);
   let check = validateAudit(first.data);
@@ -200,13 +207,19 @@ async function runAuditWithReturn(
   let calls = 1;
 
   if (!check.ok) {
-    const second = await run("auditor", {
-      phase,
-      idea: state.idea,
-      context: `${context}\n\nİADE GEREKÇESİ (çıktın reddedildi, aynı denetimi bu eksiği gidererek yeniden ver): ${check.reason}`,
-      attachments,
-      retry: 1,
-    });
+    let second: SeatRunOutput;
+    try {
+      second = await run("auditor", {
+        phase,
+        idea: state.idea,
+        context: `${context}\n\nİADE GEREKÇESİ (çıktın reddedildi, aynı denetimi bu eksiği gidererek yeniden ver): ${check.reason}`,
+        attachments,
+        retry: 1,
+      });
+    } catch (e) {
+      if (!kesilme(e)) throw e;
+      return altyapiArizasi(e, 2);
+    }
     calls = 2;
     outs.push(second);
     check = validateAudit(second.data);
@@ -350,18 +363,44 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
     const konusanlar = speakingSeats(state.transcript, rawPrefix);
     const context = rawOfPhase(state, rawPrefix);
     let calls = 1;
-    let out = await run(state, "chiefAdvisor", { phase, idea: state.idea, context, seats: konusanlar });
+    // T3-4: özetin İKİ çağrısı da kesilme korumasızdı. Bir kesilme özet düğümünü çökertiyor,
+    // çöken düğümde flushUsage koşmadığı için harcanan para da kayboluyordu. Özet üretilemezse
+    // akış durmaz ama eksiklik SESSİZ de geçilmez: sonraki fazlar arızayı açıkça okur.
+    const kesilmeSonucu = (e: unknown, n: number) => ({
+      ...flushUsage(),
+      phaseSummaries: [
+        { phase: summaryKey, summary: `[ALTYAPI ARIZASI: ${phase} özeti üretilemedi, ${(e as Error).message}]` },
+      ],
+      transcript: [{ phase, seatId: "chiefAdvisor", content: `[ALTYAPI ARIZASI: ${(e as Error).message}]` }],
+      summaryIssues: [`${phase}: altyapı arızası, özet üretilemedi`],
+      infraFailures: [`${phase}/chiefAdvisor`],
+      callCount: n,
+    });
+    const kesilme = (e: unknown) => (e as Error).name === "TruncatedResponseError";
+
+    let out: SeatRunOutput;
+    try {
+      out = await run(state, "chiefAdvisor", { phase, idea: state.idea, context, seats: konusanlar });
+    } catch (e) {
+      if (!kesilme(e)) throw e;
+      return kesilmeSonucu(e, 1);
+    }
     let check = validateSummary(out.data, konusanlar);
 
     if (!check.ok) {
       calls = 2;
-      out = await run(state, "chiefAdvisor", {
-        phase,
-        idea: state.idea,
-        context: `${context}\n\nİADE GEREKÇESİ (özetin reddedildi, düzelt): ${check.reason}`,
-        seats: konusanlar,
-        retry: 1,
-      });
+      try {
+        out = await run(state, "chiefAdvisor", {
+          phase,
+          idea: state.idea,
+          context: `${context}\n\nİADE GEREKÇESİ (özetin reddedildi, düzelt): ${check.reason}`,
+          seats: konusanlar,
+          retry: 1,
+        });
+      } catch (e) {
+        if (!kesilme(e)) throw e;
+        return kesilmeSonucu(e, 2);
+      }
       check = validateSummary(out.data, konusanlar);
     }
 
