@@ -153,3 +153,88 @@ sürücünün bunu kullanması.
 U-9'un dar hali (tek koltuklu çağrılara zaman aşımı + yeniden deneme) **yapılmayacak**, Blok 3'te
 kalıyor: U-14 çökmeyi kurtarılabilir yaptığı için para koşumundan hemen önce on çağrı yerine
 dokunmak fazladan risktir, üstelik kesilme zaten yeniden denenmez.
+
+---
+
+# Tur 3 (Fable masası, 2026-09-07)
+
+Kapanış turunun (K-1..K-4, U-14) ardından, capstone'dan ÖNCE yapılan satır satır okuma. Şah bütün
+maddeleri onayladı; sıra bağlayıcıdır ve her madde önce kırmızı ölçüm, sonra düzeltme, sonra
+commit olarak işlenir. Bu bölüm koddan ÖNCE yazıldı: anayasa gereği transkriptte kalan bulgu,
+kaybolan bulgudur.
+
+## T3-1. Şema fazlarında transkript sadık değil, denetim içeriği state'te yok
+
+`openrouterRunner` şema fazlarında `content = data.summary` yapıyor. Denetimin premortem'i,
+etiketli iddiaları, kaynak URL'leri ve en zayıf halkası doğrulanıp ATILIYOR: `runAuditWithReturn`
+içindeki `outs` dizisi hiç okunmuyor ve grafta da state'te de "claims" geçmiyor. Hüküm turunun
+kriter tablosu da yalnız `state.judgment`'ta duruyor, transkripte girmiyor.
+
+Sonuç: Denetçi'nin ürettiği kanıt defteri hiçbir sonraki çağrının önüne gelmiyor ve karar
+belgesine taşınacak ham malzeme kaydedilmiyor.
+
+## T3-2. Savunma turu denetimi ve hükmü görmüyor
+
+`f4_revision` bağlamı `rawOfPhase("F4:audit")`, yani yalnız denetim kayıtları. İkinci ve üçüncü
+turda savunucular hangi maddenin "karşılanmadı" kaldığını görmüyor. Üstelik iade edilmiş
+`[GEÇERSİZ]` ilk deneme de bağlama giriyor: reddedilen bir çıktı savunmaya malzeme oluyor.
+
+## T3-3. Kapı sözleşmesi yalnız bütçe kapısında var (D-5'in bugünkü payı)
+
+`HUKUM_EKSIK` "retry" dışındaki her yanıtta sebepsiz bitiyor (endReason yok, `done` olayı normal
+görünüyor). `DENETIM_EKSIK` "iptal" dışındaki her şeyi devam sayıyor. `ERKEN_BRIFING` yanıtı hiç
+okumuyor. İki kapının payload'ında `kabulEdilen` yok ve sürücü ham JSON basıyor. Yazım hatası bir
+onay yerine geçemez kuralı bu üç kapıda geçerli değil.
+
+## T3-4. İade çağrıları kesilme korumasında değil
+
+Denetimin ikinci (iade) çağrısı ve özetin ikinci çağrısı `try` dışında; kesilme düğümü çökertir.
+İlk çağrı için zaten var olan ALTYAPI ARIZASI dalı ikisine de uygulanmalı.
+
+## T3-5. F5 girdisinde F3 özeti yok
+
+Sıralama ve taslak yalnız F4 özetini görüyor; seçeneklerin doğduğu F3 özeti gitmiyor. Seçenek
+defteri (D-3) Blok 3'te geleceği için bu, o güne kadarki köprü.
+
+## T3-6. Metin tavanı ölçüme göre düşük
+
+`limits.textMaxTokens` 1600. 3 Eylül oturumunda bütün metin çıktıları tam bitti (n=1) ama Müh-1'in
+F4 çıktısı 3.9k karakterle tavana yakındı ve akıl yürütme tokenı da tavana sayılıyor.
+Kullanılmayan tavan para etmez; kesilen çağrı hem parayı hem cevabı kaybettirir.
+
+## T3-7. KAPI 1 notu dürüst değil
+
+`councilModeNote` "Değiştirebilirsiniz" diyor ama kapı yalnız HMW yanıtını okuyor. Kadro kapısı
+M2-B'de; not bugünkü gerçeği söylemeli.
+
+## T3-8. Zarf tekrarı
+
+`f1_frame` bağlamı `selectedHmw`, `f2_ideation` bağlamı `approvedFrame`, `f2s_ideation` bağlamı
+`selectedHmw` taşıyor. Üçü de oturum zarfında zaten var, yani aynı metin bir çağrıda iki kez
+gidiyor.
+
+## T3-9. Ek belge maliyeti kestirimde yok
+
+Hazırlık bandı ekler olmadan kuruldu. Ekler iliştirilirse tam metin F0 brifingine, üç fizibilite
+ve bir iki denetim çağrısına gider; band değişir.
+
+## T3-10. Hijyen
+
+`.idea/` git'te (JAVA_MODULE ilan eden IntelliJ dosyaları), `envelope.test.ts` başlığındaki dosya
+adı ve `GATEWAY_TEST_OK` etiketi yanlış, `summary.test.ts`'te iki tane "7)" maddesi, `oturum.mjs`'te
+ölü `|| []`, e2e'de etkisiz bir `DIVAN_CHECKPOINT_DB` ataması (checkpointer singleton).
+
+## Blok 3 borçları (bu turda kod yazılmayacak, kayıt için)
+
+- `graph.ts` içindeki saf mantık modüle çıkarılmalı: bütçe yanıtı ayrıştırma, düşen itiraz izi,
+  kimliksiz sıralama, özet iadesi ve yedi kopya bütçe iptal bloğu.
+- Graf önbelleği runner'ı ilk istekte donduruyor; config özetiyle anahtarlanmalı.
+- Rota config hatasını yutuyor ve gövde doğrulaması yok.
+- Konumsal anonimlik: oturuma bağlı deterministik karıştırma (M2-C).
+- Altyapı arızası kaydı özet kotasına giriyor (U-15).
+- Geç gelen zaman aşımı cevabı sonraki düğümün tamponuna düşüyor (U-9).
+- Final denetim sonuçsuz ve KAPI 3 payload'ında taslak yok (M3/M4).
+- `package.json` `"type": "module"` (Next ile doğrulanarak) ve eslint config.
+- F4 fizibilite de hafif şemaya bağlanmalı (iddia + etiket); "bitti tanımı çıktı üretir" ilkesi,
+  M2-C adayı.
+- `.env.local` anahtar rotate'i 31 Ağustos'tan beri açık.
