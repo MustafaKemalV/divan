@@ -1,0 +1,59 @@
+{
+  "seats": {
+    "visionary": {
+      "model": "anthropic/claude-sonnet-5",
+      "fallbacks": [
+        "anthropic/claude-opus-5"
+      ]
+    },
+    "market": {
+      "model": "anthropic/claude-haiku-4.5",
+      "fallbacks": [
+        "anthropic/claude-sonnet-5"
+      ]
+    },
+    "engineer1": {
+      "model": "anthropic/claude-sonnet-5",
+      "fallbacks": [
+        "anthropic/claude-sonnet-4.6"
+      ]
+    },
+    "engineer2": {
+      "model": "anthropic/claude-haiku-4.5",
+      "fallbacks": [
+        "anthropic/claude-sonnet-5"
+      ]
+    },
+    "architect": {
+      "model": "anthropic/claude-opus-4.8",
+      "fallbacks": [
+        "anthropic/claude-sonnet-5"
+      ]
+    },
+    "auditor": {
+      "model": "anthropic/claude-sonnet-5",
+      "fallbacks": [
+        "anthropic/claude-opus-5"
+      ]
+    },
+    "chiefAdvisor": {
+      "model": "anthropic/claude-sonnet-5",
+      "fallbacks": [
+        "anthropic/claude-sonnet-4.6"
+      ]
+    }
+  },
+  "budget": {
+    "maxCalls": 30
+  },
+  "search": {
+    "perPhaseCap": 3
+  },
+  "timeouts": {
+    "perCallMs": 120000
+  },
+  "limits": {
+    "schemaMaxTokens": 8192,
+    "textMaxTokens": 2500
+  }
+}

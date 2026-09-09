@@ -94,6 +94,21 @@ npm run oturum -- fikir.txt   # "oturum" = session, "fikir" = idea
 The session driver streams the debate live, stops at each human gate, and writes the transcript and
 a session record when it finishes.
 
+Gate answers can also be supplied up front, so a run needs no keyboard. This is what evaluation
+arms and the blind comparison in M5 use, and it keeps the input identical across arms:
+
+```bash
+npm run oturum -- fikir.txt --yanit KAPI1=2 --yanit KAPI2="frame approved" --yanit KAPI3=decide
+```
+
+A gate with no supplied answer is asked interactively; if there is no terminal, the run stops
+safely with exit code 3 and can be resumed with `--devam`. It is never filled in with a default:
+a gate is where the human decides.
+
+The seat-to-model mapping comes from `divan.config.json`, and `DIVAN_CONFIG` selects a different
+one. The configs under `eval/` are evaluation arms, not the main config: they exist to run the
+same code with a different council so the arms can be compared.
+
 ## Stack
 
 Next.js (App Router, TypeScript), LangGraph.js with a SQLite checkpointer, OpenRouter for model
