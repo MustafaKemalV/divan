@@ -7,7 +7,18 @@ import { z } from "zod";
 import { ConfigSchema, type DivanConfig } from "./schema.ts";
 import { SEAT_IDS } from "../seats/seats.ts";
 
-export const DEFAULT_CONFIG_PATH = join(process.cwd(), "divan.config.json");
+/**
+ * Hangi config okunur. `DIVAN_CONFIG` ile değiştirilebilir; sürücü ve `next dev` ortamı miras
+ * aldığı için tek değişkenle bütün koşum o config'e geçer.
+ *
+ * Neden var: aynı-aile deneyi (ve M5'in kör değerlendirmesi) aynı kodu FARKLI kadrolarla koşmak
+ * demektir. Kadro config'te olduğuna göre, kolu seçmenin doğru yolu kodu değil dosyayı
+ * değiştirmektir. Prob önbelleği config'in koltuk özetiyle anahtarlı (`probeCache.configHashOf`),
+ * yani yeni bir kol kendiliğinden yeniden problanır; eski kolun sonuçları yanlışlıkla
+ * kullanılamaz.
+ */
+export const DEFAULT_CONFIG_PATH =
+  process.env.DIVAN_CONFIG ?? join(process.cwd(), "divan.config.json");
 
 function formatZodError(err: z.ZodError): string {
   return err.issues

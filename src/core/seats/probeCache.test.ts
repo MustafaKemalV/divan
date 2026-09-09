@@ -39,4 +39,39 @@ assert.strictEqual(isCacheFresh(undefined, h1, now), false);
 // gelecekten gelen damga (saat kaymasi) güvenilmez sayılır
 assert.strictEqual(isCacheFresh(file(now + 5000), h1, now), false);
 
-console.log("PROBE_CACHE_TEST_OK: asimetri (dusen yazilmaz) + config ozeti + omur/tazelik");
+// 4) DENEY KOLU (DIVAN_CONFIG): baska bir config dosyasiyla kosulan kol, onceki kolun prob
+//    sonuclarini KULLANAMAZ. Aynı-aile deneyinin ve M5 kor degerlendirmesinin on sarti bu:
+//    kollar ayni kodu farkli kadroyla kosar, prob sonucu kadroya bagli olmak zorundadir.
+{
+  const kol = (koltuklar: Record<string, { model: string; fallbacks: string[] }>) =>
+    ({ seats: koltuklar, budget: { maxCalls: 30 }, search: { perPhaseCap: 3 } }) as never;
+  const ana = kol({
+    visionary: { model: "x-ai/grok-4.6", fallbacks: ["x-ai/grok-4.5"] },
+    auditor: { model: "deepseek/deepseek-v4-pro", fallbacks: ["deepseek/deepseek-v3.2"] },
+  });
+  const ayniAile = kol({
+    visionary: { model: "anthropic/claude-sonnet-5", fallbacks: ["anthropic/claude-opus-5"] },
+    auditor: { model: "anthropic/claude-sonnet-5", fallbacks: ["anthropic/claude-opus-5"] },
+  });
+  const anaOzet = configHashOf(ana);
+  const kolOzet = configHashOf(ayniAile);
+  assert.notStrictEqual(anaOzet, kolOzet, "farkli kol farkli ozet vermeli");
+
+  const t = 1_700_000_000_000;
+  const anaOnbellek = { configHash: anaOzet, savedAt: t - 1000, results: [] };
+  assert.strictEqual(isCacheFresh(anaOnbellek, anaOzet, t), true, "kendi kolunda taze");
+  assert.strictEqual(
+    isCacheFresh(anaOnbellek, kolOzet, t),
+    false,
+    "deney kolu onceki kolun prob sonuclarini kullanamaz (yeniden problanir)",
+  );
+
+  // YALNIZ fallback degisse bile ozet degisir: sema-kritik yonlendirme fallback'e de bakar.
+  const fallbackFarki = kol({
+    visionary: { model: "x-ai/grok-4.6", fallbacks: ["x-ai/grok-4.5"] },
+    auditor: { model: "deepseek/deepseek-v4-pro", fallbacks: ["anthropic/claude-opus-5"] },
+  });
+  assert.notStrictEqual(configHashOf(fallbackFarki), anaOzet, "fallback degisikligi de onbellegi dusurmeli");
+}
+
+console.log("PROBE_CACHE_TEST_OK: asimetri (dusen yazilmaz) + config ozeti + omur/tazelik + deney kolu yeniden problanir");
