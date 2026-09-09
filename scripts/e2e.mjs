@@ -15,8 +15,8 @@
  * Bölümler: 10 senaryo (HTTP + SSE + checkpointer) + bağlam sıkıştırması kanıtı (in-process ölçüm).
  */
 
-import { spawn } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { spawn, spawnSync } from "node:child_process";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -102,6 +102,8 @@ function check(cond, msg) {
 }
 
 const results = [];
+/** surucu senaryolarinin urettigi oturum dosyalari; kosu sonunda silinir */
+const uretilenTumu = [];
 /** casus runner çağrıları; bağlam ölçümü ve prompt kapsamı testi ikisi de bunu okur */
 const spyCalls = [];
 async function scenario(id, title, fn) {
@@ -1123,6 +1125,122 @@ async function run() {
     results.push({ id: "ANON-SIRALAMA", ok: false, err: e.message });
     console.log(`  DUSTU: ${e.message}`);
   }
+
+  // Surucu senaryolari KENDI next dev'lerini ayaga kaldirir ve iki dev sunucusu ayni .next
+  // dizinini paylasamaz. Bu yuzden senaryolarin arasina degil, EN SONA konuldular: paylasilan
+  // sunucu yukarida (in-process KANIT bloklarindan once) zaten kapanmis oluyor. Asagidaki cagri
+  // o durumu garantiye alir, sunucu zaten kapaliysa hicbir sey yapmaz.
+  //
+  // Ilk denemede senaryolar aradaydi ve ikisi de "sunucu 3191 portunda ayaga kalkmadi" ile
+  // dustu; sorun sira degil, izolasyondu.
+  await stopServer();
+  // --------------------------------------------------- klavyesiz kosum (deney kollari, M5)
+  // Surucuyu GERCEKTEN kosturur: kendi next dev'ini ayaga kaldirir, kendi portunu kullanir.
+  // Yavas (her kosum bir sunucu baslatir) ama kanit tam burada: deney kollari ve kor
+  // degerlendirme bu yoldan kosacak.
+  const SURUCU_PORT = PORT + 60;
+  const surucuKos = (args, ek = {}) =>
+    spawnSync("node", ["scripts/oturum.mjs", ...args], {
+      cwd: process.cwd(),
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"], // stdin KAPALI: TTY yok, guvenli durus dali sinanir
+      env: { ...process.env, DIVAN_RUNNER: "stub", DIVAN_PORT: String(SURUCU_PORT), ...ek },
+      timeout: 240_000,
+    });
+  const threadIdOf = (cikti) => (cikti.match(/thread\s+:\s+(\S+)/) ?? [])[1];
+  const uretilenler = uretilenTumu;
+
+  await scenario("S22", "Klavyesiz kosum: --yanit ile tam oturum, cikis 0 ve md ciktisi", async () => {
+    const r = surucuKos([
+      "fikir.ornek.txt",
+      "--yanit", "KAPI1=1",
+      "--yanit", "KAPI2=onay",
+      "--yanit", "KAPI3=karar",
+    ]);
+    const cikti = `${r.stdout ?? ""}${r.stderr ?? ""}`;
+    // Thread id ONCE toplanir: senaryo DUSSE de kosum dosyalari temizlensin. Once check yapip
+    // sonra kaydetmek, dusen kosumun copunu diskte birakiyordu.
+    const tid = threadIdOf(cikti);
+    if (tid) uretilenler.push(tid);
+    check(r.status === 0, `cikis 0 bekleniyordu, gelen ${r.status}\n${cikti.slice(-600)}`);
+    check(!!tid, "thread id basilmali");
+    // Yaniti olan kapi BASILIR ama SORULMAZ.
+    for (const g of ["KAPI1", "KAPI2", "KAPI3"]) {
+      check(cikti.includes(`[--yanit] ${g} =`), `${g} yazili yanitla gecilmeliydi`);
+    }
+    check(!cikti.includes("YANITSIZ KAPI"), "butun kapilarin yaniti vardi");
+    // KAPI1'de "1" NUMARASI HMW cumlesine cevrilmeli, ham "1" resume edilmemeli.
+    check(/\[--yanit\] KAPI1 = "HMW-1:/.test(cikti), "KAPI1 numarasi secenege cevrilmeliydi");
+    const md = join(process.cwd(), "oturum-ciktisi", `${tid}.md`);
+    check(existsSync(md), `md ciktisi olusmaliydi: ${md}`);
+    check(readFileSync(md, "utf8").includes("## Transkript"), "md transkript tasimali");
+    console.log(`  kanit: cikis 0, uc kapi yazili gecildi, ${tid}.md yazildi`);
+  });
+
+  await scenario("S23", "Yanitsiz kapi: guvenli durus (cikis 3), sonra --devam ile tamamlanir", async () => {
+    // KAPI3 YOK: sessizce varsayilanla doldurulmamali.
+    const r = surucuKos(["fikir.ornek.txt", "--yanit", "KAPI1=1", "--yanit", "KAPI2=onay"]);
+    const cikti = `${r.stdout ?? ""}${r.stderr ?? ""}`;
+    const tid = threadIdOf(cikti);
+    if (tid) uretilenler.push(tid);
+    check(r.status === 3, `guvenli durus cikis kodu 3 olmali, gelen ${r.status}\n${cikti.slice(-600)}`);
+    check(cikti.includes('YANITSIZ KAPI: "KAPI3"'), "hangi kapinin yanitsiz kaldigi soylenmeli");
+    check(cikti.includes("--devam"), "kurtarma yolu soylenmeli");
+    check(!!tid, "thread id basilmali");
+
+    const jsonl = join(process.cwd(), "oturum-ciktisi", `${tid}.jsonl`);
+    check(existsSync(jsonl), "olay gunlugu yazilmaliydi");
+    const kayitlar = readFileSync(jsonl, "utf8").trim().split("\n").map((l) => JSON.parse(l));
+    const yanitsiz = kayitlar.filter((k) => k.type === "yanitsiz-kapi");
+    check(yanitsiz.length === 1 && yanitsiz[0].gate === "KAPI3", `JSONL yanitsiz-kapi kaydi: ${JSON.stringify(yanitsiz)}`);
+    // Oturum KAPANMADI: karar da yazilmadi, yani varsayilan uydurulmadi.
+    check(!kayitlar.some((k) => k.type === "done"), "yanitsiz kapida oturum tamamlanmis sayilmamali");
+
+    const r2 = surucuKos(["--devam", tid, "--yanit", "KAPI3=karar"]);
+    const cikti2 = `${r2.stdout ?? ""}${r2.stderr ?? ""}`;
+    check(r2.status === 0, `devam cikis 0 olmali, gelen ${r2.status}\n${cikti2.slice(-600)}`);
+    check(cikti2.includes("[--yanit] KAPI3 ="), "devam yazili yanitla gecmeli");
+    check(existsSync(join(process.cwd(), "oturum-ciktisi", `${tid}.md`)), "devam md yazmali");
+    console.log(`  kanit: cikis 3 + JSONL yanitsiz-kapi(KAPI3), --devam ile cikis 0`);
+  });
+
+  await scenario("S24", "DIVAN_CONFIG: gecersiz yol sessizce yutulmaz, anlasilir hata verir", async () => {
+    // NOT: bu kontrol config YUKLEYICISINI hedefler. Konsey rotasi bugun config hatasini yutup
+    // varsayilana dusuyor (Blok 3 borcu); yani kolun yanlis config'le kosmasi ancak burada,
+    // yuklemede yakalanir. Gercek kosumda runner da ayni yukleyiciden gecer.
+    const r = spawnSync(
+      "node",
+      ["-e", 'const {loadConfig}=await import("./src/core/config/load.ts"); loadConfig();'],
+      {
+        cwd: process.cwd(),
+        encoding: "utf8",
+        env: { ...process.env, DIVAN_CONFIG: join(process.cwd(), "eval", "yok-boyle-bir-kol.json") },
+      },
+    );
+    const cikti = `${r.stdout ?? ""}${r.stderr ?? ""}`;
+    check(r.status !== 0, "gecersiz config sessizce gecilmemeli");
+    check(cikti.includes("Config dosyası bulunamadı"), `anlasilir hata bekleniyordu:\n${cikti.slice(0, 300)}`);
+    check(cikti.includes("yok-boyle-bir-kol.json"), "hata HANGI yolu denedigini soylemeli");
+
+    // Gecerli kol yolu ise okunur: DIVAN_CONFIG gercekten etkili.
+    const r2 = spawnSync(
+      "node",
+      [
+        "-e",
+        'const {loadConfig}=await import("./src/core/config/load.ts");' +
+          'const c=loadConfig(); console.log("VIZYONER=" + c.seats.visionary.model);',
+      ],
+      {
+        cwd: process.cwd(),
+        encoding: "utf8",
+        env: { ...process.env, DIVAN_CONFIG: join(process.cwd(), "eval", "divan.config.claude.json") },
+      },
+    );
+    const cikti2 = `${r2.stdout ?? ""}${r2.stderr ?? ""}`;
+    check(cikti2.includes("VIZYONER=anthropic/claude-sonnet-5"), `deney kolu okunmaliydi:\n${cikti2.slice(0, 300)}`);
+    console.log(`  kanit: gecersiz yol -> anlasilir hata; gecerli kol -> kadro deney kolundan geldi`);
+  });
+
 }
 
 // ---------------------------------------------------------------- giriş
@@ -1134,6 +1252,12 @@ try {
 } finally {
   await stopServer();
   rmSync(TMP, { recursive: true, force: true });
+  // Surucu senaryolarinin biraktigi oturum dosyalari temizlenir: e2e kendi copunu toplar.
+  for (const tid of uretilenTumu) {
+    for (const uzanti of [".md", ".jsonl"]) {
+      rmSync(join(process.cwd(), "oturum-ciktisi", `${tid}${uzanti}`), { force: true });
+    }
+  }
 }
 
 const failed = results.filter((r) => !r.ok);
