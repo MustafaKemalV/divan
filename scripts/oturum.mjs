@@ -17,6 +17,15 @@
  * geçerlidir: bir düğüm çöktüyse `--devam` onu tanır ve o düğümden sürdürür (U-14).
  *
  * Varsayılan GERÇEK modellerdir. Sahte koşum için: DIVAN_RUNNER=stub npm run oturum -- fikir.txt
+ *
+ * KLAVYESİZ koşum (deney kolları, M5 kör değerlendirmesi):
+ *
+ *   npm run oturum -- fikir.txt --yanit KAPI1=2 --yanit KAPI2="cerceve onaylandi" --yanit KAPI3=karar
+ *
+ * Yanıtı verilen kapı sorulmaz. Yanıtı OLMAYAN kapıda stdin bir TTY ise sorulur; değilse oturum
+ * güvenli durur (çıkış kodu 3) ve `--devam` ile sürdürülür. Sessizce varsayılan uydurulmaz.
+ *
+ * Hangi config ile koşulacağı `DIVAN_CONFIG` ile seçilir (deney kolları: `eval/`).
  */
 
 import { spawn } from "node:child_process";
@@ -41,6 +50,32 @@ if (devamThread && !/^[\w.-]+$/.test(devamThread)) {
   console.error(`Gecersiz threadId: ${devamThread}`);
   process.exit(2);
 }
+// Ilk konumsal argüman fikir dosyasidir; bayrak gelirse kullanim hatasi (sessiz "dosya bos"
+// hatasiyla ugrastirmaktansa dogrudan soyle).
+if (dosya && dosya.startsWith("--")) {
+  console.error(`Fikir dosyasi bekleniyordu, bayrak geldi: ${dosya}\n  npm run oturum -- <fikir-dosyasi> [--ek <dosya>] [--yanit KAPI=metin]`);
+  process.exit(2);
+}
+// Yazili kapi yanitlari: --yanit KAPI1=2 --yanit KAPI2="cerceve onaylandi" --yanit BUTCE=40
+//
+// Neden var: deney kollari ve M5'in kor degerlendirmesi ayni fikri birden cok kez kosar; her
+// kosumda ayni kapilari elle cevaplamak hem yorucu hem de KOLLARI KIYASLANAMAZ yapar (Sah iki
+// kolda farkli cumleler yazarsa fark kadrodan mi cevaptan mi gelir bilinmez). Yazili yanit
+// kollarin girdisini AYNI tutar.
+//
+// Yaniti olmayan kapi asla varsayilanla doldurulmaz: TTY varsa sorulur, yoksa guvenli durus.
+const yaziliYanitlar = new Map();
+process.argv.forEach((arg, i) => {
+  if (arg !== "--yanit") return;
+  const ham = process.argv[i + 1] ?? "";
+  const esit = ham.indexOf("=");
+  if (esit <= 0) {
+    console.error(`Gecersiz --yanit: "${ham}". Bicim: --yanit KAPI1=2 (kapi=metin)`);
+    process.exit(2);
+  }
+  yaziliYanitlar.set(ham.slice(0, esit).trim().toUpperCase(), ham.slice(esit + 1));
+});
+
 // Ek belgeler: fikrin yanina ilistirilen dosyalar (README, sema, ornek kod).
 // npm run oturum -- fikir.txt --ek README.md --ek baska.md
 const ekYollari = process.argv.reduce((acc, arg, i) => (arg === "--ek" && process.argv[i + 1] ? [...acc, process.argv[i + 1]] : acc), []);
@@ -161,7 +196,30 @@ async function gonder(body) {
 const fmtListe = (x) => (Array.isArray(x) && x.length ? x.map((v) => `      - ${v}`).join("\n") : "      (yok)");
 
 /** Kapıyı okunabilir basar ve Şah'ın yanıtını alır. */
-async function kapiyiSor(e) {
+/**
+ * Şah'ın yanıtını kapının beklediği tipe çevirir. TEK yerdedir, çünkü yanıt iki yoldan gelebilir:
+ * klavyeden ya da `--yanit` ile. İkisi farklı çevrilirse yazılı koşum, elle koşumdan başka bir
+ * oturum olur ve kollar kıyaslanamaz.
+ */
+function yanitiCoz(gate, metin, p) {
+  const t = String(metin).trim();
+  if (gate === "KAPI1") {
+    const n = Number(t);
+    const secenekler = p.options ?? [];
+    return Number.isInteger(n) && n >= 1 && n <= secenekler.length ? secenekler[n - 1] : t;
+  }
+  if (gate === "BUTCE") {
+    const n = Number(t);
+    return Number.isFinite(n) && n > 0 ? n : t;
+  }
+  return t;
+}
+
+/**
+ * Kapıyı okunur basar ve sorulacak soruyu döndürür. Sormaz: yanıtsız kapıda güvenli duruş da
+ * aynı çıktıyı basmak zorunda, yoksa Şah neyin beklendiğini görmeden durmuş olur.
+ */
+function kapiyiBas(e) {
   const p = e.payload ?? {};
   console.log(`\n${"=".repeat(72)}\nKAPI: ${e.gate}\n${"=".repeat(72)}`);
 
@@ -170,14 +228,12 @@ async function kapiyiSor(e) {
     if (p.councilModeNote) console.log(`  (${p.councilModeNote})`);
     console.log("\nHMW secenekleri:");
     (p.options ?? []).forEach((o, i) => console.log(`  ${i + 1}) ${o}`));
-    const c = (await rl.question("\nSecimin (numara ya da kendi cumlen): ")).trim();
-    const n = Number(c);
-    return Number.isInteger(n) && n >= 1 && n <= (p.options ?? []).length ? p.options[n - 1] : c;
+    return "\nSecimin (numara ya da kendi cumlen): ";
   }
 
   if (e.gate === "KAPI2") {
     console.log(`Denetci'nin cerceve itirazi:\n\n${p.frameObjection}\n`);
-    return (await rl.question("Cerceveyi onayla ya da duzelt: ")).trim();
+    return "Cerceveyi onayla ya da duzelt: ";
   }
 
   if (e.gate === "KAPI3") {
@@ -188,7 +244,7 @@ async function kapiyiSor(e) {
     console.log(`\nDenetim mekanik sartlari: ${p.auditComplete ? "tam" : `EKSIK -> ${p.auditIssue}`}`);
     console.log(`Susan koltuklar:\n${fmtListe(p.silentSeats)}`);
     console.log(`\nBuraya kadar: ${p.callCount} cagri, $${p.costUsd} (maliyeti bilinmeyen ${p.costUnknownCalls} cagri)`);
-    return (await rl.question("\nKararin: ")).trim();
+    return "\nKararin: ";
   }
 
   if (e.gate === "BUTCE") {
@@ -198,9 +254,7 @@ async function kapiyiSor(e) {
     console.log(`          gozlenen ${p.kestirim.gozlenenKoltuk} koltuk, gozlemsiz ${p.kestirim.gozlemsizKoltuk}`);
     console.log(`          oturum su ana kadar: $${p.kestirim.oturumMaliyetiUsd}`);
     if (p.hata) console.log(`HATA: ${p.hata}`);
-    const c = (await rl.question(`\nYanit (${(p.kabulEdilen ?? []).join(" | ")}): `)).trim();
-    const n = Number(c);
-    return Number.isFinite(n) && n > 0 ? n : c;
+    return `\nYanit (${(p.kabulEdilen ?? []).join(" | ")}): `;
   }
 
   // Olay-tetikli kapılar (T3-3). Hepsi kabul listesini İLAN EDER; sözleşme dışı yanıt akışı
@@ -220,7 +274,14 @@ async function kapiyiSor(e) {
   }
   if (p.kurtarma) console.log(`\n${p.kurtarma}`);
   const kabul = (p.kabulEdilen ?? []).join(" | ");
-  return (await rl.question(`\nYanit${kabul ? ` (${kabul})` : "in"}: `)).trim();
+  return `\nYanit${kabul ? ` (${kabul})` : "in"}: `;
+}
+
+/** Kapıyı basar, klavyeden yanıt alır ve kapının beklediği tipe çevirir. */
+async function kapiyiSor(e) {
+  const soru = kapiyiBas(e);
+  const c = await rl.question(soru);
+  return yanitiCoz(e.gate, c, e.payload ?? {});
 }
 
 function ciktiYaz(threadId, state, runnerMode, sureMs, sureKirilim) {
@@ -344,14 +405,35 @@ async function main() {
 
   while (durak && durak.type === "gate") {
     const kapiBaslangic = Date.now();
-    const yanit = await kapiyiSor(durak);
+    let yanit;
+    if (yaziliYanitlar.has(durak.gate)) {
+      // Yazılı yanıt: kapı BASILIR ama sorulmaz. Basılır, çünkü koşumun kaydı ne sorulduğunu da
+      // içermeli; sorulmaz, çünkü yanıt zaten verilmiş.
+      kapiyiBas(durak);
+      yanit = yanitiCoz(durak.gate, yaziliYanitlar.get(durak.gate), durak.payload ?? {});
+      console.log(`\n  [--yanit] ${durak.gate} = ${JSON.stringify(yanit)}`);
+    } else if (stdin.isTTY) {
+      yanit = await kapiyiSor(durak);
+    } else {
+      // GÜVENLİ DURUŞ: yanıtı olmayan bir kapı, sorulacak kimse de yokken SESSİZCE
+      // varsayılanla doldurulamaz. Bir kapı Şah'ın karar noktasıdır; onu koşum kolaylığı için
+      // uydurmak, Divan'ın tek insan kararını sahtelemek olur. Oturum kapanmaz: checkpoint
+      // duruyor, --devam ile aynı yerden sürer.
+      kapiyiBas(durak);
+      console.log(`\n  YANITSIZ KAPI: "${durak.gate}" icin --yanit verilmedi ve stdin bir TTY degil.`);
+      console.log(`  Oturum SESSIZCE varsayilanla doldurulmadi; checkpoint korundu.`);
+      console.log(`  Surdurmek icin:  npm run oturum -- --devam ${threadId} --yanit ${durak.gate}=<yanit>`);
+      gunlukYaz({ type: "yanitsiz-kapi", gate: durak.gate });
+      process.exitCode = 3;
+      return;
+    }
     sure.kapiMs += Date.now() - kapiBaslangic;
     // Şah'ın yanıtı da kayda girer: kapıda ne sorulduğu kadar ne cevaplandığı da replay'in parçası.
     gunlukYaz({ type: "sah-yaniti", gate: durak.gate, yanit, bekleyisMs: Date.now() - kapiBaslangic });
     console.log("");
     // "re-table:<düğüm>" bir RESUME değildir: checkpoint geçmişinden çatallanma ayrı bir istektir
     // ve graf içinden yapılmaz (T3-3). Sürücü yanıtı burada o isteğe çevirir.
-    const reTable = /^re-table:(.+)$/i.exec(yanit);
+    const reTable = /^re-table:(.+)$/i.exec(String(yanit));
     if (reTable) {
       const hedef = reTable[1].trim();
       console.log(`  re-table: "${hedef}" dugumunden yeniden kosuluyor; onceki cagrilar korunur\n`);
