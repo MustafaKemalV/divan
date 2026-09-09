@@ -1,9 +1,9 @@
 # Divan: build planı (M0-M5)
 
-Tek gerçek kaynak `DESIGN.md`; bu plan onun inşa sırasıdır. Model stratejisi ve süreç disiplini depo dışında, yerel çalışma kurallarında tutulur.
+Tek gerçek kaynak `DESIGN.md`; bu plan onun inşa sırasıdır. Süreç disiplini `docs/SUREC.md`'de; model tercihleri ve kişisel çalışma düzeni depo dışındadır.
 
 ## Review protokolü
-- Her milestone sonunda Şah, AYRI bir Fable oturumuna şu mesajı taşır: "M<X> bitti, PLAN.md'deki M<X> kontrol listesini uygula". Bulgular kapanmadan milestone kapanmaz; kapanınca iş Opus masasına döner. (Oturum içi `/model` geçişi terk edildi; iki masanın ayrılığı depo dışındaki yerel çalışma anayasasındadır.)
+- Her milestone sonunda Şah, AYRI bir Fable oturumuna şu mesajı taşır: "M<X> bitti, PLAN.md'deki M<X> kontrol listesini uygula". Bulgular kapanmadan milestone kapanmaz; kapanınca iş Opus masasına döner. (Oturum içi `/model` geçişi terk edildi; iki masanın ayrılığı `docs/SUREC.md`'dedir.)
 - **M2 ve M5:** TAZE bir Fable oturumu (bu klasörden aç); sadece repo + DESIGN + PLAN üzerinden bağımsız review.
 - Kural: kanıtsız "bitti" yok; her kabul kriteri test çıktısı veya çalışan örnekle gösterilir.
 - **Gerçek para harcayan her koşumdan önce Fable masası kodu satır satır okur; plan "tamam" dediği için koşulmaz.**

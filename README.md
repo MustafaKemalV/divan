@@ -54,7 +54,7 @@ At the time of writing: 48 mechanisms enforced, 20 still owed (12 planned for la
 6 opened by an independent line-by-line review of this codebase, one prompt-only, one partial).
 The debts are listed by name. Each row is one promise the design makes: fixing a bug strengthens
 an existing row's evidence rather than adding a new row, so the count cannot inflate itself.
-Process guarantees that come from the contributor rules rather than the design, such as the single
+Process guarantees that come from the build process ([docs/SUREC.md](docs/SUREC.md)) rather than the design, such as the single
 test chain that gates every commit, are listed separately and not counted here.
 
 Measurements from real runs, including per seat costs and what they revealed, are in
@@ -70,6 +70,7 @@ The design documents are written in Turkish, since that is the working language 
 - [docs/MEKANIZMA-ENVANTERI.md](docs/MEKANIZMA-ENVANTERI.md): mechanism to enforcing layer to evidence.
 - [docs/M2-OLCUMLER.md](docs/M2-OLCUMLER.md): numbers from real runs, not projections.
 - [docs/M1-KANIT.md](docs/M1-KANIT.md): raw output of the M1 acceptance runs.
+- [docs/SUREC.md](docs/SUREC.md): how the project is built: two review desks, the test chain that gates every commit, red-before-green, findings files.
 
 ## Running
 
