@@ -42,3 +42,9 @@ fikir.txt
 
 # IntelliJ proje dosyalari (JAVA_MODULE ilan eder, bu repo TS)
 .idea/
+
+# local context files, never committed
+CLAUDE.md
+CLAUDE.local.md
+MEMORY.md
+.claude/

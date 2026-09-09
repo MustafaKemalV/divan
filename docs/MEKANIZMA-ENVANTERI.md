@@ -13,7 +13,7 @@ kanıtı vardır: kanıtsız satır bu tabloya giremez.
 **Satır kuralı (Şah onaylı, M2-A3).** Bir satır = DESIGN'da yazılı BİR VAAT. Bir arızanın
 düzeltilmesi yeni satır AÇMAZ; var olan satırın kanıtını günceller ve kökeni "kanıt güncellendi"
 der. Aksi halde envanter, vaatleri değil yapılan işleri sayan bir günlüğe dönüşür ve sayı her
-düzeltmede kendiliğinden şişer. Kaynağı DESIGN değil CLAUDE.md olan güvenceler tabloların dışında,
+düzeltmede kendiliğinden şişer. Kaynağı DESIGN değil yerel çalışma kuralları olan güvenceler tabloların dışında,
 "Süreç güvenceleri" başlığındadır ve sayıya girmez.
 
 **Köken** sütunu trend içindir: bir satır o milestone'da yeni mi doğdu, yoksa önceki listede borç
@@ -121,7 +121,7 @@ Son güncelleme: M2-A3 (bağlam mimarisi revizyonu; Blok 1 kapandı, kapanış t
 
 ## Süreç güvenceleri (envanter DIŞI, sayıya girmez)
 
-Bunların kaynağı DESIGN değil `CLAUDE.md`'dir: Divan'ın kullanıcıya verdiği bir söz değil, bu
+Bunların kaynağı DESIGN değil yerel çalışma kurallarıdır: Divan'ın kullanıcıya verdiği bir söz değil, bu
 repoda çalışma biçimimizin güvencesidir. Vaat saymadıkları için yukarıdaki tabloların ve özet
 sayısının dışında dururlar.
 
