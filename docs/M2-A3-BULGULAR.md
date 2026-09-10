@@ -238,3 +238,90 @@ adı ve `GATEWAY_TEST_OK` etiketi yanlış, `summary.test.ts`'te iki tane "7)" m
 - F4 fizibilite de hafif şemaya bağlanmalı (iddia + etiket); "bitti tanımı çıktı üretir" ilkesi,
   M2-C adayı.
 - `.env.local` anahtar rotate'i 31 Ağustos'tan beri açık.
+
+---
+
+# Capstone bulguları (2026-09-07 ve 2026-09-09 koşumlarından)
+
+İlk tam gerçek oturum ve aynı-aile deneyi, stub'ların gösteremeyeceği şeyleri gösterdi. Her bulgu
+ham olay günlüğünden ölçüldü; sayılar `docs/M2-OLCUMLER.md`'de, ölçüm aracı
+`eval/karsilastir.mjs`.
+
+## C-1. Başarısız ama faturalanan deneme metriklerde yok
+
+7 Eylül F5'inde Denetçi'nin bir çağrısı zaman aşımına uğradı, terk edilen istek arka planda koştu
+ve kesilerek döndü; $0.015950 faturaya girdi. Buna rağmen oturum künyesi koşumu tertemiz
+gösteriyor: susan koltuk yok, `costUnknownCalls` 0, altyapı arızası kaydı yok.
+
+Yani bir oturum para yakarken künyesinde bunun izi kalmıyor. Metriklere "başarısız deneme sayısı"
+girmeli; aksi halde "27 çağrıya $0.70 harcandı" cümlesi 28. çağrıyı gizler.
+
+## C-2. Anthropic önbelleği sıfır okudu, `cache_control` gerekiyor
+
+D-1 sabit katmanları başa koyarken gerekçesi "sağlayıcı önbelleği işleyebilsin" idi ve etkisinin
+ÖLÇÜLECEĞİ yazılmıştı. Ölçüldü: 7 Eylül'de `cachedTokens` toplamı 10.676 ve neredeyse tamamı
+DeepSeek'in tek denetim çağrısından (10.548); Anthropic koltuklarının hepsinde 0. Tek aileli 9
+Eylül koşumunda toplam 0.
+
+Anthropic'te önbellek kendiliğinden çalışmıyor, istek gövdesinde `cache_control` işareti
+istiyor. Sıra doğru kurulmuş ama kazanç alınmıyor.
+
+## C-3. Geç dönen deneme "deneme 1" olarak kaydediliyor
+
+Aynı olayda iki çağrı da `attempt: 1` yazıyor. Deneme numarası çağrı BAŞLARKEN tampondan
+sayılıyor; zaman aşımına uğrayan ilk deneme henüz tampona girmemiş olduğu için yeniden deneme de
+kendini birinci sanıyor. Kayıt, aynı koltuğun aynı fazdaki iki ayrı denemesini ayırt edemiyor.
+
+## C-4. F5:output çıktısı prompt'u yankılıyor
+
+Final topraklama denetiminin çıktısı, kendisine verilen talimatın başlıklarını ve sorularını
+tekrar ediyor. Denetim yapıyor ama biçimi bir kontrol listesinin doldurulmuş hali gibi; §9.1'in
+kanıt defterine dönüştürülebilir bir yapı üretmiyor. M3 belge üretimi bu çıktının üstüne kurulacak,
+o yüzden biçimi orada şemaya bağlanmalı.
+
+## C-5. Kanıt kapısı web olmadan sınanamıyor
+
+7 Eylül'de denetim 3 iddia getirdi, üçü de `model-bilgisi`, hiçbirinde URL yok: rozet kuralı hiç
+devreye girmedi. 9 Eylül'de 4 iddiadan biri `dogrulanmis` etiketiyle ve URL'li geldi; kod URL'nin
+BİÇİMİNİ doğrulayıp geçirdi, ama URL'nin var olup olmadığı ya da iddiayı destekleyip
+desteklemediği kontrol edilmedi, çünkü web araması kodda yok.
+
+Yani bugünkü haliyle rozet, kaynak GÖSTERME disiplinini zorluyor, kaynağın doğruluğunu değil ve bu
+sınır artık teorik değil: gerçek bir koşumda doğrulanmamış bir URL "doğrulanmış" rozetiyle geçti.
+M2-C'nin M2-B'den öne alınmasının gerekçesi budur.
+
+## C-6. Sürücü çöken oturumda 0 ile çıkıyor
+
+9 Eylül'de taslak çağrısı düğümü çökertti; rota bir `error` olayı gönderdi, sürücü onu bastı ve
+oturumu bitirip **çıkış kodu 0** ile döndü. U-14 çöken oturumu KURTARILABİLİR yaptı ama çıkış kodu
+hâlâ "her şey yolunda" diyor. Otomasyon (deney kolları, M5 kör değerlendirmesi) çıkış koduna
+bakar; çöken bir koşumu başarılı sayar.
+
+## C-7. Terk edilen dalın maliyeti state'te yok
+
+Re-table checkpoint'i geri sardığı için `state.callCount` 30, `state.costNanoUsd` $1.250261
+gösteriyor; oysa olay günlüğünde 34 çağrı ve $1.387532 var. Aradaki $0.137271 gerçekten harcandı.
+Şah'ın gördüğü künye, kurtarma yapılan bir oturumda harcamayı OLDUĞUNDAN AZ gösteriyor.
+
+## C-8. Tek koltuklu düğüm çökünce fatura hiç kaydedilmiyor
+
+Çöken taslak çağrısı olay günlüğünde de yok. `run` başarısız denemeyi tampona yazıyor ama tamponu
+state'e boşaltan `flushUsage` düğüm normal dönerken koşuyor; düğüm çökerse tampon kayboluyor.
+Sağlayıcı o çağrıyı üretti ve faturaladı, bizde kaydı yok. U-9'un parçası.
+
+## C-9. Metin tavanı 2.500 yetmiyor
+
+Aynı koşumda iki ayrı çağrı 2.500 çıktı token tavanına çarptı (F5 sıralaması ve karar taslağı).
+Tavan 6.000'e çıkarıldıktan sonra Denetçi'nin sıralaması 2.993 token üretti, yani gerçekten
+2.500'ün üstünde bir cevap gerekiyormuş. Akıl yürütme tokenı da aynı tavana sayıldığı için geç
+fazların (sıralama, taslak) payı daha da dar.
+
+## C-10. Aynı model iki koltukta oturmamalı (kadro kuralı adayı, DESIGN §4)
+
+9 Eylül F5'inde Müh-1 ve Denetçi aynı modeli (claude-sonnet-5) kullanıyordu ve ikili benzerlikleri
+0.86 çıktı; aynı fazdaki en düşük ikili 0.10, 7 Eylül'ün en yüksek ikilisi 0.51. Bir koltuk
+diğerinin görüşünü görmese bile, aynı model aynı girdiye çok benzer cevap veriyor.
+
+§3'ün çeşitlilik kazancı "farklı aile" diye yazılmıştı; bu ölçüm daha keskin bir kural öneriyor:
+**aynı model iki koltuğa atanamaz.** Aile kısıtı korunur, üstüne model tekliği eklenir. DESIGN §4
+değişikliği olduğu için Şah onayıyla ayrıca işlenecek.

@@ -353,3 +353,205 @@ uzun yazmaz, çıktı token'ı ne üretildiyse o kadar faturalanır.
 
 Bu bir n=1 gözlemine dayanan ayardır ve capstone koşumundan sonra gerçek dağılımla yeniden
 bakılacak.
+
+---
+
+## İlk tam gerçek oturum (2026-09-07)
+
+> **Bu koşumda olmayan mekanizmalar.** Web araması KODDA YOK, yani "Doğrulanmış" rozeti gerçek
+> aramayla değil modelin hafızasındaki URL ile hak edilebilir. Karar belgesi `templates/`
+> şablonuna basılmıyor (M3), çıktı ham transkript ve künyedir. Triyaj sınıfı hâlâ modelin
+> kanaati (M2-B). §6.1'in adanmış anonimleştirme katmanı yok; taşınan metinler maskeli ama
+> dolaylı tanıma açık. Aşağıdaki sayılar "Divan böyle çalışıyor" değil, "Divan'ın bu aşaması
+> böyle çalıştı" diye okunmalıdır.
+
+Kadro: ana `divan.config.json`, altı aile. Fikir: Şah'ın üç Java kütüphanesinin konumlandırması
+(`fikir.txt`, 808 karakter) artı üç README eki. Bütün sayılar oturumun ham olay günlüğünden
+(`oturum-2026-09-07T12-46-45-900Z.jsonl`) `eval/karsilastir.mjs` ile yeniden üretilir.
+
+| | |
+|---|---|
+| Çağrı | 28 (27 planlı + 1 terk edilen deneme) |
+| Maliyet | **$0.708066** |
+| Token | 213.843 |
+| Süre | 1.607 sn = model 615 sn + kapıda bekleme 993 sn |
+| Önbellekten okunan | 10.676 token |
+| Revizyon turu | 1 | 
+| Denetim mekanik şartları | tam |
+| Susan koltuk | yok |
+
+**Kapıda bekleme model süresinin bir buçuk katı.** Şah üç kapıda toplam 993 saniye düşündü, kurul
+615 saniye konuştu. Bu bir arıza değil ölçü: Divan'ın darboğazı model hızı değil, insan kararı.
+
+### Koltuk başına maliyet
+
+| Koltuk | Model | Çağrı | Maliyet | Pay |
+|---|---|---|---|---|
+| Mimar | claude-opus-4.8 | 5 | $0.281140 | **39.7%** |
+| Baş Danışman | claude-sonnet-5 | 6 | $0.219534 | 31.0% |
+| Müh-1 | gpt-5.1 | 5 | $0.082236 | 11.6% |
+| Denetçi | deepseek-v4-pro | 6 | $0.076200 | 10.8% |
+| Vizyoner | grok-4.6 | 2 | $0.025808 | 3.6% |
+| Pazar Sesi | gemini-3.7-flash | 3 | $0.014553 | 2.1% |
+| Müh-2 | qwen3-max | 1 | $0.008594 | 1.2% |
+
+İki Anthropic koltuğu faturanın **%70.7'si**. Yarım oturumda %64 ölçülmüştü; tam oturumda pay
+büyüdü, çünkü Mimar geç fazlarda da konuşuyor ve bağlamı her fazda ağırlaşıyor.
+
+### Ek belgelerin payı: kestirim tuttu
+
+Tam metni gören çağrıların girdi büyüklüğü, aynı koltuğun özet gören çağrılarıyla kıyaslanınca
+ekin yükü doğrudan görünüyor:
+
+| Çağrı | Girdi token | Aynı koltuğun özet gören çağrısı |
+|---|---|---|
+| Müh-1, F4 fizibilite | 10.752 | F4 revizyon 2.649 |
+| Mimar, F4 fizibilite | 17.217 | F5 sıralama 5.886 |
+| Denetçi, F4 denetim | 13.980 | F1 çerçeve 1.810 |
+| Baş Danışman, F0 brifing | 14.693 | F0 HMW 2.358 |
+
+Müh-1'in farkı 8.103 token; T3-9'da 9.300 token diye kestirilmişti. Kestirim biraz yüksekti ama
+bandın içinde: ek girdi payı **8-9 sent** mertebesinde ve bunun yarısı yine Mimar'ın, çünkü en
+pahalı koltuk aynı zamanda tam metni görenlerden biri.
+
+### Önbellek: yalnız DeepSeek okudu
+
+`cachedTokens` toplamı 10.676 ve neredeyse tamamı tek bir çağrıdan: Denetçi'nin F4 denetimi
+(deepseek-v4-pro) 10.548 token'ı önbellekten okudu. Vizyoner'de (grok-4.6) 128 token. **Anthropic
+koltuklarının hepsinde sıfır.** D-1'in "sabit katmanlar başta durur ki sağlayıcı önbelleği
+işleyebilsin" varsayımı bu koşumda Anthropic tarafında ÖLÇÜLEREK yanlışlandı: sıra doğru olsa da
+Anthropic önbelleği `cache_control` işareti olmadan çalışmıyor (C-2).
+
+### F5'te zaman aşımı ve iptal edilmeyen istek
+
+`f5_ranking` düğümü 180.5 saniye sürdü, yani çağrı başına 120 saniyelik tavanın üstünde. Olan şu:
+Denetçi'nin ilk çağrısı zaman aşımına uğradı, `runPhaseSeats` bir kez daha denedi ve ikinci deneme
+başarıyla döndü. Ama terk edilen ilk istek İPTAL EDİLMEDİ (U-9: `AbortSignal` geçilmiyor); arka
+planda koşmaya devam etti ve sonunda metin tavanına çarparak (2.500 çıktı token) döndü. Faturası
+$0.015950 ve toplama dahil.
+
+Bu denemenin kayda düşme biçimi iki ayrı borç doğuruyor:
+
+- Kayıtta **deneme numarası 1** yazıyor, oysa bu koltuğun o fazdaki ikinci çağrısıydı. Numara
+  çağrı BAŞLARKEN hesaplanıyor ve geç dönen ilk deneme henüz tampona girmemişti (C-3).
+- Oturum künyesi bu koşumu tertemiz gösteriyor: susan koltuk yok, `costUnknownCalls` sıfır,
+  altyapı arızası kaydı yok. Yani başarısız ama faturalanan bir deneme metriklerde HİÇ görünmüyor
+  (C-1).
+
+### Denetim ve hüküm
+
+Denetim 3 sınanmış iddia getirdi, **üçü de `model-bilgisi`**, hiçbirinde URL yok. Yani §6.2'nin
+rozet kuralı bu koşumda hiç sınanmadı: kimse "doğrulanmış" demedi. Hüküm turu tek turda kapandı,
+8 kriter: 7 karşılandı, 1 kısmen, blocking yok.
+
+---
+
+## Aynı aile deneyi (2026-09-09)
+
+> **Bu koşumda olmayan mekanizmalar.** Yukarıdaki uyarının tamamı burada da geçerlidir: web
+> araması yok, karar belgesi şablona basılmıyor, triyaj kanaat, §6.1 katmanı yok. Ek olarak bu
+> koşum bir KONTROLLÜ DENEY DEĞİL, tek gözlemdir (n=1) ve aşağıda sayılan karıştırıcıları taşır.
+
+Soru: §3'ün tek kaynaklı kazancı heterojenlikten geliyorsa, aynı kadroyu tek aileden kurmak ne
+kaybettirir? Kadro `eval/divan.config.claude.json` (yalnız Anthropic), fikir ve kapı yanıtları 7
+Eylül koşumuyla aynı. Kaynak: `oturum-2026-09-09T13-14-14-099Z.jsonl`.
+
+| | 7 Eylül (altı aile) | 9 Eylül (tek aile) |
+|---|---|---|
+| Çağrı, state | 28 | 30 |
+| Çağrı, olay günlüğü | 28 | **34** |
+| Maliyet, state | $0.708066 | $1.250261 |
+| Maliyet, olay günlüğü | $0.708066 | **$1.387532** |
+| Token | 213.843 | 340.085 |
+| Önbellekten okunan | 10.676 | **0** |
+| Revizyon turu | 1 | 2 |
+| Hüküm turu | 1 | 2 |
+
+**Fatura iki katına yakın arttı (%96).** Ama bu farkın tamamı kadrodan değil: aşağıdaki
+karıştırıcılar okunmadan bu sayı bir sonuç değildir.
+
+### Terk edilen dal: state'in görmediği $0.137
+
+F5 sıralaması iki kez koştu. İlk dalgada Denetçi'nin çağrısı metin tavanına çarptı (2.500 çıktı
+token) ve transkripte `[KOLTUK SUSTU: cevap token tavanına çarptı...]` diye geçti; hemen ardından
+karar taslağı çağrısı AYNI tavana çarpıp düğümü çökertti. Fable metin tavanını 2.500'den 6.000'e
+çıkarıp `f5_ranking` düğümünden re-table yaptı; ikinci dalga sorunsuz koştu.
+
+Sayıların söylediği:
+
+- Terk edilen dal **4 çağrı, $0.137271**. Bu para harcandı ama `state.callCount` ve
+  `state.costNanoUsd` onu görmüyor, çünkü re-table checkpoint'i geri sardı (C-7).
+- Çöken taslak çağrısının faturası **hiçbir yerde yok**. Düğüm çöktüğü için `flushUsage`
+  koşmadı; sağlayıcı o çağrıyı üretti, biz ödedik, kayıt tutmadık (C-8).
+- İkinci dalgada Denetçi 2.993 çıktı token üretti, yani 2.500 tavanı gerçekten yetmiyordu (C-9).
+- `[KOLTUK SUSTU]` etiketi yanıltıcı: koltuk susmadı, tavan kesti. Bu altyapı arızası (U-15).
+
+### Koltuk başına maliyet
+
+| Koltuk | Model | Çağrı | Maliyet | Pay |
+|---|---|---|---|---|
+| Denetçi | claude-sonnet-5 | 7 | $0.421248 | 30.4% |
+| Mimar | claude-opus-4.8 | 7 | $0.416305 | 30.0% |
+| Baş Danışman | claude-sonnet-5 | 6 | $0.266994 | 19.2% |
+| Müh-1 | claude-sonnet-5 | 7 | $0.192948 | 13.9% |
+| Vizyoner | claude-sonnet-5 | 2 | $0.040536 | 2.9% |
+| Pazar Sesi | claude-haiku-4.5 | 4 | $0.034635 | 2.5% |
+| Müh-2 | claude-haiku-4.5 | 1 | $0.014866 | 1.1% |
+
+Denetçi 7 Eylül'de faturanın %10.8'iydi, burada %30.4. Sebep açık: DeepSeek'ten sonnet-5'e geçti
+ve DeepSeek'in çıktı fiyatı $1.91/M, sonnet-5'inki $10/M. **Ucuz bir denetçi, denetimi ucuzlatır.**
+
+### Önbellek: sıfır
+
+Bu koşumda `cachedTokens` toplamı **0**. Yedi koltuğun yedisi de Anthropic olduğu için, 7
+Eylül'de DeepSeek'in getirdiği 10.5k'lık önbellek kazancı tamamen kayboldu. Aynı aileye geçmek
+önbellek açısından kazanç değil kayıp oldu (C-2).
+
+### Konformite ölçüsü
+
+`eval/karsilastir.mjs` faz içi görüşlerin ikili KOSİNÜS benzerliğini hesaplar (kelime frekans
+vektörleri). Ölçü anlamı değil kelime örtüşmesini ölçer ve mutlak bir eşik değildir; kollar arası
+karşılaştırma için anlamlıdır.
+
+| Faz | 7 Eylül (altı aile) | 9 Eylül (tek aile) |
+|---|---|---|
+| F2 sessiz üretim | 0.409 | 0.349 |
+| F3 çapraz tozlaşma | 0.357 | 0.376 |
+| F5 sıralama | 0.420 | 0.270 |
+
+**Beklenen bulgu çıkmadı.** Tek aileli kurul, üretim fazında altı aileli kuruldan daha benzer
+yazmadı; tersine F2'de biraz daha AYRIK çıktı. Yani "aynı aile = konformite" beklentisi bu tek
+gözlemde doğrulanmadı.
+
+Ama başka bir yerde çok net bir sinyal var. 9 Eylül F5'inde en yüksek ikili benzerlik
+**Müh-1 / Denetçi 0.86**, en düşüğü Pazar Sesi / Denetçi 0.10. Müh-1 ve Denetçi o kolda AYNI
+MODELİ (claude-sonnet-5) kullanıyordu. Karşılaştırma için: 7 Eylül'de en yüksek ikili 0.51'di ve
+o iki koltuk farklı ailelerdendi.
+
+Yani ölçülen şey aile benzerliği değil, **aynı modelin iki koltukta oturması**. Bir koltuk
+diğerinin görüşünü görmüyor bile olsa, aynı model aynı girdiye çok benzer cevap veriyor ve
+"bağımsız iki ses" iddiası orada sahiden zayıflıyor. Kadro kuralı adayı bu ölçümden doğdu (C-10).
+
+### Kararların farkı
+
+İki kurul aynı fikirden farklı yönler önerdi. 7 Eylül taslağı: üç kütüphaneyi bağımsız
+repo/artifact olarak tut, ortak marka icat etme. 9 Eylül taslağı: webhook-verify'ı öne çıkar,
+idem-client'ı (SNAPSHOT, kurulamıyor) profilden şimdilik çıkar, marka kararını ertele.
+
+İkincisi daha keskin ve daha uygulanabilir görünüyor, ama bunu kadroya yazmak için elimizde
+gerekçe yok: iki koşum arasında kadro dışında da çok şey değişti.
+
+### Karıştırıcılar (bu karşılaştırmanın sınırı)
+
+1. **Metin tavanı koşum ORTASINDA değişti** (2.500 -> 6.000). İkinci kolun sıralama ve taslak
+   çağrıları daha uzun yazabildi; uzun çıktı hem maliyeti hem benzerlik ölçüsünü etkiler.
+2. **Re-table var.** İkinci kol F5'i iki kez koştu; ikinci dalga, ilk dalganın çöküşünden sonra
+   ve farklı tavanla üretildi.
+3. **Revizyon turu sayısı farklı** (1'e karşı 2). İkinci kolda kurul bir tur daha tartıştı, bu tek
+   başına maliyeti ve F4 sonrası bağlamı büyütür.
+4. **Önbellek asimetrisi.** İlk kolda 10.676 token önbellekten okundu, ikincisinde 0.
+5. **n=1.** İki koşum bir eğilim değil, iki gözlemdir.
+
+Bu yüzden "%96 daha pahalı" cümlesi kadronun maliyeti değil, BU İKİ KOŞUMUN farkıdır. Kadroya
+atfedilebilecek tek temiz bulgu, aynı model iki koltukta oturduğunda görüşlerin belirgin biçimde
+yakınsamasıdır (0.86).

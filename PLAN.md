@@ -47,7 +47,7 @@ Tek gerçek kaynak `DESIGN.md`; bu plan onun inşa sırasıdır. Süreç disipli
 - [ ] Revizyonla düşen itiraz izi gerçek mi: kriter eşleştirmesi neye göre yapılıyor, gerçek modelde ad değişirse ne olur?
 - [ ] Stub'daki test işaretleri ([TEST:...]) mekanikleri kanıtlıyor mu, yoksa mekaniği taklit mi ediyor?
 
-## M2-A3: Bağlam mimarisi revizyonu (capstone ÖNCESİ zorunlu)
+## M2-A3: Bağlam mimarisi revizyonu (KAPANDI: 7 Eylül capstone + 9 Eylül aynı-aile deneyi)
 
 Fable masasının satır satır kod incelemesinden (2026-09-04) çıktı. Bulgular ve yeniden üretim
 adımları: `docs/M2-A3-BULGULAR.md`. Tasarım kararları DESIGN'a yazıldı (D-1..D-8).
@@ -68,11 +68,46 @@ kullanım kaydı, özet zinciri, kimlik katmanı + oturum zarfı, F5 girdileri.
 **U-14 Blok 3'ten capstone öncesine alındı** (2026-09-07); gerekçe: çöken oturumun ödenmiş
 çağrıları kurtarılamıyor, route tarafı hazır.
 
-**Blok 3 (capstone SONRASI, borç):** U-9 tek koltuk-çağrısı yolu (AbortSignal ile gerçek iptal,
-her yerde tek yeniden deneme, graf-global tamponun kalkması); U-10 kapı sözleşmesi tablosu (D-5);
-U-11 iki katlı tavan (D-8); U-12 seçenek defteri, sıralama şeması, Kendall tau, tam-uyum bayrağı,
-numaralı itiraz ve yönlendirme (D-3, D-4); U-13 ek belge eşiği ve maliyet ölçümü (D-7); U-15 altyapı kesilmesinin transkriptte doğru
-etiketlenmesi.
+### Blok 3: tek borç listesi
+
+M2-A kapandığında açık kalan her şey burada, tek yerde. Kaynaklar: `docs/M2-A3-BULGULAR.md`
+(U-serisi, T3 turu, C-serisi) ve ölçümler `docs/M2-OLCUMLER.md`.
+
+**Koşum sağlamlığı (para ve kayıt).** M2-C'den ÖNCE yapılacak iki kalem işaretli:
+
+- **U-9 tek koltuk-çağrısı yolu.** `AbortSignal` ile GERÇEK iptal (7 Eylül'de terk edilen istek
+  arka planda koşup faturalandı), her yerde tek yeniden deneme, graf-global tamponun kalkması,
+  geç dönen cevabın sonraki düğümün tamponuna düşmemesi. **[M2-C ÖNCESİ]**
+- **C-1 başarısız deneme metriği.** Oturum künyesi başarısız/kesilmiş denemeleri saymalı; bugün
+  para yakan bir koşum tertemiz görünüyor. **[M2-C ÖNCESİ]**
+- **C-3** geç dönen denemenin deneme numarası yanlış (aynı koltuğun iki denemesi ayırt edilemiyor).
+- **C-6** sürücü çöken oturumda çıkış kodu 0 veriyor; otomasyon çöküşü başarı sayar.
+- **C-7** terk edilen dalın maliyeti state'te yok (künye harcamayı olduğundan az gösteriyor).
+- **C-8** tek koltuklu düğüm çökünce çağrının faturası hiç kaydedilmiyor.
+- **U-11** iki katlı tavan (D-8): iade, yeniden deneme ve özet çağrıları hiçbir tavana sayılmıyor.
+- **U-15** altyapı kesilmesi transkriptte "KOLTUK SUSTU" diye etiketleniyor (9 Eylül'de görüldü).
+
+**Mekanizma borçları.**
+
+- **U-10 kalan payı:** kapı sözleşmesi TEK TABLO değil (kabul listeleri düğüm başına yazılı) ve
+  sözleşme dışı yanıtta kapı yerinde yeniden açılmıyor; bugün güvenli duruş + re-table var.
+- **U-12** seçenek defteri, sıralama şeması, Kendall tau, tam-uyum bayrağı, numaralı itiraz ve
+  yönlendirme (D-3, D-4).
+- **U-13** ek belge boyut eşiği (D-7). Maliyet ölçümü 7 Eylül koşumunda yapıldı, eşik hâlâ yok.
+- **C-4** F5:output prompt'u yankılıyor; şemaya bağlanması M3 belge üretiminin ön şartı.
+- **C-9** metin tavanı: 2.500 iki çağrıda yetmedi, 6.000'e çıkarıldı. Kalıcı değer ölçümle
+  belirlenecek, geç fazların akıl yürütme payı ayrıca bakılacak.
+- **C-10** aynı model iki koltuğa atanamaz (kadro kuralı, DESIGN §4 değişikliği, Şah onayı ayrı).
+
+**T3 turundan kalan yapı borçları.**
+
+- `graph.ts` içindeki saf mantığın modüle çıkarılması (bütçe yanıtı ayrıştırma, düşen itiraz izi,
+  kimliksiz sıralama, özet iadesi, yedi kopya bütçe iptal bloğu).
+- Graf önbelleği runner'ı ilk istekte donduruyor; config özetiyle anahtarlanmalı.
+- Rota config hatasını yutuyor ve gövde doğrulaması yok.
+- F4 fizibilitenin de hafif şemaya bağlanması (iddia + etiket).
+- `package.json` `"type": "module"` (Next ile doğrulanarak) ve eslint config.
+- `.env.local` anahtar rotate'i (31 Ağustos'tan beri açık).
 
 **Fable kontrol listesi:**
 - [ ] Zarf her çağrıda mı, KAPI 2'den sonra donuyor mu?
@@ -81,6 +116,22 @@ etiketlenmesi.
 - [ ] Özet kaydı bir daha özet girdisi olabilir mi?
 - [ ] Çağrı başına kayıt stub'da uydurma değer üretiyor mu?
 - [ ] Sunucu gerçekten yalnız 127.0.0.1'de mi?
+
+## M2 alt sırası (Şah onayı 2026-09-08): M2-C, M2-B'den ÖNCE
+
+M2-A kapandı. Sıradaki iş **M2-C** (web araması, anonimlik karıştırması, `cache_control`), sonra
+M2-B (kadro dinamikleştirmesi, triyaj gözlem şeması, kadro kapısı), sonra M2-D (Kendall tau ve
+anlaşmazlık haritası).
+
+Gerekçe C-5'tir: kanıt kapısı web araması olmadan SINANAMIYOR. 7 Eylül'de hiçbir iddia
+"doğrulanmış" demedi, yani kural hiç devreye girmedi; 9 Eylül'de URL'li bir iddia doğrulanmadan
+rozeti aldı. Divan'ın en merkezi vaadi (topraklama) bugün ölçülemez durumda ve M2-B kadroyu
+zenginleştirse bile bu ölçülemezliği değiştirmez. Ayrıca `cache_control` (C-2) M2-C'de aynı
+yerdedir ve her koşumun faturasını düşürür.
+
+**M2-C öncesi zorunlu iki kalem** (Blok 3 listesinde işaretli): U-9'un iptal sinyali ve C-1'in
+başarısız deneme metriği. İkisi de para ve kayıt sağlamlığıdır; M2-C gerçek arama ekleyeceği için
+koşum başına maliyet artacak ve ölçüm aletinin önce doğru olması gerekir.
 
 ## M2: Gerçek modeller + mekanikler (KRİTİK KAPI: taze Fable oturumu)
 **Kapsam:** OpenRouter entegrasyonu (pin+fallback); anonimleştirme katmanı; kanıt kapısı (3 durum, URL zorunluluğu); web plugin (kaplı); hüküm turu (şema-bağlı); gömülemez muhalefet; sıralama-puanlama + Kendall tau; maliyet sayacı. **Ayrıca DESIGN §5.1:** kadronun dinamikleştirilmesi (koltuk listeleri config + KAPI 1 seçiminden gelir, kodda sabit dizi kalmaz), F0 triyajının gözlem şeması + eşik sınıflandırması, kadro kapısı (öneri + Şah düzenlemesi, Denetçi kilidi, en az üç rol, çeşitlilik uyarısı).
