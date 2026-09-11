@@ -89,6 +89,36 @@ if (dosya && !fikir) {
 
 const rl = createInterface({ input: stdin, output: stdout });
 
+/**
+ * Terk edilen dalın maliyeti (C-7). Re-table checkpoint'i geri sarar; state.callCount ve
+ * state.costNanoUsd o dalı GÖRMEZ, ama para harcanmıştır. 9 Eylül koşumunda künye $1.250261
+ * diyordu, gerçek harcama $1.387532'ydi ve aradaki $0.137271 künyede hiç görünmüyordu.
+ *
+ * Hesap `eval/karsilastir.mjs` ile AYNI yöntemi kullanır: re-table olayından ÖNCE, o düğümün
+ * fazında kaydedilmiş çağrılar atılmıştır. İki yerde iki farklı sayı çıkmasın diye ölçüt aynı.
+ */
+function terkEdilenDal() {
+  try {
+    const olaylar = readFileSync(gunlukYolu, "utf8").trim().split("\n").map((l) => JSON.parse(l));
+    const reTable = olaylar.filter((e) => e.type === "re-table");
+    if (reTable.length === 0) return null;
+    const cagrilar = olaylar.flatMap((e) => (e.calls ?? []).map((c) => ({ ...c, t: e.t })));
+    const atilan = [];
+    for (const r of reTable) {
+      const faz = String(r.dugum).replace(/^f(\d)s?_/, (_m, n) => `F${n}:`).toLowerCase();
+      const an = new Date(r.t).getTime();
+      for (const c of cagrilar) {
+        if (!c.phase.toLowerCase().startsWith(faz)) continue;
+        if (new Date(c.t).getTime() < an && !atilan.includes(c)) atilan.push(c);
+      }
+    }
+    if (atilan.length === 0) return null;
+    return { cagri: atilan.length, nano: atilan.reduce((n, c) => n + (c.costNanoUsd ?? 0), 0) };
+  } catch {
+    return null; // günlük okunamazsa künye eksilmez, yalnız bu satır düşer
+  }
+}
+
 /** Config'teki kadro istisnası beyanı (DESIGN §4). Config okunamazsa oturum durmaz, beyan yok sayılır. */
 function kadroIstisnasiOku() {
   try {
@@ -314,6 +344,13 @@ function ciktiYaz(threadId, state, runnerMode, sureMs, sureKirilim) {
     `- Faz sureleri: ${[...sureKirilim.dugum.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([n, ms]) => `${n} ${(ms / 1000).toFixed(0)}sn`).join(", ")}`,
     `- Maliyet: $${usd.toFixed(6)} (maliyeti bilinmeyen ${v.costUnknownCalls ?? 0} cagri, ${v.totalTokens ?? 0} token)`,
     `- Basarisiz deneme: ${v.failedAttempts ?? 0} (karsiliksiz harcanan $${((v.failedCostNanoUsd ?? 0) / 1e9).toFixed(6)})`,
+    ...(terkEdilenDal()
+      ? [
+          `- **Terk edilen dal (olay gunlugunden):** ${terkEdilenDal().cagri} cagri, ` +
+            `$${(terkEdilenDal().nano / 1e9).toFixed(6)}. Re-table checkpoint'i geri sardigi icin ` +
+            `yukaridaki "Maliyet" satiri bu parayi GORMEZ; harcanmistir.`,
+        ]
+      : []),
     `- Revizyon turu: ${v.revisionRounds ?? 0} | Hukum yeniden kosumu: ${v.judgmentRetries ?? 0} | Denetim iadesi: ${v.auditRetries ?? 0}`,
     `- Denetim mekanik sartlari: ${v.auditComplete ? "tam" : `EKSIK (${v.auditIssue})`}`,
     `- Susan koltuklar: ${(v.silentSeats ?? []).join(", ") || "yok"}`,
