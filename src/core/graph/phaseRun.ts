@@ -28,10 +28,31 @@ export interface SeatOutcome {
 
 export class SeatTimeoutError extends Error {}
 
-/** Bir sözü süre sınırına bağlar. Sınır aşılırsa hata fırlar; çağrı iptal sinyali runner'ın işi. */
-export function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+/**
+ * KOLTUĞUN CEVABIYLA İLGİLİ OLMAYAN çöküş. `runPhaseSeats` koltuk hatalarını yutup "sustu" der;
+ * bir programlama hatasını ya da düğüm düzeyinde bir altyapı çöküşünü yutmaz, çünkü o zaman
+ * gerçek arıza "koltuk sustu" diye görünür ve yanlış yerde aranır.
+ *
+ * T4-3'te gerekli oldu: tek koltuklu düğümler de korkuluklara bağlanınca, koltuk hatası artık
+ * düğümü çökertmiyor. Çöken oturum kurtarması (U-14) yine de sınanmalı, ve sınanacak şey koltuk
+ * hatası değil DÜĞÜM çöküşü.
+ */
+export class NodeCrashError extends Error {
+  override name = "NodeCrashError";
+}
+
+/**
+ * Bir sözü süre sınırına bağlar. Sınır aşılırsa `onTimeout` çağrılır (istek iptali buradan
+ * tetiklenir) ve hata fırlar.
+ *
+ * `onTimeout` isteğe bağlı DEĞİL bir gereklilik gibi okunmalı: sınırı aşan bir isteği yalnız
+ * beklemeyi bırakmak onu durdurmaz. Sağlayıcı işi yapmaya devam eder, faturayı yazar ve geç
+ * cevabı bir sonraki düğümün tamponuna düşer (U-9).
+ */
+export function withTimeout<T>(promise: Promise<T>, ms: number, label: string, onTimeout?: () => void): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => {
+      onTimeout?.();
       reject(new SeatTimeoutError(`zaman aşımı (${ms} ms): ${label}`));
     }, ms);
     promise.then(
@@ -63,10 +84,20 @@ export async function runPhaseSeats(
     let lastError = "";
     let infra = false;
     for (let attemptNo = 1; attemptNo <= 2; attemptNo++) {
+      // Her deneme kendi iptal kontrolcüsünü taşır: zaman aşımı bu denemeyi iptal eder, sonraki
+      // denemeyi değil.
+      const kontrol = new AbortController();
       try {
-        const out = await withTimeout(run(seatId, inputFor(seatId)), timeoutMs, seatId);
+        const out = await withTimeout(
+          run(seatId, { ...inputFor(seatId), signal: kontrol.signal }),
+          timeoutMs,
+          seatId,
+          () => kontrol.abort(),
+        );
         return { seatId, out, attempts: attemptNo, silent: false };
       } catch (e) {
+        // Düğüm çöküşü koltuk hatası değildir: yutulmaz, yukarı gider.
+        if ((e as Error).name === "NodeCrashError") throw e;
         lastError = (e as Error).message;
         // Kesilme bir ALTYAPI arızasıdır, koltuğun hatası değil: aynı tavanla yeniden denemek
         // aynı sonucu verir ve boşuna para harcar. Tek deneme, sonra açık arıza kaydı.

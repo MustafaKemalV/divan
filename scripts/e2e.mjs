@@ -490,6 +490,34 @@ async function run() {
     console.log(`  kanit: uc kapi da yaniti okuyor; taninmayan yanit sebepli durus uretiyor`);
   });
 
+  await scenario("S26", "Tek koltuklu dugumde kesilme: dugum cokmez, fatura kaydedilir (C-8)", async () => {
+    // KIRMIZI: 9 Eylul kosumunda taslak cagrisi tavana carpti, dugum coktu, flushUsage hic
+    // kosmadi ve o cagrinin faturasi HICBIR YERE yazilmadi. Tek koltuklu dugumlerde ne zaman
+    // asimi, ne yeniden deneme, ne kesilme dali vardi.
+    const T = "e2e-s26";
+    await post({ threadId: T, idea: `${LONG} [TEST:kesik:chiefAdvisor]` });
+    await post({ threadId: T, resume: "hmw" });
+    const ev = await post({ threadId: T, resume: "cerceve onaylandi" });
+    const s = stopEvent(ev);
+    check(!ev.some((e) => e.type === "error"), "tek koltuklu dugum COKMEMELI");
+    check(s.type === "gate" || s.type === "done", `akis surmeli: ${s.type}`);
+
+    const st = await durum(T);
+    // Kesilen cagrinin maliyeti BILINIYOR ve toplama girmeli: cokmus dugumde bu kaybediliyordu.
+    check(st.values.costNanoUsd > 0, `kesilen cagrinin faturasi kayitli olmali: ${st.values.costNanoUsd}`);
+    const infra = st.values.infraFailures ?? [];
+    check(infra.some((x) => x.includes("chiefAdvisor")), `altyapi arizasi kaydi olmali: ${JSON.stringify(infra)}`);
+    // Kesilme bir SUSMA degildir: koltuk susmadi, tavan kesti.
+    check(
+      !(st.values.silentSeats ?? []).some((x) => x.includes("chiefAdvisor")),
+      `kesilme "koltuk sustu" diye sayilmamali: ${JSON.stringify(st.values.silentSeats)}`,
+    );
+    console.log(
+      `  kanit: dugum cokmedi, maliyet ${st.values.costNanoUsd} nano kayitli, ` +
+        `infraFailures ${JSON.stringify(infra.slice(0, 2))}`,
+    );
+  });
+
   await scenario("S21", "Iade cagrisinda kesilme: dugum cokmez, kapi acilir, para sayilir", async () => {
     // KIRMIZI: kesilme dali yalniz ILK cagrida vardi. Iade turunda gelen kesilme dugumu
     // cokertiyordu ve cokunce flushUsage kosmadigi icin harcanan para da kayboluyordu.

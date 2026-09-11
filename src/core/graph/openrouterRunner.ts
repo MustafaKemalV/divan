@@ -46,6 +46,9 @@ export class OpenRouterSeatRunner implements SeatRunner {
       // düşünme tokenı harcıyor ve 2048'lik tavan şema gerektiren çağrılarda tamamen düşünmeye
       // gidip içeriği boş bırakıyordu. Düşük tavan parayı kurtarmaz, sadece karşılığını kaybettirir.
       maxTokens: schema ? this.config.limits.schemaMaxTokens : this.config.limits.textMaxTokens,
+      // İPTAL (U-9): zaman aşımında istek gerçekten durur. Zincir buraya kadar kuruluydu
+      // (gateway ve client `signal` alıyordu) ama hiçbir yerden geçirilmiyordu.
+      signal: input.signal,
     });
 
     if (!schema) return { content: content.trim(), servedModel, usage };

@@ -293,6 +293,43 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
    * Sonuçlar kanonik sırada gelir; susan koltuk transkripte "KOLTUK SUSTU" olarak yazılır,
    * çıktısı UYDURULMAZ. Başarısız deneme "maliyeti bilinmeyen çağrı" olarak sayılır.
    */
+  /**
+   * TEK KOLTUKLU düğümün çağrısı (M2-A3 T4-3). Paralel fazların korkulukları (zaman aşımı, tek
+   * yeniden deneme, kesilme dalı) yalnız çok koltuklu fazlarda vardı; tek koltuklu düğümlerde
+   * hiçbiri yoktu. Sonucu 9 Eylül koşumunda görüldü: taslak çağrısı tavana çarptı, düğüm çöktü,
+   * `flushUsage` hiç koşmadı ve o çağrının FATURASI hiçbir yere yazılmadı (C-8).
+   *
+   * Aynı korkulukları tek koltuk için de `runPhaseSeats` üzerinden kullanırız: iki ayrı yeniden
+   * deneme mantığı yazmak, ikisinin zamanla ayrışması demektir.
+   */
+  /** Tek koltuklu düğümde cevap gelmediyse kayıt SESSİZ geçilmez: sebebiyle transkripte yazılır. */
+  const icerik = (out?: SeatRunOutput, sebep?: string) =>
+    out?.content ?? `[KOLTUK SUSTU: ${sebep ?? "cevap yok"}]`;
+
+  const runTek = async (
+    state: DivanStateType,
+    seatId: string,
+    input: SeatRunInput,
+  ): Promise<{ out?: SeatRunOutput; reason?: string; update: Record<string, unknown> }> => {
+    const [o] = await runPhaseSeats(
+      (id, inp) => run(state, id, inp),
+      [seatId],
+      () => input,
+      state.perCallTimeoutMs,
+    );
+    return {
+      out: o.out,
+      reason: o.reason,
+      update: {
+        ...flushUsage(),
+        callCount: o.attempts,
+        // Susma ile ALTYAPI arızası ayrı kalemlerdir: koltuk susmadıysa susmuş gösterilmez.
+        ...(o.silent && !o.infraFailure ? { silentSeats: [`${input.phase}/${seatId}`] } : {}),
+        ...(o.infraFailure ? { infraFailures: [`${input.phase}/${seatId}: ${o.reason ?? "kesilme"}`] } : {}),
+      },
+    };
+  };
+
   const runPhase = async (
     state: DivanStateType,
     phase: string,
@@ -316,7 +353,7 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
         transcript: outcomes.map((o) => ({
           phase,
           seatId: o.seatId,
-          content: o.out ? o.out.content : `[KOLTUK SUSTU: ${o.reason ?? "cevap yok"}]`,
+          content: o.out ? o.out?.content : `[KOLTUK SUSTU: ${o.reason ?? "cevap yok"}]`,
         })),
         callCount: outcomes.reduce((n, o) => n + o.attempts, 0),
         // Faz adıyla birlikte: aynı koltuk farklı fazlarda sustuysa ikisi de görünür kalır.
@@ -385,7 +422,7 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
       if (!kesilme(e)) throw e;
       return kesilmeSonucu(e, 1);
     }
-    let check = validateSummary(out.data, konusanlar);
+    let check = validateSummary(out?.data, konusanlar);
 
     if (!check.ok) {
       calls = 2;
@@ -401,19 +438,19 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
         if (!kesilme(e)) throw e;
         return kesilmeSonucu(e, 2);
       }
-      check = validateSummary(out.data, konusanlar);
+      check = validateSummary(out?.data, konusanlar);
     }
 
     const kayit = check.ok
       ? check.value.points.map((p) => `- [${p.seatId}] ${p.point}`).join("\n")
-      : `[ÖZET KOTASI EKSİK: ${check.reason}]\n${out.content}`;
+      : `[ÖZET KOTASI EKSİK: ${check.reason}]\n${out?.content}`;
 
     return {
       ...flushUsage(),
       phaseSummaries: [
         {
           phase: summaryKey,
-          summary: check.ok ? anonymizeSummary(check.value, seatLabels) : out.content,
+          summary: check.ok ? anonymizeSummary(check.value, seatLabels) : out?.content,
         },
       ],
       // Özet KAYIT halinde koltuk etiketli tutulur: kota ancak böyle denetlenebilir.
@@ -459,38 +496,36 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
     // ================= F0: brifing + triyaj + HMW (DESIGN §5: 2 çağrı) =================
     .addNode("f0_briefing", async (state: DivanStateType) => {
       // Ek belgeler BD'ye TAM METİN gider (DESIGN §5): diğer fazların göreceği özeti o üretir.
-      const out = await run(state, "chiefAdvisor", {
+      const { out, reason: tekSebep, update: tek } = await runTek(state, "chiefAdvisor", {
         phase: "F0:briefing",
         idea: state.idea,
         attachments: state.attachments,
       });
       // Karmaşıklık triyajı: küçük fikir -> küçük kurul yolu (§5 F0).
-      const councilMode: "full" | "small" = out.data?.complexity === "small" ? "small" : "full";
+      const councilMode: "full" | "small" = out?.data?.complexity === "small" ? "small" : "full";
       const attachmentSummary =
-        typeof out.data?.attachmentSummary === "string" ? out.data.attachmentSummary : "";
+        typeof out?.data?.attachmentSummary === "string" ? out?.data.attachmentSummary : "";
       // Fikir özeti zarfın ilk parçasıdır: bundan sonraki her çağrı onu görür.
-      const ideaSummary = typeof out.data?.summary === "string" ? out.data.summary : out.content;
+      const ideaSummary = typeof out?.data?.summary === "string" ? out.data.summary : icerik(out, tekSebep);
       return {
-        ...flushUsage(),
+        ...tek,
         councilMode,
         ideaSummary,
         attachmentSummary,
-        transcript: [{ phase: "F0:briefing", seatId: "chiefAdvisor", content: out.content }],
-        callCount: 1,
+        transcript: [{ phase: "F0:briefing", seatId: "chiefAdvisor", content: icerik(out, tekSebep) }],
       };
     })
     .addNode("f0_hmw", async (state: DivanStateType) => {
-      const out = await run(state, "chiefAdvisor", {
+      const { out, reason: tekSebep, update: tek } = await runTek(state, "chiefAdvisor", {
         phase: "F0:hmw",
         idea: state.idea,
         councilMode: state.councilMode,
       });
-      const hmw = (out.data?.hmw as string[] | undefined) ?? [];
+      const hmw = (out?.data?.hmw as string[] | undefined) ?? [];
       return {
-        ...flushUsage(),
+        ...tek,
         hmwOptions: hmw,
-        transcript: [{ phase: "F0:hmw", seatId: "chiefAdvisor", content: out.content }],
-        callCount: 1,
+        transcript: [{ phase: "F0:hmw", seatId: "chiefAdvisor", content: icerik(out, tekSebep) }],
       };
     })
     // ---- KAPI 1: Şah HMW seçer ----
@@ -515,17 +550,17 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
     // ================= TAM KURUL =================
     // ---- F1: Denetçi çerçeve itirazı ----
     .addNode("f1_frame", async (state: DivanStateType) => {
-      const out = await run(state, "auditor", {
+      const { out, reason: tekSebep, update: tek } = await runTek(state, "auditor", {
         phase: "F1:frame",
         idea: state.idea,
         // T3-8: seçilen HMW oturum ZARFINDA zaten var; bağlama ikinci kez konursa aynı metin
         // tek çağrıda iki kez gider. Zarf tek kaynaktır (D-2), düğüm onu tekrarlamaz.
       });
       return {
-        ...flushUsage(),
-        frameObjection: out.content,
-        transcript: [{ phase: "F1:frame", seatId: "auditor", content: out.content }],
-        callCount: 1,
+        ...tek,
+        // Cevap gelmediyse çerçeve itirazı UYDURULMAZ; zarfa da bu işaretle gider.
+        frameObjection: icerik(out, tekSebep),
+        transcript: [{ phase: "F1:frame", seatId: "auditor", content: icerik(out, tekSebep) }],
       };
     })
     // ---- KAPI 2: Şah çerçeveyi onaylar/düzeltir ----
@@ -643,16 +678,16 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
     // ---- F4: Denetçi hüküm turu (şema-bağlı). prevUnmetCount = döngünün ilerleme ölçüsü. ----
     .addNode("f4_judgment", async (state: DivanStateType) => {
       const prevUnmet = state.judgment.length > 0 ? countBlockingUnmet(state.judgment) : -1;
-      const out = await run(state, "auditor", {
+      const { out, reason: tekSebep, update: tek } = await runTek(state, "auditor", {
         phase: "F4:judgment",
         idea: state.idea,
         context: rawOfPhase(state, "F4:"),
         round: state.revisionRounds,
         retry: state.judgmentRetries,
       });
-      const judgment = (out.data?.judgment as JudgmentItem[] | undefined) ?? [];
+      const judgment = (out?.data?.judgment as JudgmentItem[] | undefined) ?? [];
       return {
-        ...flushUsage(),
+        ...tek,
         judgment,
         judgmentHistory: [{ round: state.judgmentHistory.length + 1, items: judgment }],
         judgmentComplete: true,
@@ -663,10 +698,9 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
           {
             phase: "F4:judgment",
             seatId: "auditor",
-            content: renderJudgment(judgment, typeof out.data?.summary === "string" ? out.data.summary : out.content),
+            content: renderJudgment(judgment, typeof out?.data?.summary === "string" ? out.data.summary : icerik(out, tekSebep)),
           },
         ],
-        callCount: 1,
       };
     })
     .addNode("bd_summary_f4", async (state: DivanStateType) =>
@@ -707,17 +741,16 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
             "Şah bütçe kapısında iptal etti (F4s girişi). KURTARMA: re-table ile devam edilebilir, durum korunur.",
         };
       }
-      const out = await run(state, "engineer1", {
+      const { out, reason: tekSebep, update: tek } = await runTek(state, "engineer1", {
         phase: "F4s:feasibility",
         idea: state.idea,
         context: summaryOf(state, "F2"),
         attachments: state.attachments,
       });
       return {
-        ...flushUsage(),
+        ...tek,
         ...budget,
-        transcript: [{ phase: "F4s:feasibility", seatId: "engineer1", content: out.content }],
-        callCount: 1,
+        transcript: [{ phase: "F4s:feasibility", seatId: "engineer1", content: icerik(out, tekSebep) }],
       };
     })
     .addNode("f4s_audit", async (state: DivanStateType) => ({
@@ -725,15 +758,15 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
       ...flushUsage(),
     }))
     .addNode("f4s_judgment", async (state: DivanStateType) => {
-      const out = await run(state, "auditor", {
+      const { out, reason: tekSebep, update: tek } = await runTek(state, "auditor", {
         phase: "F4s:judgment",
         idea: state.idea,
         context: rawOfPhase(state, "F4s:"),
         retry: state.judgmentRetries,
       });
-      const judgment = (out.data?.judgment as JudgmentItem[] | undefined) ?? [];
+      const judgment = (out?.data?.judgment as JudgmentItem[] | undefined) ?? [];
       return {
-        ...flushUsage(),
+        ...tek,
         judgment,
         judgmentHistory: [{ round: state.judgmentHistory.length + 1, items: judgment }],
         judgmentComplete: true,
@@ -741,10 +774,9 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
           {
             phase: "F4s:judgment",
             seatId: "auditor",
-            content: renderJudgment(judgment, typeof out.data?.summary === "string" ? out.data.summary : out.content),
+            content: renderJudgment(judgment, typeof out?.data?.summary === "string" ? out.data.summary : icerik(out, tekSebep)),
           },
         ],
-        callCount: 1,
       };
     })
     .addNode("bd_summary_f4s", async (state: DivanStateType) =>
@@ -893,7 +925,7 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
         `REVİZYONLA DÜŞEN İTİRAZLAR:\n${oncekiDusenler.join("\n") || "(yok)"}`,
         `DENETİM DURUMU: ${state.auditComplete ? "mekanik şartlar tam" : `EKSİK (${state.auditIssue})`}`,
       ].join("\n\n");
-      const out = await run(state, "chiefAdvisor", {
+      const { out, reason: tekSebep, update: tek } = await runTek(state, "chiefAdvisor", {
         phase: "F5:draft",
         idea: state.idea,
         context: draftContext,
@@ -901,11 +933,10 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
       const dissent = stillUnmet.map((j) => j.rawText).join("\n");
       const dropped = oncekiDusenler;
       return {
-        ...flushUsage(),
+        ...tek,
         dissentNote: dissent,
         droppedObjections: dropped,
-        transcript: [{ phase: "F5:draft", seatId: "chiefAdvisor", content: out.content }],
-        callCount: 1,
+        transcript: [{ phase: "F5:draft", seatId: "chiefAdvisor", content: icerik(out, tekSebep) }],
       };
     })
     // ---- KAPI 3: Şah karar onayı ----
@@ -944,15 +975,14 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
         `F4 ÖZETİ:\n${summaryOf(state, "F4")}`,
         `ŞAH'IN KARARI:\n${state.decision ?? "(yok)"}`,
       ].join("\n\n");
-      const out = await run(state, "auditor", {
+      const { out, reason: tekSebep, update: tek } = await runTek(state, "auditor", {
         phase: "F5:output",
         idea: state.idea,
         context: outputContext,
       });
       return {
-        ...flushUsage(),
-        transcript: [{ phase: "F5:output", seatId: "auditor", content: out.content }],
-        callCount: 1,
+        ...tek,
+        transcript: [{ phase: "F5:output", seatId: "auditor", content: icerik(out, tekSebep) }],
       };
     })
 

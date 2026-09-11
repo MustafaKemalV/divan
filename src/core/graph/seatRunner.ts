@@ -4,6 +4,7 @@
 // Framework-bağımsız.
 
 import type { JudgmentItem } from "./state.ts";
+import { NodeCrashError } from "./phaseRun.ts";
 import { TruncatedResponseError } from "../openrouter/envelope.ts";
 
 export interface SeatRunInput {
@@ -25,6 +26,12 @@ export interface SeatRunInput {
   attachmentSummary?: string;
   /** OTURUM ZARFI (DESIGN §5 D-2): kod tarafından kurulur, her çağrının ilk bloğudur */
   envelope?: string;
+  /**
+   * İPTAL SİNYALİ (U-9). Zaman aşımı yalnız beklemeyi bırakmaz, isteği de iptal eder. İptal
+   * edilmeyen bir istek arka planda koşmaya, para harcamaya ve geç cevabıyla bir sonraki düğümün
+   * tamponunu kirletmeye devam eder; 7 Eylül koşumunda tam olarak bu oldu.
+   */
+  signal?: AbortSignal;
 }
 
 export interface SeatRunOutput {
@@ -124,7 +131,8 @@ export class StubSeatRunner implements SeatRunner {
     const cokme = idea.match(/\[TEST:cokme:([\w-]+)\]/);
     if (cokme && cokme[1] === phase.replace(":", "-") && !cokenFazlar.has(phase)) {
       cokenFazlar.add(phase);
-      throw new Error(`stub: "${phase}" dugumu coktu (tek seferlik)`);
+      // Koltuk hatası DEĞİL, düğüm çöküşü: korkuluklar bunu yutmaz (U-14 kurtarması sınanabilsin).
+      throw new NodeCrashError(`stub: "${phase}" dugumu coktu (tek seferlik)`);
     }
 
     // --- Baş Danışman: brifing + triyaj, HMW, faz özetleri, taslak karar ---
