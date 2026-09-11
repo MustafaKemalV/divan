@@ -575,3 +575,60 @@ gerekçe yok: iki koşum arasında kadro dışında da çok şey değişti.
 Bu yüzden "%96 daha pahalı" cümlesi kadronun maliyeti değil, BU İKİ KOŞUMUN farkıdır. Kadroya
 atfedilebilecek tek temiz bulgu, aynı model iki koltukta oturduğunda görüşlerin belirgin biçimde
 yakınsamasıdır (0.86).
+
+---
+
+## M2-C öncesi prob: web eklentisi + şema aynı istekte (2026-09-11, T4-7)
+
+M2-C'nin en merkezi vaadi, "Doğrulanmış" rozetinin o çağrının ARAMA SONUÇLARINDAKİ bir URL'ye
+bağlanması. Bu ancak arama ile şema aynı istekte birlikte çalışırsa kurulabilir, ve OpenRouter
+dokümanı bu bileşimi açıkça söylemiyor. Pahalı bir mekanizmayı kurmadan önce ucuz bir ölçüm:
+iki gerçek çağrı, biri Denetçi koltuğunun modeliyle Exa, biri bir Anthropic koltuğuyla native.
+
+İstek gövdesi repodaki `client.ts` ile birebir, üstüne `plugins: [{ id: "web", engine, max_results: 5 }]`
+ve gerçek F4 denetim şeması (`response_format: json_schema`, `strict: true`).
+
+| | deepseek-v4-pro + **exa** | claude-sonnet-5 + **native** |
+|---|---|---|
+| `finish_reason` | stop | stop |
+| Şema | **GEÇERLİ** (4 iddia, 4'ü URL'li) | **GEÇERLİ** (4 iddia, 4'ü URL'li) |
+| `annotations` | **5 url_citation** | **0** |
+| Girdi token | 1.900 | **19.752** |
+| Çıktı token | 1.771 | 1.500 |
+| Bildirilen `cost` | $0.010919 | $0.074504 |
+| `upstream_inference_cost` | $0.003919 | $0.074504 |
+| Fark (arama kalemi) | **$0.007000** | **$0** |
+| Süre | 8.7 sn | 9.7 sn |
+
+### Üç sonuç
+
+**1. Arama ve şema aynı istekte çalışıyor.** İkisinde de `finish_reason: stop` ve çıktı gerçek
+denetim şemasından geçti. M2-C'nin temel varsayımı ayakta.
+
+**2. `annotations` yalnız Exa'da geliyor.** Exa beş `url_citation` döndürdü ve alanları tam da
+§6.2'nin istediği şey: `url, title, content, start_index, end_index`. Native'de **sıfır
+annotation** geldi. Model yine URL'li iddialar yazdı ama bunlar OpenRouter'ın doğruladığı arama
+sonuçları değil, modelin metninden çıkan URL'ler; yani §6.2'nin "arama sonuçlarında bulunan URL"
+kuralı native ile SINANAMAZ. **M2-C `engine: "exa"` kullanmalı; native, kanıt kapısı için
+kullanılamaz.**
+
+**3. Arama ücreti Exa'da ayrılabiliyor, native'de ayrılamıyor.** Exa çağrısında
+`cost - upstream_inference_cost = $0.0070002`, yani dokümandaki $0.007 birebir. §6.2'nin "arama
+maliyeti kayda ayrı kalemle girer" cümlesi bu çıkarımla kurulabilir. Native'de fark sıfır: arama
+ücreti ayrı bir kalem değil, GİRDİ TOKENI olarak geliyor. Girdi 19.752 token, Exa çağrısının
+1.900'üne karşılık; aradaki 17.852 token enjekte edilen arama sonuçları (doğrudan ölçülmedi,
+iki çağrının girdi farkından çıkarıldı). Sonnet fiyatıyla bu tek başına $0.0395.
+
+### Probun maliyeti: $0.085423 (kestirimin üstünde)
+
+Kestirim 1-2 sentti, gerçekleşen 8.5 sent. Sebebi tamamen ikinci çağrı: native arama, pahalı bir
+modelin girdisine on sekiz bin token enjekte etti ve o çağrı tek başına $0.0745 tuttu. Exa çağrısı
+$0.0109'du, yani kestirim Exa tarafı için doğruydu.
+
+Bu aşım da bir bulgu: **native arama ucuz görünen ama girdiden faturalanan bir mekanizma.** M2-C
+bütçesi Exa üzerinden kurulmalı, ve faz başına arama kapı (§6.2, varsayılan 3) gerçek bir fren.
+
+### Karar
+
+Prob OLUMLU: M2-C'ye girilebilir. İki kısıt kayda geçti: engine `exa` olacak, ve kanıt kapısı
+`annotations`'a bağlanacağı için native engine bu kapının kaynağı olamaz.
