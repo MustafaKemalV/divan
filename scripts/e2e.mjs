@@ -1204,6 +1204,36 @@ async function run() {
     console.log(`  kanit: cikis 3 + JSONL yanitsiz-kapi(KAPI3), --devam ile cikis 0`);
   });
 
+  await scenario("S25", "Kadro istisnasi: beyan done olayina ve kunyeye damgalanir (DESIGN §4)", async () => {
+    // KIRMIZI: kural gelmeden once ayni modelin dort koltukta oturdugu bir kol sessizce kosuyordu
+    // ve hicbir cikti bunu soylemiyordu; normal bir kurul oturumundan ayirt edilemiyordu.
+    const r = surucuKos(
+      ["fikir.ornek.txt", "--yanit", "KAPI1=1", "--yanit", "KAPI2=onay", "--yanit", "KAPI3=karar"],
+      { DIVAN_CONFIG: join(process.cwd(), "eval", "divan.config.claude.json") },
+    );
+    const cikti = `${r.stdout ?? ""}${r.stderr ?? ""}`;
+    const tid = threadIdOf(cikti);
+    if (tid) uretilenler.push(tid);
+    check(r.status === 0, `istisnali config yuklenebilmeli, cikis ${r.status}\n${cikti.slice(-600)}`);
+    check(cikti.includes("KADRO ISTISNASI"), "surucu beyani ACILISTA basmali");
+
+    const jsonl = readFileSync(join(process.cwd(), "oturum-ciktisi", `${tid}.jsonl`), "utf8")
+      .trim().split("\n").map((l) => JSON.parse(l));
+    const done = jsonl.find((e) => e.type === "done");
+    check(!!done?.kadroIstisnasi, `done olayi beyani tasimali: ${JSON.stringify(done?.kadroIstisnasi)}`);
+    check(done.kadroIstisnasi.includes("C-10"), "beyan gerekcesini tasimali, bayrak degil");
+    const md = readFileSync(join(process.cwd(), "oturum-ciktisi", `${tid}.md`), "utf8");
+    check(md.includes("KADRO ISTISNASI"), "md kunyesi beyani tasimali");
+
+    // Ana config'te beyan YOK ve olmamali: damga yalnizca kural delindiginde basilir.
+    const temiz = surucuKos(["fikir.ornek.txt", "--yanit", "KAPI1=1", "--yanit", "KAPI2=onay", "--yanit", "KAPI3=karar"]);
+    const ciktiTemiz = `${temiz.stdout ?? ""}${temiz.stderr ?? ""}`;
+    const tid2 = threadIdOf(ciktiTemiz);
+    if (tid2) uretilenler.push(tid2);
+    check(!ciktiTemiz.includes("KADRO ISTISNASI"), "kural delinmemisken damga basilmamali");
+    console.log(`  kanit: istisnali kol cikis 0 + done.kadroIstisnasi + kunye; ana configte damga yok`);
+  });
+
   await scenario("S24", "DIVAN_CONFIG: gecersiz yol sessizce yutulmaz, anlasilir hata verir", async () => {
     // NOT: bu kontrol config YUKLEYICISINI hedefler. Konsey rotasi bugun config hatasini yutup
     // varsayilana dusuyor (Blok 3 borcu); yani kolun yanlis config'le kosmasi ancak burada,

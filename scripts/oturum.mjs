@@ -89,6 +89,16 @@ if (dosya && !fikir) {
 
 const rl = createInterface({ input: stdin, output: stdout });
 
+/** Config'teki kadro istisnası beyanı (DESIGN §4). Config okunamazsa oturum durmaz, beyan yok sayılır. */
+function kadroIstisnasiOku() {
+  try {
+    const yol = process.env.DIVAN_CONFIG ?? join(process.cwd(), "divan.config.json");
+    return String(JSON.parse(readFileSync(yol, "utf8")).kadroIstisnasi ?? "").trim() || null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * HAM olay günlüğü (JSONL). Markdown çıktısı insan içindir; bu dosya makine içindir ve üç işe
  * yarar: kayıttan-oynatma demosu (DESIGN §10), M4'te odanın olay akışını beslemek, ve gerçek
@@ -297,6 +307,7 @@ function ciktiYaz(threadId, state, runnerMode, sureMs, sureKirilim) {
     `# Divan oturumu: ${threadId}`,
     "",
     `- Kosum modu: **${runnerMode}**${runnerMode === "stub" ? " (SAHTE OTURUM, gercek sanilamaz)" : ""}`,
+    ...(kadroIstisnasiOku() ? [`- **KADRO ISTISNASI (DESIGN §4):** ${kadroIstisnasiOku()}`] : []),
     `- Kurul: ${v.councilMode ?? "-"} | Cagri: ${v.callCount ?? 0}`,
     `- Sure: ${(sureMs / 1000).toFixed(0)} sn toplam = model ${(sureKirilim.modelMs / 1000).toFixed(0)} sn + kapida bekleme ${(sureKirilim.kapiMs / 1000).toFixed(0)} sn`,
     `- Faz sureleri: ${[...sureKirilim.dugum.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([n, ms]) => `${n} ${(ms / 1000).toFixed(0)}sn`).join(", ")}`,
@@ -358,7 +369,16 @@ async function main() {
     console.log(`  ek belgeler   : ${ekler.map((e) => e.name).join(", ")} (toplam ${toplam} karakter)`);
     console.log(`                  tam metin yalniz F0-BD ve F4'e gider; diger fazlar ozet gorur`);
   }
-  console.log(`  olay gunlugu  : ${gunlukYolu}\n`);
+  console.log(`  olay gunlugu  : ${gunlukYolu}`);
+  // Kadro istisnası (DESIGN §4): aynı modelin iki koltukta oturduğu bir oturum normal bir kurul
+  // oturumu sanılamaz. Beyan varsa AÇILIŞTA görünür, sonunda değil.
+  const istisna = kadroIstisnasiOku();
+  if (istisna) {
+    console.log(`\n  KADRO ISTISNASI (DESIGN §4, bilerek beyan edilmis):`);
+    for (const satir of istisna.match(/.{1,88}(\s|$)/g) ?? [istisna]) console.log(`    ${satir.trim()}`);
+    gunlukYaz({ type: "kadro-istisnasi", beyan: istisna });
+  }
+  console.log("");
   gunlukYaz({
     type: devamThread ? "oturum-devam" : "oturum-basladi",
     threadId,

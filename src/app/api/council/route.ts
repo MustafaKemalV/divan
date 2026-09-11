@@ -13,6 +13,15 @@ import { formatUsd } from "@/core/graph/usage";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/** Config'teki kadro istisnası beyanı; config okunamazsa oturumu düşürmez, beyan yok sayılır. */
+function kadroIstisnasiMetni(): string | undefined {
+  try {
+    return loadConfig().kadroIstisnasi?.trim() || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * Oturum durumunu döker (sürücünün oturum sonunda transkript ve künye yazabilmesi için).
  * Salt okunur: hiçbir çağrı yapmaz, hiçbir şeyi değiştirmez.
@@ -155,6 +164,8 @@ export async function POST(req: Request) {
             councilMode: v.councilMode ?? "full",
             runnerMode,
             reason: v.endReason || undefined,
+            // Kadro istisnası beyanı (DESIGN §4): config'te varsa oturuma damgalanır.
+            kadroIstisnasi: kadroIstisnasiMetni(),
             metrics: {
               callCount: v.callCount ?? 0,
               transcriptEntries: (v.transcript ?? []).length,

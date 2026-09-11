@@ -27,6 +27,12 @@ export type DivanEvent =
       runnerMode: "openrouter" | "stub";
       /** oturum neden bitti: normal akış mı, Şah'ın açık iptali mi (§5 bütçe sözleşmesi) */
       reason?: string;
+      /**
+       * DESIGN §4 kadro kuralının bilerek delindiğinin beyanı (config `kadroIstisnasi`). Beyan
+       * VARSA damgalanır: aynı modelin iki koltukta oturduğu bir oturum, normal bir kurul
+       * oturumu sanılamaz.
+       */
+      kadroIstisnasi?: string;
       metrics: {
         callCount: number;
         transcriptEntries: number;

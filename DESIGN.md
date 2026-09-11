@@ -50,6 +50,7 @@ Gerekçe notları:
 - Müh-2 = Qwen: çapraz-doğrulamanın değeri dekorelasyondan gelir; üretici ve yürütücü zincirde Anthropic zaten var (Mimar + taslak + muhtemelen Şah'ın kodlama AI'sı), denetleyiciler farklı aileden olmalı.
 - Anthropic x2 (Mimar + Baş Danışman): güç pozisyonları ayrık; yargıçlık mekanikleştirildiği için moderatör dar boğaz değil.
 - Koltuklar config'de model-pin'li; tek satırla değiştirilebilir.
+- **Aynı model iki koltukta oturamaz:** aynı modelli iki koltuk kurulda bir sesi ikiye katlar (9 Eylül ölçümü: aynı modelli iki sıralayıcının görüşleri 0.86 örtüştü, aynı fazdaki diğer çiftler 0.10-0.19). Bir deney kolu bunu bilerek yapacaksa config'de açık istisna beyan eder; beyan oturum kaydına ve künyeye damgalanır.
 
 ## 5. Akış: 6 faz, 3 planlı kapı, 4 olay-tetikli dönüş
 

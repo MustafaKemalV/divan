@@ -1,4 +1,5 @@
 {
+  "kadroIstisnasi": "Ayni-aile deney kolu (C-10 olcumu): kadro bilerek tek aileden kuruldu ve sonnet-5 dort koltukta oturuyor. Amac, ayni modelin iki koltukta oturmasinin gorusleri ne kadar yakinlastirdigini OLCMEK; 9 Eylul kosumunda F5 siralamasinda ayni modelli iki koltuk 0.86 ortustu. Bu kol bir kurul onerisi degil, bir olcum duzenegidir.",
   "seats": {
     "visionary": {
       "model": "anthropic/claude-sonnet-5",

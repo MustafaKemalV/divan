@@ -13,6 +13,15 @@ export type SeatModel = z.infer<typeof SeatModelSchema>;
 export const ConfigSchema = z.object({
   /** koltukId -> model eşlemesi. Anahtar-kümesi doğrulaması load.ts'te (SEAT_IDS'e birebir). */
   seats: z.record(z.string(), SeatModelSchema),
+  /**
+   * DESIGN §4 kadro kuralının BİLEREK delindiğinin beyanı. Boş olmayan bir metin, aynı modelin
+   * birden çok koltukta oturmasına izin verir; metnin kendisi gerekçedir ve oturum kaydına,
+   * `done` olayına ve karar belgesi künyesine damgalanır.
+   *
+   * Neden bir bayrak değil de METİN: "true" yazan bir alan, kuralı neden deldiğini kimseye
+   * söylemez. Deney kolu ile yanlış yapılandırılmış bir kurul arasındaki fark gerekçedir.
+   */
+  kadroIstisnasi: z.string().optional(),
   /** çağrı bütçe tavanı (DESIGN §5: tam kurul tavanı 30). */
   budget: z.object({
     maxCalls: z.number().int().positive(),
