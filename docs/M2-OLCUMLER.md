@@ -354,6 +354,26 @@ uzun yazmaz, çıktı token'ı ne üretildiyse o kadar faturalanır.
 Bu bir n=1 gözlemine dayanan ayardır ve capstone koşumundan sonra gerçek dağılımla yeniden
 bakılacak.
 
+### İkinci ölçüm: 2.500 de yetmedi, 6.000'e çıktı (2026-09-11, T4-1)
+
+Capstone koşumları o "yeniden bakma"yı getirdi ve 2.500'ün de dar olduğunu gösterdi. Önemli olan
+şu: tavan içeriği değil AKIL YÜRÜTMEYİ kesiyor, yani kesilen çağrı parayı harcayıp cevabı
+vermiyor.
+
+| Koşum | Koltuk (model) | Faz | Çıktı token | Bunun düşünmesi | Sonuç |
+|---|---|---|---|---|---|
+| 7 Eylül | Denetçi (deepseek-v4-pro) | F5 sıralama | 2.500 | **2.494** | kesildi, içerik yok |
+| 9 Eylül | Denetçi (sonnet-5) | F5 sıralama | 2.500 | **2.500** | kesildi, içerik yok |
+| 9 Eylül | Baş Danışman (sonnet-5) | F5 taslak | 4.168 | 3.197 | tavan 6.000'di, bitti |
+| 9 Eylül | Denetçi (sonnet-5) | F5 sıralama (yeniden) | 2.993 | 2.137 | tavan 6.000'di, bitti |
+
+İki ayrı model ailesi, iki ayrı koşum, hepsi geç faz. 7 Eylül'deki kesilmede 2.500 token'ın
+2.494'ü düşünmeye gitti: sağlayıcı işi yaptı, faturaladı, ve geriye altı token kaldı.
+
+Ana `divan.config.json` bu ölçümle 6.000'e çıkarıldı. Deney kolu (`eval/divan.config.claude.json`)
+9 Eylül koşumunun ortasında zaten çıkarılmıştı; iki config arasındaki bu açık, ana config ile
+koşulacak bir sonraki oturumun aynı duvara çarpması demekti.
+
 ---
 
 ## İlk tam gerçek oturum (2026-09-07)
