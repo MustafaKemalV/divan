@@ -325,3 +325,86 @@ diğerinin görüşünü görmese bile, aynı model aynı girdiye çok benzer ce
 §3'ün çeşitlilik kazancı "farklı aile" diye yazılmıştı; bu ölçüm daha keskin bir kural öneriyor:
 **aynı model iki koltuğa atanamaz.** Aile kısıtı korunur, üstüne model tekliği eklenir. DESIGN §4
 değişikliği olduğu için Şah onayıyla ayrıca işlenecek.
+
+---
+
+# Tur 4 (Fable masası, 2026-09-11): M2-C öncesi
+
+Capstone bulguları (C-serisi) okunduktan sonra verilen kararlar ve bu turda yapılacak işler.
+Amaç M2-C'ye girmeden önce ölçüm aletini ve koşum sağlamlığını düzeltmek: M2-C gerçek arama
+ekleyeceği için koşum başına maliyet artacak, ve bozuk bir sayaçla pahalı bir deney koşulmaz.
+
+## Dört karar
+
+1. **Ana config metin tavanı 2.500'den 6.000'e çıkar.** Deney kolunda çıkarılmıştı, ana config
+   açık kalmıştı. Gerekçe C-9 ve ikinci bir ölçüm (aşağıda T4-1).
+2. **C-10 kadro kuralı DESIGN §4'e girer ve KODLA zorlanır.** Aynı model iki koltukta oturamaz.
+   Bir deney kolu bunu bilerek yapacaksa config'de açık istisna beyan eder; beyan oturum kaydına
+   ve künyeye damgalanır. Ölçümün doğurduğu ilk kadro kuralı budur.
+3. **M2-C'nin tasarım cümleleri onaylandı** (DESIGN §6.2, §7 D-1, §6.1). Kod bu turda yazılmaz;
+   tasarım önce yazılır, sapma sonra değil önce kayda geçer.
+4. **M2-C kodundan ÖNCE bir prob koşulur** (1-2 sent, gerçek çağrı): web eklentisi + json_schema
+   aynı istekte çalışıyor mu, arama ücreti `cost`'a yansıyor mu, şema bozuluyor mu. Olumsuzsa
+   M2-C'ye girilmez, Fable masasına dönülür. Pahalı bir mekanizma, ucuz bir ölçümle sınanmadan
+   kurulmaz.
+
+## T4-1. Metin tavanı: ikinci ölçüm
+
+C-9 tek bir kesilmeye dayanıyordu. İki koşumun çağrı kayıtları birlikte okununca, tavanın dar
+olduğu iki ayrı model ailesinde birden görünüyor ve sebebi de görünüyor: tavan İÇERİĞİ değil
+AKIL YÜRÜTMEYİ kesiyor.
+
+- 7 Eylül, Denetçi (deepseek-v4-pro), F5 sıralama: çıktı 2.500 token, bunun **2.494'ü düşünme**.
+  Yani kesilen çağrıda içerik neredeyse hiç üretilmemiş; para düşünmeye gitmiş, cevap gelmemiş.
+- 9 Eylül, Denetçi (sonnet-5), F5 sıralama: **2.500/2.500 düşünme**, içerik sıfır, kesildi.
+- 9 Eylül, Baş Danışman (sonnet-5), F5 taslak: 4.168 çıktı, 3.197'si düşünme. Tavan 6.000
+  olmasaydı bu çağrı da kesilirdi.
+
+İkisi de 2.500'ün üstünde ve ikisi de geç faz. Düşük tavan parayı kurtarmıyor, karşılığını
+kaybettiriyor (aynı ders kesilme ölçümünde de çıkmıştı).
+
+## T4-2. C-10 kadro kuralı: koda
+
+DESIGN §4'e kural cümlesi, ardından config yüklemede zorlama. Aynı `model` iki koltukta geçiyorsa
+anlaşılır hata; config'de boş olmayan `kadroIstisnasi` metni varsa yükleme geçer ve beyan
+görünür kalır (sürücü açılışta basar, `done` olayı ve md künyesi taşır). Fallback listeleri
+kurala girmez: kural hangi modelin KONUŞTUĞU hakkındadır, hangisinin yedekte beklediği hakkında
+değil.
+
+## T4-3. U-9'un iptal kısmı
+
+Zaman aşımı bugün yalnız beklemeyi bırakıyor, isteği İPTAL ETMİYOR: `client.ts` bir `signal`
+alıyor ama hiçbir yerden geçirilmiyor. 7 Eylül'de terk edilen istek arka planda koşup faturalandı
+ve geç cevabı bir sonraki tampona düştü; deneme numarası da bu yüzden tekrar etti (C-3).
+
+Bu turda: `AbortSignal` ile gerçek iptal, iptal edilen isteğin geç cevabının tampona düşmemesi,
+deneme numarasının aynı koltuk+faz için 1, 2 diye doğru sayılması. Ayrıca tek koltuklu düğümlere
+(F0 iki çağrı, F1, taslak, final denetim) zaman aşımı + tek yeniden deneme + kesilme koruması;
+C-8 (çöken düğümde fatura kaybı) böyle kapanır. Graf-global tamponun kalkması U-9'un kalan
+kısmıdır ve bu turda değildir.
+
+## T4-4. C-1 metriği
+
+State'e `failedAttempts` ve `failedCostNanoUsd`. KAPI 3 payload'ı, `done` metrikleri ve sürücü
+bunu basar. Bugün para yakan bir koşum künyesinde tertemiz görünüyor.
+
+## T4-5. C-7 künyesi
+
+Sürücü re-table yaptığında JSONL'e zaten `{type:"re-table"}` yazıyor. Md künyesine "kayıtlı
+maliyet" satırının yanına "terk edilen dal (olay günlüğünden)" satırı eklenir; hesap
+`eval/karsilastir.mjs` ile aynı yöntemi kullanır, yani iki yerde iki farklı sayı çıkmaz.
+
+## T4-6. M2-C tasarım cümleleri (onaylandı, kod yok)
+
+DESIGN §6.2'ye kanıt kapısının arama şartı, §7 D-1'e `cache_control` işaretlemesi, §6.1'e konumsal
+anonimlik (deterministik karıştırma). Üçü de M2-C'nin kapsamı; bu turda yalnız tasarım metni.
+
+## T4-7. Prob: web eklentisi + şema aynı istekte
+
+Denetçi koltuğuna (deepseek) `engine: exa`, `max_results: 5` ile web eklentisi ve `json_schema`
+aynı istekte gönderilir. Ölçülecekler: `annotations` (url_citation) dönüyor mu, arama ücreti
+`cost`'a yansıyor mu, şema bozuluyor mu. Aynı prob bir Anthropic koltuğunda `native` engine ile
+tekrarlanır. Sonuç `docs/M2-OLCUMLER.md`'ye yazılır.
+
+**Bu prob M2-C kodundan ÖNCEDİR ve olumsuz çıkarsa durulur.** Kanıt kapısının arama şartı, aramanın
+şemayla aynı istekte çalışmasına bağlı; çalışmıyorsa mekanizmanın tasarımı değişir, kodu değil.
