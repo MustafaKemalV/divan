@@ -247,6 +247,19 @@ export const DivanState = Annotation.Root({
     reducer: (prev, next) => prev + next,
     default: () => 0,
   }),
+  // BAŞARISIZ DENEME sayacı (C-1). Bir oturum para yakarken künyesinde bunun izi kalmıyordu:
+  // 7 Eylül'de zaman aşımına uğrayan bir çağrı $0.015950 faturalandı, ama susan koltuk yok,
+  // costUnknownCalls 0, altyapı arızası kaydı yok diye koşum TERTEMİZ görünüyordu. Toplam
+  // maliyet doğruydu; eksik olan, o paranın karşılıksız harcandığının görünmesiydi.
+  failedAttempts: Annotation<number>({
+    reducer: (prev, next) => prev + next,
+    default: () => 0,
+  }),
+  /** Başarısız denemelerin BİLİNEN maliyeti. Bilinmeyen maliyet buraya yazılmaz, uydurulmaz. */
+  failedCostNanoUsd: Annotation<number>({
+    reducer: (prev, next) => prev + next,
+    default: () => 0,
+  }),
   // ÇAĞRI BAŞINA kayıt (DESIGN §7 kullanım kaydı). Toplamlar soruyu cevaplamıyor: "zarf ne kadar
   // tuttu", "ekler ne kadar tuttu", "önbellek çalıştı mı" ancak çağrı çağrı bakılınca görülür.
   callLog: Annotation<CallRecord[]>({

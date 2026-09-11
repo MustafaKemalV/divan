@@ -178,6 +178,8 @@ export async function POST(req: Request) {
               costUsd: formatUsd(v.costNanoUsd ?? 0),
               totalTokens: v.totalTokens ?? 0,
               costUnknownCalls: v.costUnknownCalls ?? 0,
+              failedAttempts: v.failedAttempts ?? 0,
+              failedCostNanoUsd: v.failedCostNanoUsd ?? 0,
             },
             silentSeats: v.silentSeats ?? [],
             summaryIssues: v.summaryIssues ?? [],

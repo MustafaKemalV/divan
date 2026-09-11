@@ -488,8 +488,14 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
         ...(b.failed ? { failed: true } : {}),
       });
     }
+    // C-1: başarısız denemeler ayrıca sayılır. Tampon zaten `failed` işaretini taşıyordu; eksik
+    // olan, bu işaretin künyeye çıkmasıydı.
+    const failedAttempts = buffer.filter((b) => b.failed).length;
+    const failedCostNanoUsd = buffer
+      .filter((b) => b.failed && b.out.usage?.cost !== undefined)
+      .reduce((n, b) => n + toNanoUsd(b.out.usage!.cost!), 0);
     buffer.length = 0;
-    return { ...totals, seatCostNano, seatCalls, seatCostCalls, callLog };
+    return { ...totals, seatCostNano, seatCalls, seatCostCalls, callLog, failedAttempts, failedCostNanoUsd };
   };
 
   const graph = new StateGraph(DivanState)
@@ -957,6 +963,9 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
         costNanoUsd: state.costNanoUsd,
         costUsd: formatUsd(state.costNanoUsd),
         costUnknownCalls: state.costUnknownCalls,
+        // C-1: karşılıksız harcanan para karar anında görünür (başarısız deneme = yanan çağrı).
+        failedAttempts: state.failedAttempts,
+        failedCostUsd: formatUsd(state.failedCostNanoUsd),
         callCount: state.callCount,
       }) as string;
       return { ...flushUsage(), decision };

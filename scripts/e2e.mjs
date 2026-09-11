@@ -384,14 +384,22 @@ async function run() {
 
   // S18: maliyeti BİLİNEN kesilmiş çağrı "maliyeti bilinmeyen" sayılmamalı (M2-A3 U-7)
   await scenario("S18", "Kesilen cagri cift sayilmaz: bilinen maliyet bilinmeyen olmaz", async () => {
+    // market F2, F3 ve F5'te cagriliyor; kesilme ALTYAPI arizasi oldugu icin yeniden denenmiyor,
+    // yani UC kesilmis cagri, her birinin maliyeti BILINIYOR (0.01). KAPI 3'e gelindiginde
+    // ucu de olmus olur; sayi burada TURETILIR, tahmin edilmez.
+    const kesilen = 3;
+    const kesilenNano = kesilen * 10_000_000;
     await post({ threadId: "e2e-s18", idea: `${LONG} [TEST:kesik:market]` });
     await post({ threadId: "e2e-s18", resume: "hmw" });
     let s = stopEvent(await post({ threadId: "e2e-s18", resume: "cerceve onaylandi" }));
     check(s.gate === "KAPI3", `KAPI3 bekleniyordu: ${s.gate ?? s.type}`);
+    // KAPI 3'te de gorunmeli: onay bedeli bilinerek verilir, yanan para dahil.
+    check(s.payload.failedAttempts > 0, `KAPI 3 basarisiz denemeyi gostermeli: ${s.payload.failedAttempts}`);
+    check(
+      s.payload.failedCostUsd === (kesilenNano / 1e9).toFixed(6),
+      `KAPI 3'te karsiliksiz harcanan ${(kesilenNano / 1e9).toFixed(6)} olmali: ${s.payload.failedCostUsd}`,
+    );
     s = stopEvent(await post({ threadId: "e2e-s18", resume: "karar" }));
-    // market F2, F3 ve F5'te cagriliyor; kesilme ALTYAPI arizasi oldugu icin yeniden denenmiyor,
-    // yani üç kesilmiş cagri, her birinin maliyeti BILINIYOR (0.01).
-    const kesilen = 3;
     check(
       s.metrics.costNanoUsd === kesilen * 10_000_000,
       `kesilen cagrilarin maliyeti toplama girmeli: ${s.metrics.costNanoUsd}`,
@@ -402,7 +410,17 @@ async function run() {
       `maliyeti bilinen ${kesilen} cagri "bilinmeyen" sayilmamali: ` +
         `${s.metrics.costUnknownCalls} bilinmeyen / ${s.metrics.callCount} cagri`,
     );
-    console.log(`  kanit: ${s.metrics.callCount} cagri, ${s.metrics.costUnknownCalls} bilinmeyen, $${s.metrics.costUsd}`);
+    // C-1 (T4-4): karsiliksiz harcanan para KUNYEDE gorunmeli. Kirmizida ikisi de yoktu:
+    // market uc fazda kesildi, $0.03 yandi ve kosum tertemiz gorunuyordu.
+    check(s.metrics.failedAttempts === kesilen, `basarisiz deneme ${kesilen} olmali: ${s.metrics.failedAttempts}`);
+    check(
+      s.metrics.failedCostNanoUsd === kesilenNano,
+      `karsiliksiz harcanan ${kesilenNano} nano olmali: ${s.metrics.failedCostNanoUsd}`,
+    );
+    console.log(
+      `  kanit: ${s.metrics.callCount} cagri, ${s.metrics.costUnknownCalls} bilinmeyen, $${s.metrics.costUsd}; ` +
+        `basarisiz ${s.metrics.failedAttempts} deneme, karsiliksiz ${s.metrics.failedCostNanoUsd} nano`,
+    );
   });
 
   // S19: çöken oturum kurtarılabilir (U-14). Buraya kadar çökme = yanan para.

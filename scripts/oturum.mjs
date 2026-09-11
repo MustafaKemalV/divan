@@ -254,6 +254,7 @@ function kapiyiBas(e) {
     console.log(`\nDenetim mekanik sartlari: ${p.auditComplete ? "tam" : `EKSIK -> ${p.auditIssue}`}`);
     console.log(`Susan koltuklar:\n${fmtListe(p.silentSeats)}`);
     console.log(`\nBuraya kadar: ${p.callCount} cagri, $${p.costUsd} (maliyeti bilinmeyen ${p.costUnknownCalls} cagri)`);
+    if (p.failedAttempts) console.log(`Basarisiz deneme: ${p.failedAttempts} (karsiliksiz harcanan $${p.failedCostUsd})`);
     return "\nKararin: ";
   }
 
@@ -312,6 +313,7 @@ function ciktiYaz(threadId, state, runnerMode, sureMs, sureKirilim) {
     `- Sure: ${(sureMs / 1000).toFixed(0)} sn toplam = model ${(sureKirilim.modelMs / 1000).toFixed(0)} sn + kapida bekleme ${(sureKirilim.kapiMs / 1000).toFixed(0)} sn`,
     `- Faz sureleri: ${[...sureKirilim.dugum.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([n, ms]) => `${n} ${(ms / 1000).toFixed(0)}sn`).join(", ")}`,
     `- Maliyet: $${usd.toFixed(6)} (maliyeti bilinmeyen ${v.costUnknownCalls ?? 0} cagri, ${v.totalTokens ?? 0} token)`,
+    `- Basarisiz deneme: ${v.failedAttempts ?? 0} (karsiliksiz harcanan $${((v.failedCostNanoUsd ?? 0) / 1e9).toFixed(6)})`,
     `- Revizyon turu: ${v.revisionRounds ?? 0} | Hukum yeniden kosumu: ${v.judgmentRetries ?? 0} | Denetim iadesi: ${v.auditRetries ?? 0}`,
     `- Denetim mekanik sartlari: ${v.auditComplete ? "tam" : `EKSIK (${v.auditIssue})`}`,
     `- Susan koltuklar: ${(v.silentSeats ?? []).join(", ") || "yok"}`,
@@ -471,6 +473,7 @@ async function main() {
     console.log(`  mod        : ${durak.runnerMode}`);
     console.log(`  cagri      : ${durak.metrics.callCount}`);
     console.log(`  maliyet    : $${durak.metrics.costUsd} (bilinmeyen ${durak.metrics.costUnknownCalls} cagri)`);
+    console.log(`  basarisiz  : ${durak.metrics.failedAttempts} deneme, karsiliksiz $${(durak.metrics.failedCostNanoUsd / 1e9).toFixed(6)}`);
     console.log(`  token      : ${durak.metrics.totalTokens}`);
     console.log(`  sure       : ${(sureMs / 1000).toFixed(0)} sn toplam`);
     console.log(`               model ${(sure.modelMs / 1000).toFixed(0)} sn | kapida bekleme ${(sure.kapiMs / 1000).toFixed(0)} sn`);

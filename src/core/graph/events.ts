@@ -44,6 +44,9 @@ export type DivanEvent =
         auditComplete: boolean;
         /** §7 maliyet sayacı: tamsayı nano-USD toplamı (para float olarak taşınmaz) */
         costNanoUsd: number;
+        /** C-1: başarısız (cevapsız/kesilen) deneme sayısı ve bunların BİLİNEN maliyeti */
+        failedAttempts: number;
+        failedCostNanoUsd: number;
         /** gösterim için biçimlendirilmiş USD metni; hesapta kullanılmaz */
         costUsd: string;
         totalTokens: number;
