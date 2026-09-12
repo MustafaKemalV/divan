@@ -86,6 +86,7 @@ export const SMALL_IDEA_MAX_CHARS = 60;
  *   [TEST:kesik:<koltuk>]  -> o koltuk maliyeti BİLİNEN bir kesilmeyle düşer (çift sayım bekçisi)
  *   [TEST:cokme:<faz>]     -> o faz BİR KEZ çöker, sonraki denemede döner (çöken oturum kurtarma, U-14)
  *   [TEST:kesik-iade]      -> İADE turunda kesilme (iade çağrısının kesilme koruması, T3-4)
+ *   [TEST:kesik1:<koltuk>] -> o koltuk BİR KEZ kesilir, sonraki çağrıda döner (omurga kurtarma, K-2)
  */
 /**
  * [TEST:cokme:<faz>] için tek seferlik çökme kaydı (U-14). Süreç ömrü boyunca yaşar: ilk deneme
@@ -93,6 +94,9 @@ export const SMALL_IDEA_MAX_CHARS = 60;
  * senaryo ancak böyle kurulabilir; kurtarmanın kanıtı, kurtarılan koşumun kendisidir.
  */
 const cokenFazlar = new Set<string>();
+
+/** [TEST:kesik1:<koltuk>] için tek seferlik kesilme kaydı; süreç ömrü boyunca yaşar. */
+const kesilenKoltuklar = new Set<string>();
 
 export class StubSeatRunner implements SeatRunner {
   async run(seatId: string, input: SeatRunInput): Promise<SeatRunOutput> {
@@ -114,6 +118,20 @@ export class StubSeatRunner implements SeatRunner {
     // "maliyeti bilinmeyen" sayılmamalı.
     const kesik = idea.match(/\[TEST:kesik:(\w+)\]/);
     if (kesik && kesik[1] === seatId) {
+      throw new TruncatedResponseError({
+        completionTokens: 2048,
+        reasoningTokens: 2048,
+        maxTokens: 2048,
+        usage: { completionTokens: 2048, totalTokens: 3000, cost: 0.01 },
+      });
+    }
+
+    // [TEST:kesik1:<koltuk>] -> TEK SEFERLİK kesilme. Kalıcı kesilme kurtarmayı sınanamaz kılar:
+    // re-table da aynı duvara çarpar. Omurga durması ile kurtarmanın ikisini de görmek için
+    // arıza bir kez olmalı (U-14'teki [TEST:cokme] ile aynı gerekçe).
+    const kesik1 = idea.match(/\[TEST:kesik1:(\w+)\]/);
+    if (kesik1 && kesik1[1] === seatId && !kesilenKoltuklar.has(seatId)) {
+      kesilenKoltuklar.add(seatId);
       throw new TruncatedResponseError({
         completionTokens: 2048,
         reasoningTokens: 2048,

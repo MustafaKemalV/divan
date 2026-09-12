@@ -305,6 +305,19 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
    * Aynı korkulukları tek koltuk için de `runPhaseSeats` üzerinden kullanırız: iki ayrı yeniden
    * deneme mantığı yazmak, ikisinin zamanla ayrışması demektir.
    */
+  /**
+   * OMURGA DÜĞÜMÜ SUSTU (Şah kararı, K-2). Bazı düğümlerin çıktısı olmadan akış anlamını yitirir:
+   * brifingsiz bir oturumda zarf boş, HMW'siz bir KAPI 1'de seçenek yok, çerçevesiz bir F2'de
+   * müzakere konusu yok. Bunları yer tutucu metinle SÜRDÜRMEK, kurulun görmediği bir şey hakkında
+   * konuşmasıdır; oturum sebebiyle DURUR ve re-table ile kurtarılır.
+   *
+   * Hüküm düğümleri bunun DIŞINDADIR: boş hüküm için erken-uzlaşı kilidi ve HUKUM_EKSIK kapısı
+   * zaten var, ikinci bir durma mekanizması onları çakıştırırdı.
+   */
+  const omurgaDurdu = (ne: string, dugum: string, sebep?: string) =>
+    `${ne} alınamadı: ${sebep ?? "cevap yok"}. KURTARMA: re-table ile "${dugum}" düğümünden ` +
+    `devam edilebilir; durum ve çağrı sayacı korunur.`;
+
   /** Tek koltuklu düğümde cevap gelmediyse kayıt SESSİZ geçilmez: sebebiyle transkripte yazılır. */
   const icerik = (out?: SeatRunOutput, sebep?: string) =>
     out?.content ?? `[KOLTUK SUSTU: ${sebep ?? "cevap yok"}]`;
@@ -510,6 +523,8 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
         idea: state.idea,
         attachments: state.attachments,
       });
+      // OMURGA: F0 brifingi olmadan akış anlamını yitirir; yer tutucuyla sürdürülmez.
+      if (!out) return { ...tek, transcript: [{ phase: "F0:briefing", seatId: "chiefAdvisor", content: icerik(out, tekSebep) }], endReason: omurgaDurdu("F0 brifingi", "f0_briefing", tekSebep) };
       // Karmaşıklık triyajı: küçük fikir -> küçük kurul yolu (§5 F0).
       const councilMode: "full" | "small" = out?.data?.complexity === "small" ? "small" : "full";
       const attachmentSummary =
@@ -530,6 +545,8 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
         idea: state.idea,
         councilMode: state.councilMode,
       });
+      // OMURGA: F0 HMW turu olmadan akış anlamını yitirir; yer tutucuyla sürdürülmez.
+      if (!out) return { ...tek, transcript: [{ phase: "F0:hmw", seatId: "chiefAdvisor", content: icerik(out, tekSebep) }], endReason: omurgaDurdu("F0 HMW turu", "f0_hmw", tekSebep) };
       const hmw = (out?.data?.hmw as string[] | undefined) ?? [];
       return {
         ...tek,
@@ -565,6 +582,8 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
         // T3-8: seçilen HMW oturum ZARFINDA zaten var; bağlama ikinci kez konursa aynı metin
         // tek çağrıda iki kez gider. Zarf tek kaynaktır (D-2), düğüm onu tekrarlamaz.
       });
+      // OMURGA: F1 çerçeve itirazı olmadan akış anlamını yitirir; yer tutucuyla sürdürülmez.
+      if (!out) return { ...tek, transcript: [{ phase: "F1:frame", seatId: "auditor", content: icerik(out, tekSebep) }], endReason: omurgaDurdu("F1 çerçeve itirazı", "f1_frame", tekSebep) };
       return {
         ...tek,
         // Cevap gelmediyse çerçeve itirazı UYDURULMAZ; zarfa da bu işaretle gider.
@@ -756,6 +775,8 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
         context: summaryOf(state, "F2"),
         attachments: state.attachments,
       });
+      // OMURGA: F4s fizibilite değerlendirmesi olmadan akış anlamını yitirir; yer tutucuyla sürdürülmez.
+      if (!out) return { ...tek, transcript: [{ phase: "F4s:feasibility", seatId: "engineer1", content: icerik(out, tekSebep) }], endReason: omurgaDurdu("F4s fizibilite değerlendirmesi", "f4s_feasibility", tekSebep) };
       return {
         ...tek,
         ...budget,
@@ -939,6 +960,8 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
         idea: state.idea,
         context: draftContext,
       });
+      // OMURGA: F5 karar taslağı olmadan akış anlamını yitirir; yer tutucuyla sürdürülmez.
+      if (!out) return { ...tek, transcript: [{ phase: "F5:draft", seatId: "chiefAdvisor", content: icerik(out, tekSebep) }], endReason: omurgaDurdu("F5 karar taslağı", "bd_draft", tekSebep) };
       const dissent = stillUnmet.map((j) => j.rawText).join("\n");
       const dropped = oncekiDusenler;
       return {
@@ -992,6 +1015,8 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
         idea: state.idea,
         context: outputContext,
       });
+      // OMURGA: F5 final topraklama denetimi olmadan akış anlamını yitirir; yer tutucuyla sürdürülmez.
+      if (!out) return { ...tek, transcript: [{ phase: "F5:output", seatId: "auditor", content: icerik(out, tekSebep) }], endReason: omurgaDurdu("F5 final topraklama denetimi", "f5_output", tekSebep) };
       return {
         ...tek,
         transcript: [{ phase: "F5:output", seatId: "auditor", content: icerik(out, tekSebep) }],
@@ -1000,12 +1025,12 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
 
     // ================= kenarlar (DESIGN §5 birebir) =================
     .addEdge(START, "f0_briefing")
-    .addEdge("f0_briefing", "f0_hmw")
-    .addEdge("f0_hmw", "gate1_hmw")
+    .addConditionalEdges("f0_briefing", abortRouter, { devam: "f0_hmw", abort: END })
+    .addConditionalEdges("f0_hmw", abortRouter, { devam: "gate1_hmw", abort: END })
     // TRİYAJ DALLANMASI: küçük fikir küçük kurula gider (F1/F3 atlanır).
     .addConditionalEdges("gate1_hmw", modeRouter, { full: "f1_frame", small: "f2s_ideation" })
     // tam kurul omurgası
-    .addEdge("f1_frame", "gate2_frame")
+    .addConditionalEdges("f1_frame", abortRouter, { devam: "gate2_frame", abort: END })
     .addEdge("gate2_frame", "f2_ideation")
     .addConditionalEdges("f2_ideation", abortRouter, { devam: "bd_summary_f2", abort: END })
     .addEdge("bd_summary_f2", "f3_cross")
@@ -1068,7 +1093,7 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
     // F5 ortak kuyruk
     .addConditionalEdges("f5_ranking", abortRouter, { devam: "bd_draft", abort: END })
     .addConditionalEdges("f5s_ranking", abortRouter, { devam: "bd_draft", abort: END })
-    .addEdge("bd_draft", "gate3_decision")
+    .addConditionalEdges("bd_draft", abortRouter, { devam: "gate3_decision", abort: END })
     .addEdge("gate3_decision", "f5_output")
     .addEdge("f5_output", END);
 

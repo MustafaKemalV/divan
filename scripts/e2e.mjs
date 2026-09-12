@@ -508,31 +508,37 @@ async function run() {
     console.log(`  kanit: uc kapi da yaniti okuyor; taninmayan yanit sebepli durus uretiyor`);
   });
 
-  await scenario("S26", "Tek koltuklu dugumde kesilme: dugum cokmez, fatura kaydedilir (C-8)", async () => {
-    // KIRMIZI: 9 Eylul kosumunda taslak cagrisi tavana carpti, dugum coktu, flushUsage hic
-    // kosmadi ve o cagrinin faturasi HICBIR YERE yazilmadi. Tek koltuklu dugumlerde ne zaman
-    // asimi, ne yeniden deneme, ne kesilme dali vardi.
+  await scenario("S26", "Omurga dugumu susarsa oturum SEBEPLI durur ve kurtarilir (K-2)", async () => {
+    // KIRMIZI (bu duzeltmeden once): brifing kesilmis olmasina ragmen akis suruyordu; KAPI 1
+    // SIFIR HMW secenegiyle aciliyor, ideaSummary "[KOLTUK SUSTU: ...]" oluyor ve endReason bos
+    // kaliyordu. Yani kurul, gormedigi bir fikir hakkinda konusmaya devam ediyordu.
     const T = "e2e-s26";
-    await post({ threadId: T, idea: `${LONG} [TEST:kesik:chiefAdvisor]` });
-    await post({ threadId: T, resume: "hmw" });
-    const ev = await post({ threadId: T, resume: "cerceve onaylandi" });
+    const ev = await post({ threadId: T, idea: `${LONG} [TEST:kesik1:chiefAdvisor]` });
     const s = stopEvent(ev);
-    check(!ev.some((e) => e.type === "error"), "tek koltuklu dugum COKMEMELI");
-    check(s.type === "gate" || s.type === "done", `akis surmeli: ${s.type}`);
+    check(s.type === "done", `omurga susunca oturum durmali, gelen: ${s.type}`);
+    check(!!s.reason, "durus SEBEPLI olmali");
+    check(s.reason.includes("F0 brifingi alınamadı"), `sebep hangi omurga oldugunu soylemeli: ${s.reason}`);
+    check(s.reason.includes("re-table"), "sebep kurtarma yolunu soylemeli");
+    check(s.reason.includes("f0_briefing"), "sebep hedef dugumu adiyla soylemeli");
+    check(!nodesOf(ev).includes("gate1_hmw"), "yer tutucuyla KAPI 1 acilmamali");
 
     const st = await durum(T);
-    // Kesilen cagrinin maliyeti BILINIYOR ve toplama girmeli: cokmus dugumde bu kaybediliyordu.
     check(st.values.costNanoUsd > 0, `kesilen cagrinin faturasi kayitli olmali: ${st.values.costNanoUsd}`);
-    const infra = st.values.infraFailures ?? [];
-    check(infra.some((x) => x.includes("chiefAdvisor")), `altyapi arizasi kaydi olmali: ${JSON.stringify(infra)}`);
-    // Kesilme bir SUSMA degildir: koltuk susmadi, tavan kesti.
     check(
-      !(st.values.silentSeats ?? []).some((x) => x.includes("chiefAdvisor")),
-      `kesilme "koltuk sustu" diye sayilmamali: ${JSON.stringify(st.values.silentSeats)}`,
+      (st.values.infraFailures ?? []).some((x) => x.includes("chiefAdvisor")),
+      `altyapi arizasi kaydi olmali: ${JSON.stringify(st.values.infraFailures)}`,
     );
+    // Kesilme SUSMA degildir: koltuk susmadi, tavan kesti.
+    check(!(st.values.silentSeats ?? []).some((x) => x.includes("chiefAdvisor")), "kesilme susma sayilmamali");
+
+    // KURTARMA (S19 deseni): re-table ile ayni dugumden surer, arizasi bir kezdi.
+    const ev2 = await post({ threadId: T, reTableToNode: "f0_briefing" });
+    const s2 = stopEvent(ev2);
+    check(s2.type === "gate" && s2.gate === "KAPI1", `kurtarma KAPI 1'e ulasmali: ${s2.gate ?? s2.type}`);
+    check(s2.payload.options.length > 0, "kurtarmadan sonra HMW secenekleri dolu olmali");
     console.log(
-      `  kanit: dugum cokmedi, maliyet ${st.values.costNanoUsd} nano kayitli, ` +
-        `infraFailures ${JSON.stringify(infra.slice(0, 2))}`,
+      `  kanit: sebepli durus (${s.reason.slice(0, 40)}...), maliyet ${st.values.costNanoUsd} nano, ` +
+        `re-table sonrasi ${s2.payload.options.length} HMW secenegi`,
     );
   });
 
