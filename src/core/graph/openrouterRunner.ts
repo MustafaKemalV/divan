@@ -14,6 +14,7 @@ import type { SeatRunInput, SeatRunOutput, SeatRunner } from "./seatRunner.ts";
 // Kullanıcı mesajının kuruluşu ayrı ve SAF modülde: burada dururken bir birim testi ona
 // ulaşamıyordu (bu dosya `gateway` üzerinden `server-only` mührü taşır).
 import { buildUserMessage } from "./userMessage.ts";
+import { buildRequest } from "./requestBuilder.ts";
 
 export class OpenRouterSeatRunner implements SeatRunner {
   // Node'un tip-soyma modu constructor parametre özelliğini desteklemez (ERR_UNSUPPORTED_
@@ -34,13 +35,27 @@ export class OpenRouterSeatRunner implements SeatRunner {
     const system = buildSystemPrompt(seatId, input.phase);
     const schema = schemaForPhase(input.phase);
 
+    // İsteğin parçaları SAF modülde kurulur (requestBuilder): eklenti kararı bir mekanizmadır
+    // (§6.2 kapsam ve faz kapı) ve bu dosya `server-only` mühürlü olduğu için burada yazılan
+    // hiçbir karar birim testten görünmez.
+    const istek = buildRequest({
+      seatId,
+      input,
+      system,
+      user: buildUserMessage(input),
+      fazdaYapilanArama: input.searchesInPhase ?? 0,
+      perPhaseCap: this.config.search.perPhaseCap,
+      maxResults: this.config.search.maxResults,
+    });
+
     const { content, servedModel, usage, citations } = await callModel({
       model: sm.model,
       models: [sm.model, ...sm.fallbacks],
       messages: [
-        { role: "system", content: system },
-        { role: "user", content: buildUserMessage(input) },
+        { role: "system", content: istek.system },
+        { role: "user", content: istek.user },
       ],
+      plugins: istek.plugins,
       jsonSchema: schema,
       // Tavan ÖLÇÜMLE belirlendi (docs/M2-OLCUMLER.md): akıl yürüten modeller cevaptan önce
       // düşünme tokenı harcıyor ve 2048'lik tavan şema gerektiren çağrılarda tamamen düşünmeye
@@ -51,7 +66,8 @@ export class OpenRouterSeatRunner implements SeatRunner {
       signal: input.signal,
     });
 
-    if (!schema) return { content: content.trim(), servedModel, usage, citations };
+    const aramaBilgisi = { citations, searchRequested: !!istek.plugins, aramaAtlandi: istek.aramaAtlandi };
+    if (!schema) return { content: content.trim(), servedModel, usage, ...aramaBilgisi };
 
     let data: Record<string, unknown> | undefined;
     try {
@@ -64,6 +80,6 @@ export class OpenRouterSeatRunner implements SeatRunner {
     }
     const summary =
       data && typeof data.summary === "string" ? data.summary : content.trim();
-    return { content: summary, data, servedModel, usage, citations };
+    return { content: summary, data, servedModel, usage, ...aramaBilgisi };
   }
 }

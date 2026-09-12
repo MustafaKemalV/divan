@@ -258,8 +258,15 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
     seatId: string,
     input: SeatRunInput,
   ): Promise<SeatRunOutput> => {
+    // Faz kapı (§6.2): bu fazda ŞU ANA KADAR kaç arama yapıldı. State'teki tamamlanmış çağrılar
+    // artı bu düğümün tamponu. Eşzamanlı çağrılar aynı sayıyı okur; sınır `SeatRunInput` üzerinde
+    // yazılı.
+    const fazdakiArama =
+      state.callLog.filter((c) => c.phase === input.phase && c.searchResultCount !== undefined).length +
+      buffer.filter((b) => b.phase === input.phase && b.out.searchRequested).length;
     const zarfli: SeatRunInput = {
       ...input,
+      searchesInPhase: fazdakiArama,
       envelope: buildEnvelope(
         {
           ideaSummary: state.ideaSummary,

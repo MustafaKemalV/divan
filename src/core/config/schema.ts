@@ -28,7 +28,14 @@ export const ConfigSchema = z.object({
   }),
   /** web arama kapları (DESIGN §6.2: faz başına varsayılan 3). */
   search: z.object({
+    /** bir fazda en çok kaç ÇAĞRI arama yapabilir (DESIGN §6.2) */
     perPhaseCap: z.number().int().nonnegative(),
+    /**
+     * Bir aramada kaç sonuç istenir. Varsayılan 5: 2026-09-11 probunun kullandığı ve
+     * `annotations`'ın beş `url_citation` ile döndüğü değer. Exa ücreti 10 sonuca kadar sabit
+     * ($0.007), yani 5 ile 10 arasında fiyat farkı yok; sonuç sayısı bağlam maliyetini etkiler.
+     */
+    maxResults: z.number().int().positive().default(5),
   }),
   /**
    * Çağrı zaman aşımı (DESIGN §7, faz-içi paralelliğin ön koşulu). Ölçüme yaslanır: M2-A'da en

@@ -22,6 +22,8 @@ export interface ModelCallRequest {
   messages: ChatMessage[];
   jsonSchema?: JsonSchemaSpec;
   maxTokens: number;
+  /** web eklentisi isteği (§6.2). Yoksa arama yapılmaz. */
+  plugins?: { id: "web"; engine: "exa"; max_results: number }[];
   signal?: AbortSignal;
 }
 

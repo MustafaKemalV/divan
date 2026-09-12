@@ -26,6 +26,8 @@ export interface ChatOptions {
   /** verilirse response_format=json_schema (structured output) */
   jsonSchema?: JsonSchemaSpec;
   maxTokens?: number;
+  /** web eklentisi isteği; gövdeye `plugins` olarak girer */
+  plugins?: { id: "web"; engine: "exa"; max_results: number }[];
   signal?: AbortSignal;
 }
 
@@ -107,6 +109,7 @@ export async function chatRaw(opts: ChatOptions): Promise<ChatResult> {
     max_tokens: opts.maxTokens ?? 256,
   };
   if (opts.models?.length) body.models = opts.models;
+  if (opts.plugins?.length) body.plugins = opts.plugins;
   if (opts.jsonSchema) {
     body.response_format = {
       type: "json_schema",

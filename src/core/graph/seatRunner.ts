@@ -27,6 +27,13 @@ export interface SeatRunInput {
   /** OTURUM ZARFI (DESIGN §5 D-2): kod tarafından kurulur, her çağrının ilk bloğudur */
   envelope?: string;
   /**
+   * Bu fazda BU ÇAĞRIDAN ÖNCE kaç arama yapıldı (§6.2 faz kapı). Graf sayar, çünkü sayacak
+   * bilgi state'tedir. Bilinen sınır: aynı fazın paralel çağrıları bu sayıyı aynı anda okur,
+   * yani eşzamanlı iki arama kapı birlikte zorlayabilir. Kap 3 ve bir fazda en çok iki aramalı
+   * koltuk olduğu için bugün bağlayıcı değil; kap düşürülürse burası sıkılaştırılmalı.
+   */
+  searchesInPhase?: number;
+  /**
    * KAÇINCI DENEME (C-3). Numarayı çağıranın SÖYLEMESİ gerekir, çünkü çağrılan taraf tampondan
    * sayarsa yanlış sayar: iptal edilen denemenin hatası zincirin dibinden (fetch) yukarı çıkarken
    * birkaç microtask geçer, ikinci deneme o arada başlar ve tamponu henüz boş görüp kendini yine
@@ -46,6 +53,8 @@ export interface SeatRunOutput {
   citations?: { url: string; title?: string; content?: string }[];
   /** bu çağrıda web eklentisi İSTENDİ mi; arama ücretini ayırmanın ön şartı */
   searchRequested?: boolean;
+  /** arama YAPILMADIYSA sebebi (iade çağrısı, faz kapı). Sessizce aramadan geçilmez. */
+  aramaAtlandi?: string;
   content: string;
   /** faz-özel yapılı veri (ör. F0 triyaj + HMW listesi, F4 hüküm turu) */
   data?: Record<string, unknown>;
