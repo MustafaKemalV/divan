@@ -281,6 +281,21 @@ export const DivanState = Annotation.Root({
     default: () => "",
   }),
 
+  /**
+   * ARAMA sayaçları (M2-C-6). Arama ücreti `costNanoUsd`'nin İÇİNDE: 2026-09-11 probu
+   * `cost - upstream_inference_cost` farkının tam olarak Exa ücreti ($0.007) olduğunu ölçtü.
+   * Bu yüzden ayrı bir kalem olarak gösterilir ama toplama İKİNCİ KEZ eklenmez; künyede
+   * "toplam maliyete dahil" diye yazılır, yoksa okuyan iki kez sayar.
+   */
+  searchCalls: Annotation<number>({
+    reducer: (prev, next) => prev + next,
+    default: () => 0,
+  }),
+  searchCostNanoUsd: Annotation<number>({
+    reducer: (prev, next) => prev + next,
+    default: () => 0,
+  }),
+
   // BAŞARISIZ DENEME sayacı (C-1). Bir oturum para yakarken künyesinde bunun izi kalmıyordu:
   // 7 Eylül'de zaman aşımına uğrayan bir çağrı $0.015950 faturalandı, ama susan koltuk yok,
   // costUnknownCalls 0, altyapı arızası kaydı yok diye koşum TERTEMİZ görünüyordu. Toplam

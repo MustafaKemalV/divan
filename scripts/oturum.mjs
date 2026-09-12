@@ -308,6 +308,7 @@ function kapiyiBas(e) {
     console.log(`Susan koltuklar:\n${fmtListe(p.silentSeats)}`);
     console.log(`\nBuraya kadar: ${p.callCount} cagri, $${p.costUsd} (maliyeti bilinmeyen ${p.costUnknownCalls} cagri)`);
     if (p.failedAttempts) console.log(`Basarisiz deneme: ${p.failedAttempts} (karsiliksiz harcanan $${p.failedCostUsd})`);
+    if (p.searchCalls) console.log(`Arama: ${p.searchCalls} sorgu, $${p.searchCostUsd} (toplam maliyete DAHIL)`);
     return "\nKararin: ";
   }
 
@@ -367,6 +368,7 @@ function ciktiYaz(threadId, state, runnerMode, sureMs, sureKirilim) {
     `- Faz sureleri: ${[...sureKirilim.dugum.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([n, ms]) => `${n} ${(ms / 1000).toFixed(0)}sn`).join(", ")}`,
     `- Maliyet: $${usd.toFixed(6)} (maliyeti bilinmeyen ${v.costUnknownCalls ?? 0} cagri, ${v.totalTokens ?? 0} token)`,
     `- Basarisiz deneme: ${v.failedAttempts ?? 0} (karsiliksiz harcanan $${((v.failedCostNanoUsd ?? 0) / 1e9).toFixed(6)})`,
+    `- Arama: ${v.searchCalls ?? 0} sorgu, $${((v.searchCostNanoUsd ?? 0) / 1e9).toFixed(6)} (toplam maliyete DAHIL, ikinci kez eklenmez)`,
     ...(terkEdilenDal()
       ? [
           `- **Terk edilen dal (olay gunlugunden):** ${terkEdilenDal().cagri} cagri, ` +
@@ -527,6 +529,7 @@ async function main() {
     console.log(`  cagri      : ${durak.metrics.callCount}`);
     console.log(`  maliyet    : $${durak.metrics.costUsd} (bilinmeyen ${durak.metrics.costUnknownCalls} cagri)`);
     console.log(`  basarisiz  : ${durak.metrics.failedAttempts} deneme, karsiliksiz $${(durak.metrics.failedCostNanoUsd / 1e9).toFixed(6)}`);
+    console.log(`  arama      : ${durak.metrics.searchCalls} sorgu, $${(durak.metrics.searchCostNanoUsd / 1e9).toFixed(6)} (toplama dahil)`);
     console.log(`  token      : ${durak.metrics.totalTokens}`);
     console.log(`  sure       : ${(sureMs / 1000).toFixed(0)} sn toplam`);
     console.log(`               model ${(sure.modelMs / 1000).toFixed(0)} sn | kapida bekleme ${(sure.kapiMs / 1000).toFixed(0)} sn`);

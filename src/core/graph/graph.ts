@@ -540,12 +540,21 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
     }
     // C-1: başarısız denemeler ayrıca sayılır. Tampon zaten `failed` işaretini taşıyordu; eksik
     // olan, bu işaretin künyeye çıkmasıydı.
+    // Arama: yalnız eklenti İSTENEN çağrılar sayılır; ücret toplam maliyetin içindedir.
+    const aramali = buffer.filter((b) => b.out.searchRequested);
+    const searchCalls = aramali.length;
+    const searchCostNanoUsd = aramali.reduce((n, b) => {
+      const u = b.out.usage;
+      return u?.cost !== undefined && u?.upstreamCost !== undefined
+        ? n + (toNanoUsd(u.cost) - toNanoUsd(u.upstreamCost))
+        : n;
+    }, 0);
     const failedAttempts = buffer.filter((b) => b.failed).length;
     const failedCostNanoUsd = buffer
       .filter((b) => b.failed && b.out.usage?.cost !== undefined)
       .reduce((n, b) => n + toNanoUsd(b.out.usage!.cost!), 0);
     buffer.length = 0;
-    return { ...totals, seatCostNano, seatCalls, seatCostCalls, callLog, failedAttempts, failedCostNanoUsd };
+    return { ...totals, seatCostNano, seatCalls, seatCostCalls, callLog, failedAttempts, failedCostNanoUsd, searchCalls, searchCostNanoUsd };
   };
 
   const graph = new StateGraph(DivanState)
@@ -1026,6 +1035,9 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
         // C-1: karşılıksız harcanan para karar anında görünür (başarısız deneme = yanan çağrı).
         failedAttempts: state.failedAttempts,
         failedCostUsd: formatUsd(state.failedCostNanoUsd),
+        // M2-C-6: arama kalemi ayrı görünür ama toplamın İÇİNDEDİR.
+        searchCalls: state.searchCalls,
+        searchCostUsd: formatUsd(state.searchCostNanoUsd),
         callCount: state.callCount,
       }) as string;
       return { ...flushUsage(), decision };

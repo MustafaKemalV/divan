@@ -47,6 +47,9 @@ export type DivanEvent =
         /** C-1: başarısız (cevapsız/kesilen) deneme sayısı ve bunların BİLİNEN maliyeti */
         failedAttempts: number;
         failedCostNanoUsd: number;
+        /** M2-C-6: arama sorgusu sayısı ve ücreti; ücret `costNanoUsd`'nin İÇİNDEDİR */
+        searchCalls: number;
+        searchCostNanoUsd: number;
         /** gösterim için biçimlendirilmiş USD metni; hesapta kullanılmaz */
         costUsd: string;
         totalTokens: number;
