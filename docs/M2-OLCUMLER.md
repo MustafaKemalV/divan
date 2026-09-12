@@ -561,6 +561,11 @@ idem-client'ı (SNAPSHOT, kurulamıyor) profilden şimdilik çıkar, marka karar
 İkincisi daha keskin ve daha uygulanabilir görünüyor, ama bunu kadroya yazmak için elimizde
 gerekçe yok: iki koşum arasında kadro dışında da çok şey değişti.
 
+**Kör karşılaştırma (2026-09-09):** Şah iki taslağı kaynağını bilmeden okudu ve **denk** buldu.
+Yani tek aileli kolun iki katına yakın faturası, Şah'ın gözünde daha iyi bir karara dönüşmedi.
+Tek gözlem, n=1, ve kör seçim yöntemi M5'in eval modunda kurulacak; ama şimdilik kayda geçen şey
+şu: pahalı kol, ödediği farkı bu koşumda geri vermedi.
+
 ### Karıştırıcılar (bu karşılaştırmanın sınırı)
 
 1. **Metin tavanı koşum ORTASINDA değişti** (2.500 -> 6.000). İkinci kolun sıralama ve taslak

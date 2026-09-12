@@ -107,7 +107,10 @@ M2-A kapandığında açık kalan her şey burada, tek yerde. Kaynaklar: `docs/M
 - Rota config hatasını yutuyor ve gövde doğrulaması yok.
 - F4 fizibilitenin de hafif şemaya bağlanması (iddia + etiket).
 - `package.json` `"type": "module"` (Next ile doğrulanarak) ve eslint config.
-- `.env.local` anahtar rotate'i (31 Ağustos'tan beri açık).
+- **Koşan model çakışması gözlemi:** kadro kuralı config'i denetler, ama bir fazda iki koltuk
+  FALLBACK yüzünden aynı modele düşebilir. `done` olayına gözlem olarak yazılmalı (aynı faz,
+  farklı koltuk, aynı `servedModel`); `:variant` son eki normalize edilir. Kural değil gözlem:
+  arıza anında yedeksiz kalmaktansa aynı modele düşmek yeğdir, ama Şah bunu görmelidir.
 
 **Fable kontrol listesi:**
 - [ ] Zarf her çağrıda mı, KAPI 2'den sonra donuyor mu?

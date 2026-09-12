@@ -11,6 +11,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadConfig } from "./load.ts";
+import { ConfigSchema } from "./schema.ts";
 import { SEAT_IDS } from "../seats/seats.ts";
 
 const DIZIN = mkdtempSync(join(tmpdir(), "divan-config-"));
@@ -37,14 +38,18 @@ function yaz(ad: string, esle: Record<string, string> = {}, ekstra: Record<strin
   return yol;
 }
 
-// 1) KIRMIZI: kural OLMASAYDI ne geçerdi? Aynı modelli iki koltuk, şema açısından kusursuz bir
-//    config. Şemayı geçiyor olması onu doğru yapmıyordu; kuralı taşıyan yer şema değil.
+// 1) KIRMIZI: kural OLMASAYDI ne geçerdi? Naif yol ŞEMANIN KENDİSİDİR, ve şema bu config'i
+//    KABUL EDİYOR. Yapı sayarak "kusursuz" demek naif yolu koşturmak değildi; burada gerçekten
+//    `ConfigSchema.safeParse` çağrılır ve `success === true` görülür. Kuralı taşıyan yer şema
+//    değil, ve bunu ancak şemayı koşturarak söyleyebiliriz.
 {
   const cakisan = yaz("cakisan", { engineer1: "x/ayni", auditor: "x/ayni" });
-  // Ham JSON'u tekrar okumak: şema seviyesinde hiçbir sorun yok, koltuklar tam ve tipler doğru.
-  const semaGecerli = JSON.parse(readFileSync(cakisan, "utf8")) as { seats: Record<string, { model: string }> };
-  assert.strictEqual(Object.keys(semaGecerli.seats).length, SEAT_IDS.length, "yedi koltuk da dolu");
-  assert.strictEqual(semaGecerli.seats.engineer1.model, semaGecerli.seats.auditor.model, "iki koltuk ayni model");
+  const ham = JSON.parse(readFileSync(cakisan, "utf8")) as unknown;
+  const semaSonucu = ConfigSchema.safeParse(ham);
+  assert.strictEqual(semaSonucu.success, true, "sema ayni modelli iki koltugu KABUL ediyor (kirmizinin kendisi)");
+  const seats = (semaSonucu as { data: { seats: Record<string, { model: string }> } }).data.seats;
+  assert.strictEqual(Object.keys(seats).length, SEAT_IDS.length, "yedi koltuk da dolu");
+  assert.strictEqual(seats.engineer1.model, seats.auditor.model, "iki koltuk ayni model");
 }
 
 // 2) YEŞİL: kural bunu reddeder ve NEDEN reddettiğini söyler.

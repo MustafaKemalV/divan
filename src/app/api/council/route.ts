@@ -98,6 +98,9 @@ export async function POST(req: Request) {
           maxCalls,
           perCallTimeoutMs,
           attachments: body.attachments ?? [],
+          // Kadro istisnası beyanı oturum BAŞINDA donar (K-3): config sonradan değişirse künye
+          // oturumun gerçekten koştuğu kadroyu söylemeye devam eder.
+          kadroIstisnasi: kadroIstisnasiMetni() ?? "",
         };
         if (reTableTo) {
           // Re-table (§5): hedef fazın hemen ÖNCEKİ checkpoint'ini bul, oradan yeniden koştur.
@@ -165,7 +168,7 @@ export async function POST(req: Request) {
             runnerMode,
             reason: v.endReason || undefined,
             // Kadro istisnası beyanı (DESIGN §4): config'te varsa oturuma damgalanır.
-            kadroIstisnasi: kadroIstisnasiMetni(),
+            kadroIstisnasi: v.kadroIstisnasi || undefined,
             metrics: {
               callCount: v.callCount ?? 0,
               transcriptEntries: (v.transcript ?? []).length,

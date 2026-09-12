@@ -119,14 +119,37 @@ function terkEdilenDal() {
   }
 }
 
-/** Config'teki kadro istisnası beyanı (DESIGN §4). Config okunamazsa oturum durmaz, beyan yok sayılır. */
-function kadroIstisnasiOku() {
+/**
+ * Kadro istisnası beyanı (DESIGN §4), SUNUCUDAN. Dosyayı ikinci kez okumuyoruz: 9 Eylül
+ * koşumunda config oturumun ortasında değişti, ve künye oturumun gerçekten koştuğu kadroyu
+ * söylemeli, dosyanın son halini değil. Oturum başında state'e yazılır, buradan geri okunur.
+ */
+let kadroIstisnasiBeyani = null;
+async function kadroIstisnasiniSunucudanOku(threadId) {
   try {
-    const yol = process.env.DIVAN_CONFIG ?? join(process.cwd(), "divan.config.json");
-    return String(JSON.parse(readFileSync(yol, "utf8")).kadroIstisnasi ?? "").trim() || null;
+    const st = await (await fetch(`${BASE}/api/council?threadId=${threadId}`)).json();
+    kadroIstisnasiBeyani = String(st.values?.kadroIstisnasi ?? "").trim() || null;
   } catch {
-    return null;
+    kadroIstisnasiBeyani = null;
   }
+  return kadroIstisnasiBeyani;
+}
+const kadroIstisnasiOku = () => kadroIstisnasiBeyani;
+
+/**
+ * Beyanı oturum state'inden okur ve BİR KEZ basar. Oturum başladıktan sonra çağrılır, çünkü
+ * state ilk POST ile doğar; daha erken basmak dosyayı okumak demekti ve o, oturumun koştuğu
+ * kadroyu değil dosyanın son halini gösterirdi.
+ */
+let istisnaBasildi = false;
+async function kadroIstisnasiniBas(threadId) {
+  const istisna = await kadroIstisnasiniSunucudanOku(threadId);
+  if (!istisna || istisnaBasildi) return;
+  istisnaBasildi = true;
+  console.log(`\n  KADRO ISTISNASI (DESIGN §4, bilerek beyan edilmis):`);
+  for (const satir of istisna.match(/.{1,88}(\s|$)/g) ?? [istisna]) console.log(`    ${satir.trim()}`);
+  gunlukYaz({ type: "kadro-istisnasi", beyan: istisna });
+  console.log("");
 }
 
 /**
@@ -408,16 +431,7 @@ async function main() {
     console.log(`  ek belgeler   : ${ekler.map((e) => e.name).join(", ")} (toplam ${toplam} karakter)`);
     console.log(`                  tam metin yalniz F0-BD ve F4'e gider; diger fazlar ozet gorur`);
   }
-  console.log(`  olay gunlugu  : ${gunlukYolu}`);
-  // Kadro istisnası (DESIGN §4): aynı modelin iki koltukta oturduğu bir oturum normal bir kurul
-  // oturumu sanılamaz. Beyan varsa AÇILIŞTA görünür, sonunda değil.
-  const istisna = kadroIstisnasiOku();
-  if (istisna) {
-    console.log(`\n  KADRO ISTISNASI (DESIGN §4, bilerek beyan edilmis):`);
-    for (const satir of istisna.match(/.{1,88}(\s|$)/g) ?? [istisna]) console.log(`    ${satir.trim()}`);
-    gunlukYaz({ type: "kadro-istisnasi", beyan: istisna });
-  }
-  console.log("");
+  console.log(`  olay gunlugu  : ${gunlukYolu}\n`);
   gunlukYaz({
     type: devamThread ? "oturum-devam" : "oturum-basladi",
     threadId,
@@ -438,6 +452,7 @@ async function main() {
       return;
     }
     console.log(`  su ana kadar  : ${v.callCount ?? 0} cagri, $${((v.costNanoUsd ?? 0) / 1e9).toFixed(6)}`);
+    await kadroIstisnasiniBas(threadId);
     const bekleyenDugum = (st.next ?? [])[0];
     if (st.bekleyenKapi) {
       console.log(`  bekleyen kapi : ${st.bekleyenKapi.gate}\n`);
@@ -460,6 +475,7 @@ async function main() {
     }
   } else {
     durak = await gonder({ threadId, idea: fikir, attachments: ekler });
+    await kadroIstisnasiniBas(threadId);
   }
 
   while (durak && durak.type === "gate") {

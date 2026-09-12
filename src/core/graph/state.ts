@@ -247,6 +247,17 @@ export const DivanState = Annotation.Root({
     reducer: (prev, next) => prev + next,
     default: () => 0,
   }),
+  /**
+   * DESIGN §4 kadro istisnası beyanı, OTURUM BAŞINDA yazılır (maxCalls gibi). Config'ten her
+   * okunduğunda değil: 9 Eylül koşumunda config oturumun ORTASINDA değişti (metin tavanı 2.500'den
+   * 6.000'e çıkarıldı). Künyeyi dosyadan ikinci kez okumak, oturumun hangi kadroyla koştuğunu
+   * değil, dosyanın SON halini raporlamak demektir.
+   */
+  kadroIstisnasi: Annotation<string>({
+    reducer: (_prev, next) => next,
+    default: () => "",
+  }),
+
   // BAŞARISIZ DENEME sayacı (C-1). Bir oturum para yakarken künyesinde bunun izi kalmıyordu:
   // 7 Eylül'de zaman aşımına uğrayan bir çağrı $0.015950 faturalandı, ama susan koltuk yok,
   // costUnknownCalls 0, altyapı arızası kaydı yok diye koşum TERTEMİZ görünüyordu. Toplam

@@ -237,7 +237,6 @@ adı ve `GATEWAY_TEST_OK` etiketi yanlış, `summary.test.ts`'te iki tane "7)" m
 - `package.json` `"type": "module"` (Next ile doğrulanarak) ve eslint config.
 - F4 fizibilite de hafif şemaya bağlanmalı (iddia + etiket); "bitti tanımı çıktı üretir" ilkesi,
   M2-C adayı.
-- `.env.local` anahtar rotate'i 31 Ağustos'tan beri açık.
 
 ---
 
@@ -408,3 +407,58 @@ tekrarlanır. Sonuç `docs/M2-OLCUMLER.md`'ye yazılır.
 
 **Bu prob M2-C kodundan ÖNCEDİR ve olumsuz çıkarsa durulur.** Kanıt kapısının arama şartı, aramanın
 şemayla aynı istekte çalışmasına bağlı; çalışmıyorsa mekanizmanın tasarımı değişir, kodu değil.
+
+---
+
+# T4 doğrulama (Fable masası, 2026-09-12)
+
+T4 turu bağımsız okundu: 36/36 geçiyor, sayılar tutuyor. İki bulgu çıktı ve ikisi de bu turda
+kapatıldı.
+
+## K-1. C-3 kapanmamıştı: birim test bulguyu gizliyordu
+
+T4-3'te deneme numarası düzeldi diye kaydedilmişti. Fable aynı senaryoyu 0, 1, 2 ve 3 async
+katmanlı sahte runner'larla koşturdu: **hepsinde [1, 1]**. Sebep testin sığlığıydı. Gerçek zincir
+`run -> callModel -> chatRaw -> fetch`; iptal en dipte reddedince hata yukarı katman katman çıkar,
+başarısız kayıt birkaç microtask sonra tampona düşer ve `runPhaseSeats` o arada ikinci denemeyi
+başlatmış olur. Tek katmanlı sahte runner'da hata bir microtask'ta döner, kayıt zamanında düşer ve
+numara doğru görünür.
+
+Düzeltme: numarayı ÇAĞIRAN söyler (`SeatRunInput.attempt`), çağrılan taraf tampondan saymaz.
+Testin sahte runner'ı da gerçek derinliğe çıkarıldı ve kırmızı blok eski hesabı koşar hale geldi,
+böylece düzeltme kırmızıyı geçersiz kılmıyor.
+
+**Ders:** bir mekanizmayı sığ bir modelle sınamak, mekanizmayı değil modeli sınamaktır. T4-3'te
+"C-3 kapandı" demem erken bir beyandı.
+
+## K-2. Omurga düğümü susunca akış sürüyordu (Şah kararı: durma)
+
+T4-3 çökmeyi durdurdu ama cevapsızlığı yer tutucu metinle sürdürüyordu. Ölçüm: brifing kesildiğinde
+KAPI 1 **sıfır HMW seçeneğiyle** açılıyor, `ideaSummary` "[KOLTUK SUSTU: ...]" oluyor ve zarfın ilk
+parçası bu metin olarak bütün orturuma taşınıyordu; `endReason` boştu.
+
+Bu bir kod hatası değil tasarım tercihiydi ve iki tarafı da savunulabilir. Şah otomasyon kollarını
+(deney kolları, M5 kör değerlendirmesi) düşünerek durmayı seçti: kurul, görmediği bir şey hakkında
+konuşmamalı. Hüküm düğümleri bunun dışında kaldı, çünkü boş hüküm için kilit ve `HUKUM_EKSIK`
+kapısı zaten var.
+
+## K-3. T4-2'nin kalanları
+
+- Kadro kuralı testinin "kırmızı" bloğu naif yolu koşturmuyordu: JSON yapısını sayıyordu, oysa naif
+  yol ŞEMANIN KENDİSİ. Artık `ConfigSchema.safeParse(...).success === true` ile şemanın o config'i
+  kabul ettiği gösteriliyor.
+- Beyan oturum BAŞINDA state'e yazılıyor; `done`, GET state, sürücü ve künye oradan okuyor. Config
+  dosyası ikinci kez okunmuyor: 9 Eylül koşumunda config oturumun ortasında değişti ve künye
+  oturumun koştuğu kadroyu söylemeli, dosyanın son halini değil.
+- Blok 3'e borç: koşan model çakışması (aynı faz, farklı koltuk, aynı `servedModel`) `done`'da
+  gözlem olarak görünmeli; `:variant` son eki normalize edilir.
+
+## K-4. Doğrulanmamış sayı tasarımdan çıktı
+
+D-1'e yazdığım "Opus eşiği 4.096 token, Sonnet 1.024" ve "beklenti ..." cümlesi kaldırıldı. İki
+kaynak farklı söylüyor (OpenRouter: Opus 4.8 için 4.096; Anthropic: Opus 4.8 ve Sonnet 5 için
+1.024) ve ikisi de bu repoda doğrulanmadı. Değer M2-C-1 probuyla ölçülür.
+
+## Kapanan konu
+
+`.env.local` anahtar rotate'i Şah kararıyla kapandı ve borç listelerinden silindi.
