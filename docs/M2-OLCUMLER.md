@@ -637,3 +637,53 @@ bütçesi Exa üzerinden kurulmalı, ve faz başına arama kapı (§6.2, varsay�
 
 Prob OLUMLU: M2-C'ye girilebilir. İki kısıt kayda geçti: engine `exa` olacak, ve kanıt kapısı
 `annotations`'a bağlanacağı için native engine bu kapının kaynağı olamaz.
+
+---
+
+## Önbellek eşik probu (2026-09-12, M2-C-1)
+
+C-2 ölçtü ki Anthropic tarafında önbellek kendiliğinden çalışmıyor: `cache_control` işareti
+gerekiyor. İşaretlemenin bir eşiği var ve iki kaynak farklı söylüyordu:
+
+- OpenRouter dokümanı: Opus 4.8 için **4.096** token
+- Anthropic dokümanı: Opus 4.8 ve Sonnet 5 için **1.024** token
+
+Doğrulanmamış bir sayı tasarıma giremeyeceği için D-1'in sıra kararı bu ölçüme bağlandı. Yöntem:
+iki sabit sistem bloğu, `cache_control: {type:"ephemeral"}` ile işaretli, her biri 60 saniye içinde
+iki kez çağrıldı. İlk çağrı yazar, ikincisi okur. Betik: `eval/prob-onbellek.mjs`.
+
+| Model | Girdi token | 1. çağrı (yazma) | 2. çağrı (okuma) | Sonuç |
+|---|---|---|---|---|
+| opus-4.8 | 5.806 | yazılan 5.784, $0.036435 | okunan **5.784**, $0.003177 | çalıştı |
+| opus-4.8 | 2.338 | yazılan 2.316, $0.014760 | okunan **2.316**, $0.001418 | **çalıştı** |
+| sonnet-5 | 5.806 | yazılan 5.784, $0.014574 | okunan **5.784**, $0.001271 | çalıştı |
+| sonnet-5 | 2.338 | yazılan 2.316, $0.005994 | okunan **2.316**, $0.000667 | **çalıştı** |
+
+Prob maliyeti: $0.078296.
+
+### Sonuç: OpenRouter'ın 4.096 rakamı bu ölçümle bağdaşmıyor
+
+Opus 4.8, **2.316 tokenlik** bir ön eki önbelleğe aldı ve ikinci çağrıda okudu. 4.096 eşiği doğru
+olsaydı bu satır "çalışmadı" derdi. Anthropic'in 1.024 rakamı ölçümle ÇELİŞMİYOR, ama bu prob onu
+DOĞRULAMIYOR da: 1.024'ün altında bir uzunluk denenmedi, yani ölçümün söylediği tek şey eşiğin
+**2.316 token ya da daha küçük** olduğudur. Kesin değeri pinlemek için 1.024'ün altında bir üçüncü
+ölçüm gerekir ve bu turda yapılmadı.
+
+Not: hedef uzunluklar (~3.000 ve ~1.200) tutmadı, gerçek girdiler 5.806 ve 2.338 çıktı; kaba
+karakter/token oranı yanıldı. Ölçümün sonucunu değiştirmiyor (ikisi de eşiğin üstünde çıktı) ama
+alt sınırı ölçemememizin sebebi bu.
+
+### Önbelleğin ekonomisi (liste fiyatlarıyla, doğrulanmış çarpanlarla)
+
+| | Düz çağrı | İşaretli ilk çağrı | İşaretli tekrar |
+|---|---|---|---|
+| opus-4.8, 5.784 token | $0.028920 | $0.036150 (+25%) | $0.002892 (-90%) |
+| sonnet-5, 2.316 token | $0.004632 | $0.005790 (+25%) | $0.000463 (-90%) |
+
+İşaretleme ilk kullanımda %25 pahalı, her tekrarda %90 ucuz. Başa baş noktası **0,28 tekrar**:
+aynı ön ek bir kez bile yeniden kullanılırsa işaretleme kendini fazlasıyla ödüyor.
+
+Divan'da her koltuk çağrısı aynı kimlik + zarf + fikir + ek bloğuyla başlıyor ve bir oturumda 27
+çağrı var. Yani ön ek defalarca tekrarlanıyor; bu ölçüme göre işaretleme oturum başına belirgin
+bir tasarruf demek. **Sıra kararı (zarf + fikir + ek özetinin faz talimatının önüne alınması)
+yine de Şah'ındır ve M2-C-5 o karar gelmeden yazılmaz.**
