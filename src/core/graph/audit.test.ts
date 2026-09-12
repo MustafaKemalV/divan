@@ -61,4 +61,70 @@ for (const label of EVIDENCE_LABELS) {
 assert.strictEqual(validateAudit(undefined).ok, false);
 assert.strictEqual(validateAudit({}).ok, false);
 
+// KANIT KAPISI, ARAMA SONUCUNA BAGLI (M2-C-3).
+//
+// GEREKÇE-KANITI GERÇEK VERİDEN: aşağıdaki iddia 9 Eylül koşumunun denetiminden alındı. Biçimi
+// geçerli bir URL taşıyor ve kod onu GEÇİRDİ; ama o koşumda web araması yoktu, yani URL modelin
+// hafızasından geldi ve hiç doğrulanmadı. §6.2'nin rozeti o gün kaynak GÖSTERME disiplinini
+// zorluyordu, kaynağın varlığını değil.
+{
+  const gercekIddia = {
+    claim: "audit-chain README'sinde Maven Central badge'i mevcut ancak kutuphane henuz yayinlanmamis.",
+    evidence: "dogrulanmis",
+    source: "audit-chain README.md",
+    url: "https://central.sonatype.com/artifact/io.github.mustafakemalv/audit-chain-spring-boot-starter",
+  };
+  const denetim = {
+    summary: "ozet",
+    premortem: "bir yil sonra basarisiz olduk",
+    weakestLink: "dagitim",
+    claims: [
+      gercekIddia,
+      { claim: "iddia2", evidence: "varsayim", source: "s", url: "" },
+      { claim: "iddia3", evidence: "model-bilgisi", source: "s", url: "" },
+    ],
+  };
+
+  // KIRMIZI: izinli liste VERİLMEZSE (bugünkü aramasız yol) iddia geçiyor.
+  assert.strictEqual(validateAudit(denetim).ok, true, "aramasiz yolda bicim kontrolu geciriyor (9 Eylul'de olan bu)");
+
+  // YEŞİL 1: arama YAPILDI ve bu URL sonuçlarda YOK -> reddedilir, gerekçe izinli listeyi taşır.
+  const red = validateAudit(denetim, ["https://spring.io/", "https://github.com/spring-projects/spring-boot"]);
+  assert.strictEqual(red.ok, false, "arama sonuclarinda olmayan URL rozeti alamaz");
+  assert.ok(String((red as { reason: string }).reason).includes("arama sonuçlarında YOK"), "gerekce acik olmali");
+  assert.ok(String((red as { reason: string }).reason).includes("spring.io"), "iade gerekcesi izinli listeyi tasimali");
+
+  // YEŞİL 2: URL sonuçlardaysa geçer.
+  const gecer = validateAudit(denetim, [gercekIddia.url]);
+  assert.strictEqual(gecer.ok, true, "arama sonucundaki URL rozeti hak eder");
+
+  // YEŞİL 3: arama yapıldı ama SONUÇ YOK -> her "dogrulanmis" reddedilir. "Arama yapılmadı" ile
+  // "arandı, sonuç yok" ayrı şeylerdir: ilki listeyi vermez, ikincisi boş liste verir.
+  const bos = validateAudit(denetim, []);
+  assert.strictEqual(bos.ok, false, "arama sonucu yoksa dogrulanmis olamaz");
+  assert.ok(String((bos as { reason: string }).reason).includes("arama sonucu yok"));
+
+  // Normalleştirme: aynı kaynağın farklı yazımı reddedilmemeli, yoksa kural gerçek bir kaynağı
+  // biçim farkı yüzünden düşürür ve modeli URL'i harfi harfine kopyalamaya zorlar.
+  const farkliYazim = validateAudit(
+    { ...denetim, claims: [{ ...gercekIddia, url: "HTTPS://Central.Sonatype.com/artifact/io.github.mustafakemalv/audit-chain-spring-boot-starter/#readme" }, ...denetim.claims.slice(1)] },
+    [gercekIddia.url],
+  );
+  assert.strictEqual(farkliYazim.ok, true, "host buyuk/kucuk ve fragment farki ayni kaynagi bozmamali");
+
+  // Ama sorgu dizesi KORUNUR: ?v=2 cogu sitede baska bir sayfadir.
+  assert.strictEqual(
+    validateAudit({ ...denetim, claims: [{ ...gercekIddia, url: `${gercekIddia.url}?v=2` }, ...denetim.claims.slice(1)] }, [gercekIddia.url]).ok,
+    false,
+    "sorgu dizesi farki ayni sayfa sayilmamali",
+  );
+
+  // Etiketsiz iddialar liste verilse de etkilenmez: kural yalniz "dogrulanmis" icindir.
+  assert.strictEqual(
+    validateAudit({ ...denetim, claims: denetim.claims.map((c) => ({ ...c, evidence: "varsayim", url: "" })) }, []).ok,
+    true,
+    "varsayim ve model-bilgisi arama sonucu istemez",
+  );
+}
+
 console.log("AUDIT_TEST_OK: premortem zorunlu + 3 iddia alt siniri + etiket zorunlu + URL'siz rozet yok (§6.2)");

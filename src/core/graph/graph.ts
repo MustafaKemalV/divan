@@ -195,14 +195,18 @@ async function runAuditWithReturn(
     return altyapiArizasi(e, 1);
   }
   outs.push(first);
-  let check = validateAudit(first.data);
+  // İZİNLİ URL KÜMESİ (M2-C-3): o çağrının arama sonuçları. Arama İSTENMEDİYSE liste verilmez ve
+  // eski davranış (yalnız biçim kontrolü) sürer; arama istendiyse liste verilir, boş olsa bile.
+  // "Arama yapılmadı" ile "arandı, sonuç yok" ayrı şeylerdir.
+  const izinli = (o: SeatRunOutput) => (o.searchRequested ? (o.citations ?? []).map((c) => c.url) : undefined);
+  let check = validateAudit(first.data, izinli(first));
   // SADIK TRANSKRİPT (T3-1): geçerli denetim, doğrulanmış İÇERİĞİYLE yazılır. Önceden yalnız
   // `first.content` (yani data.summary) giriyordu ve premortem, iddialar, kaynaklar doğrulandığı
   // yerde ölüyordu. Geçersiz çıktı DÜZELTİLMEZ, ham haliyle ve gerekçesiyle kalır (§6).
   entries.push({
     phase,
     seatId: "auditor",
-    content: check.ok ? renderAudit(check.audit) : `[GEÇERSİZ: ${check.reason}] ${first.content}`,
+    content: check.ok ? renderAudit(check.audit, first.citations ?? []) : `[GEÇERSİZ: ${check.reason}] ${first.content}`,
   });
   let calls = 1;
 
@@ -212,7 +216,17 @@ async function runAuditWithReturn(
       second = await run("auditor", {
         phase,
         idea: state.idea,
-        context: `${context}\n\nİADE GEREKÇESİ (çıktın reddedildi, aynı denetimi bu eksiği gidererek yeniden ver): ${check.reason}`,
+        context:
+          `${context}\n\nİADE GEREKÇESİ (çıktın reddedildi, aynı denetimi bu eksiği gidererek yeniden ver): ` +
+          `${check.reason}` +
+          // İade yeni arama YAPMAZ (M2-C-2); ilk çağrının sonuçları buradan gider, yoksa koltuk
+          // kaynak gösteremeyeceği bir kuralla yeniden sınanmış olurdu.
+          (first.searchRequested
+            ? `\n\nİLK ÇAĞRININ ARAMA SONUÇLARI (yalnız bunlar "dogrulanmis" sayılabilir):\n${
+                (first.citations ?? []).map((c) => `- ${c.url}${c.title ? ` (${c.title})` : ""}`).join("\n") ||
+                "(sonuç yok)"
+              }`
+            : ""),
         attachments,
         retry: 1,
       });
@@ -222,12 +236,12 @@ async function runAuditWithReturn(
     }
     calls = 2;
     outs.push(second);
-    check = validateAudit(second.data);
+    check = validateAudit(second.data, izinli(second));
     entries.push({
       phase,
       seatId: "auditor",
       content: check.ok
-        ? `[İADE SONRASI]\n${renderAudit(check.audit)}`
+        ? `[İADE SONRASI]\n${renderAudit(check.audit, second.citations ?? [])}`
         : `[İADE SONRASI DA GEÇERSİZ: ${check.reason}] ${second.content}`,
     });
   }

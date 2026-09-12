@@ -21,9 +21,28 @@ export interface AuditClaim {
   url: string;
 }
 
-/** §6.2 rozet kuralı: URL'siz hiçbir iddia "doğrulanmış" olamaz. Biçim kontrolü; İÇERİK M2-C'de. */
+/** §6.2 rozet kuralı: URL'siz hiçbir iddia "doğrulanmış" olamaz. Biçim kontrolü. */
 export function isSourceUrl(v: unknown): boolean {
   return typeof v === "string" && /^https?:\/\/\S+$/i.test(v.trim());
+}
+
+/**
+ * URL karşılaştırma normali (M2-C-3). Aynı kaynağı gösteren iki yazım eşleşmeli, yoksa kural
+ * gerçek bir kaynağı biçim farkı yüzünden reddeder ve modeli URL'i harfi harfine kopyalamaya
+ * zorlar. Host küçük harfe iner, fragment ve sondaki "/" atılır. Sorgu dizesi KORUNUR: `?v=2`
+ * çoğu sitede başka bir sayfadır.
+ */
+export function normalizeUrl(v: string): string {
+  try {
+    const u = new URL(v.trim());
+    u.hash = "";
+    u.hostname = u.hostname.toLowerCase();
+    let metin = u.toString();
+    if (metin.endsWith("/") && u.pathname !== "/") metin = metin.slice(0, -1);
+    return metin;
+  } catch {
+    return v.trim().toLowerCase();
+  }
 }
 
 export interface AuditOutput {
@@ -42,8 +61,19 @@ function isLabel(v: unknown): v is EvidenceLabel {
   return typeof v === "string" && (EVIDENCE_LABELS as readonly string[]).includes(v);
 }
 
-/** Şemayı geçmiş görünen bir çıktının mekanik şartları gerçekten taşıyıp taşımadığını sınar. */
-export function validateAudit(data: unknown): AuditCheck {
+/**
+ * Şemayı geçmiş görünen bir çıktının mekanik şartları gerçekten taşıyıp taşımadığını sınar.
+ *
+ * `izinliUrller` (M2-C-3): o ÇAĞRININ arama sonuçlarında bulunan URL'ler. "dogrulanmis" etiketli
+ * bir iddianın URL'si bu kümede olmak zorundadır. Gerekçe 9 Eylül koşumunda ölçüldü: biçimi
+ * geçerli ama hafızadan yazılmış bir URL rozeti aldı ve kod onu geçirdi. Rozet o zaman kaynak
+ * GÖSTERME disiplinini zorluyordu, kaynağın varlığını değil.
+ *
+ * Liste VERİLMEZSE eski davranış sürer (yalnız biçim kontrolü): stub koşumlar ve aramasız fazlar
+ * bu yoldan geçer. Liste BOŞ verilirse "arama yapıldı ama sonuç yok" demektir ve her
+ * "dogrulanmis" reddedilir; ikisi ayrı şeydir ve karıştırılmaz.
+ */
+export function validateAudit(data: unknown, izinliUrller?: readonly string[]): AuditCheck {
   if (!data || typeof data !== "object") return { ok: false, reason: "denetim çıktısı şemaya uymadı" };
   const d = data as Record<string, unknown>;
 
@@ -75,6 +105,21 @@ export function validateAudit(data: unknown): AuditCheck {
         ok: false,
         reason: `"dogrulanmis" etiketli iddia URL'siz olamaz (§6.2): "${c.claim.slice(0, 60)}"`,
       };
+    }
+    // M2-C-3: URL'nin VAR OLMASI yetmez, o çağrının ARAMA SONUÇLARINDAN gelmiş olmalı.
+    if (c.evidence === "dogrulanmis" && izinliUrller) {
+      const izinli = new Set(izinliUrller.map(normalizeUrl));
+      if (!izinli.has(normalizeUrl(url))) {
+        const liste = izinliUrller.length
+          ? `Bu çağrının arama sonuçları: ${izinliUrller.slice(0, 8).join(", ")}`
+          : "Bu çağrıda arama sonucu yok.";
+        return {
+          ok: false,
+          reason:
+            `"dogrulanmis" etiketli iddianın URL'si arama sonuçlarında YOK (§6.2): ` +
+            `"${c.claim.slice(0, 60)}" -> ${url}. Hafızadan yazılan URL kaynak sayılmaz. ${liste}`,
+        };
+      }
     }
     claims.push({
       claim: c.claim,

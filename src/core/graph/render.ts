@@ -14,7 +14,7 @@ import type { AuditOutput } from "./audit.ts";
 import type { JudgmentItem } from "./state.ts";
 
 /** Denetim çıktısını okunur metne çevirir: özet, premortem, etiketli iddialar, en zayıf halka. */
-export function renderAudit(audit: AuditOutput): string {
+export function renderAudit(audit: AuditOutput, alintilar: readonly { url: string; title?: string }[] = []): string {
   const satirlar = ["DENETİM"];
   if (audit.summary.trim()) satirlar.push(`Özet: ${audit.summary.trim()}`);
   satirlar.push(`Premortem (bu neden başarısız olur): ${audit.premortem.trim()}`);
@@ -22,7 +22,13 @@ export function renderAudit(audit: AuditOutput): string {
   for (const c of audit.claims) {
     // Etiket başta durur: bir iddianın nasıl okunacağını belirleyen ilk şey kanıt durumudur.
     // URL'siz "dogrulanmis" buraya zaten gelemez, audit.ts onu geçersiz sayar (§6.2).
-    satirlar.push(`- ${c.evidence} | ${c.claim} | ${c.source || "kaynak belirtilmedi"} | ${c.url || "URL yok"}`);
+    // Doğrulanmış iddiaya ARAMA PARÇASI eklenir (§6.2 M2-C): kanıt defteri URL ile birlikte o
+    // URL'nin arama sonucundaki başlığını taşır. Rozetin dayanağı okunabilir olmalı.
+    const parca = c.evidence === "dogrulanmis" ? alintilar.find((a) => a.url === c.url)?.title : undefined;
+    satirlar.push(
+      `- ${c.evidence} | ${c.claim} | ${c.source || "kaynak belirtilmedi"} | ${c.url || "URL yok"}` +
+        (parca ? ` | arama sonucu: ${parca}` : ""),
+    );
   }
   if (audit.weakestLink.trim()) satirlar.push(`En zayıf halka: ${audit.weakestLink.trim()}`);
   return satirlar.join("\n");
