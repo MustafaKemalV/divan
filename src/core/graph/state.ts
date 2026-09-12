@@ -35,7 +35,19 @@ export interface CallRecord {
   reasoningTokens?: number;
   /** sağlayıcı önbelleğinden okunan token; katmanlı prompt mimarisinin ölçüsü budur */
   cachedTokens?: number;
+  /** sağlayıcı önbelleğine YAZILAN token; işaretlemenin bedeli (yazma 1.25x) */
+  cacheWriteTokens?: number;
   costNanoUsd?: number;
+  /** yalnız model çıkarımının maliyeti; `costNanoUsd` ile farkı eklenti (arama) ücretidir */
+  upstreamCostNanoUsd?: number;
+  /**
+   * Arama ücreti (= toplam - upstream). YALNIZ web eklentisi istenen çağrılarda doldurulur:
+   * eklentisiz bir çağrıda bu fark sağlayıcı komisyonudur, arama değildir ve öyle sayılamaz.
+   */
+  searchCostNanoUsd?: number;
+  /** o çağrının arama sonuçları: kaç sonuç ve hangi URL'ler (§6.2 kanıt kapısının dayanağı) */
+  searchResultCount?: number;
+  searchUrls?: string[];
   /** çağrı başarısızlıkla bitti mi (kesilme, zaman aşımı, hata) */
   failed?: boolean;
 }

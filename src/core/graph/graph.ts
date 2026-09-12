@@ -500,7 +500,17 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
         completionTokens: u?.completionTokens,
         reasoningTokens: u?.reasoningTokens,
         cachedTokens: u?.cachedTokens,
+        cacheWriteTokens: u?.cacheWriteTokens,
         costNanoUsd: u?.cost === undefined ? undefined : toNanoUsd(u.cost),
+        upstreamCostNanoUsd: u?.upstreamCost === undefined ? undefined : toNanoUsd(u.upstreamCost),
+        // Arama ücreti YALNIZ eklenti istenen çağrıda ayrılır: eklentisiz bir çağrıda toplam ile
+        // upstream arasındaki fark sağlayıcı komisyonudur, arama değildir.
+        searchCostNanoUsd:
+          b.out.searchRequested && u?.cost !== undefined && u?.upstreamCost !== undefined
+            ? toNanoUsd(u.cost) - toNanoUsd(u.upstreamCost)
+            : undefined,
+        searchResultCount: b.out.searchRequested ? (b.out.citations?.length ?? 0) : undefined,
+        searchUrls: b.out.citations?.length ? b.out.citations.map((c) => c.url) : undefined,
         ...(b.failed ? { failed: true } : {}),
       });
     }

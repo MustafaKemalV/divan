@@ -10,7 +10,7 @@
 
 import "server-only";
 import { chatRaw, type ChatMessage, type JsonSchemaSpec, type UsageInfo } from "./client.ts";
-import { classifyEnvelope, TruncatedResponseError } from "./envelope.ts";
+import { classifyEnvelope, TruncatedResponseError, type SearchCitation } from "./envelope.ts";
 
 export { classifyEnvelope, TruncatedResponseError };
 
@@ -30,6 +30,8 @@ export interface ModelCallResult {
   /** cevabı GERÇEKTE veren model; pin mi fallback mi olduğunu görünür kılar */
   servedModel?: string;
   usage?: UsageInfo;
+  /** web eklentisi çalıştıysa arama alıntıları (§6.2 kanıt kapısının izinli URL kümesi) */
+  citations?: SearchCitation[];
   /** sağlayıcının bildirdiği bitiş sebebi (işlenmiş hali) */
   finishReason?: string;
 }
@@ -49,6 +51,7 @@ export async function callModel(req: ModelCallRequest): Promise<ModelCallResult>
     content: raw.content,
     servedModel: raw.servedModel,
     usage: raw.usage,
+    citations: raw.citations,
     finishReason: raw.finishReason,
   };
 }

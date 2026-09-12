@@ -95,7 +95,12 @@ function kunye(o) {
   const nano = o.cagrilar.reduce((n, c) => n + (c.costNanoUsd ?? 0), 0);
   const token = o.cagrilar.reduce((n, c) => n + (c.promptTokens ?? 0) + (c.completionTokens ?? 0), 0);
   const cache = o.cagrilar.reduce((n, c) => n + (c.cachedTokens ?? 0), 0);
-  return { done, bitti, nano, token, cache };
+  const cacheWrite = o.cagrilar.reduce((n, c) => n + (c.cacheWriteTokens ?? 0), 0);
+  // Arama: yalnız eklenti istenen çağrılarda kayıt var (searchCostNanoUsd tanımlıysa).
+  const aramali = o.cagrilar.filter((c) => c.searchCostNanoUsd !== undefined);
+  const aramaNano = aramali.reduce((n, c) => n + (c.searchCostNanoUsd ?? 0), 0);
+  const aramaSonuc = aramali.reduce((n, c) => n + (c.searchResultCount ?? 0), 0);
+  return { done, bitti, nano, token, cache, cacheWrite, aramaCagri: aramali.length, aramaNano, aramaSonuc };
 }
 
 /** Cevabı gelmemiş ya da kesilmiş deneme: servedModel yok, ama fatura var. */
@@ -153,7 +158,10 @@ function rapor(o) {
   if (terk.cagrilar.length) {
     console.log(`Terk edilen dal   : ${terk.cagrilar.length} cagri, ${usd(terk.nano)} (re-table: ${terk.dugumler.join(", ")}) -> STATE'E GIRMEDI`);
   }
-  console.log(`Onbellekten okunan: ${k.cache} token`);
+  console.log(`Onbellek         : okunan ${k.cache} token, yazilan ${k.cacheWrite} token`);
+  if (k.aramaCagri) {
+    console.log(`Arama            : ${k.aramaCagri} sorgu, ${k.aramaSonuc} sonuc, ${usd(k.aramaNano)} (toplam maliyete DAHIL)`);
+  }
   if (k.bitti) {
     console.log(`Sure              : toplam ${Math.round(k.bitti.sureMs / 1000)} sn = model ${Math.round(k.bitti.modelMs / 1000)} + kapida ${Math.round(k.bitti.kapiMs / 1000)}`);
   }
@@ -205,7 +213,8 @@ if (sonuclar.length === 2) {
   console.log(`\n${"=".repeat(78)}\nKARSILASTIRMA\n${"=".repeat(78)}`);
   console.log(`Maliyet (olay gunlugu): ${usd(a.kunye.nano)} -> ${usd(b.kunye.nano)}  (${((b.kunye.nano / a.kunye.nano - 1) * 100).toFixed(0)}%)`);
   console.log(`Token                 : ${a.kunye.token} -> ${b.kunye.token}`);
-  console.log(`Onbellekten okunan    : ${a.kunye.cache} -> ${b.kunye.cache}`);
+  console.log(`Onbellek okunan/yazilan: ${a.kunye.cache}/${a.kunye.cacheWrite} -> ${b.kunye.cache}/${b.kunye.cacheWrite}`);
+  console.log(`Arama ucreti          : ${usd(a.kunye.aramaNano)} -> ${usd(b.kunye.aramaNano)}`);
   console.log(`\nFaz ici benzerlik (kosinus):`);
   for (const faz of ["F2:idea", "F3:cross", "F5:ranking"]) {
     if (!a.benzer[faz] || !b.benzer[faz]) continue;

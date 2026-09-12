@@ -42,6 +42,10 @@ export interface SeatRunInput {
 }
 
 export interface SeatRunOutput {
+  /** web eklentisi çalıştıysa arama alıntıları (§6.2 kanıt kapısının izinli URL kümesi) */
+  citations?: { url: string; title?: string; content?: string }[];
+  /** bu çağrıda web eklentisi İSTENDİ mi; arama ücretini ayırmanın ön şartı */
+  searchRequested?: boolean;
   content: string;
   /** faz-özel yapılı veri (ör. F0 triyaj + HMW listesi, F4 hüküm turu) */
   data?: Record<string, unknown>;
@@ -56,7 +60,11 @@ export interface SeatRunOutput {
     reasoningTokens?: number;
     /** sağlayıcı önbelleğinden okunan token (katmanlı prompt mimarisinin ölçüsü) */
     cachedTokens?: number;
+    /** önbelleğe YAZILAN token: işaretlemenin bedeli, kazancın öbür yarısı */
+    cacheWriteTokens?: number;
     cost?: number;
+    /** yalnız model çıkarımının maliyeti; `cost` ile farkı eklenti (arama) ücretidir */
+    upstreamCost?: number;
   };
 }
 

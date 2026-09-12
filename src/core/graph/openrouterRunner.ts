@@ -34,7 +34,7 @@ export class OpenRouterSeatRunner implements SeatRunner {
     const system = buildSystemPrompt(seatId, input.phase);
     const schema = schemaForPhase(input.phase);
 
-    const { content, servedModel, usage } = await callModel({
+    const { content, servedModel, usage, citations } = await callModel({
       model: sm.model,
       models: [sm.model, ...sm.fallbacks],
       messages: [
@@ -51,7 +51,7 @@ export class OpenRouterSeatRunner implements SeatRunner {
       signal: input.signal,
     });
 
-    if (!schema) return { content: content.trim(), servedModel, usage };
+    if (!schema) return { content: content.trim(), servedModel, usage, citations };
 
     let data: Record<string, unknown> | undefined;
     try {
@@ -64,6 +64,6 @@ export class OpenRouterSeatRunner implements SeatRunner {
     }
     const summary =
       data && typeof data.summary === "string" ? data.summary : content.trim();
-    return { content: summary, data, servedModel, usage };
+    return { content: summary, data, servedModel, usage, citations };
   }
 }

@@ -3,6 +3,7 @@
 // hiçbir zaman tarayıcı paketine giremez (DESIGN §10 "anahtar makineden çıkmaz").
 
 import "server-only";
+import { readCitations, readUsage, type SearchCitation } from "./envelope.ts";
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
@@ -36,6 +37,10 @@ export interface UsageInfo {
   reasoningTokens?: number;
   /** sağlayıcı önbelleğinden okunan token (varsa) */
   cachedTokens?: number;
+  /** önbelleğe YAZILAN token: işaretlemenin bedeli (yazma 1.25x), kazancın öbür yarısı */
+  cacheWriteTokens?: number;
+  /** yalnız model çıkarımının USD maliyeti; `cost` ile farkı eklenti (arama) ücretidir */
+  upstreamCost?: number;
   /**
    * Sağlayıcının bildirdiği USD maliyeti.
    *
@@ -57,6 +62,8 @@ export interface ChatResult {
   /** cevabı GERÇEKTE veren model (OpenRouter `model` alanı); fallback yönlendirmesini görünür kılar */
   servedModel?: string;
   usage?: UsageInfo;
+  /** web eklentisi çalıştıysa arama alıntıları; §6.2'nin "doğrulanmış" rozetinin tek dayanağı */
+  citations?: SearchCitation[];
   raw: unknown;
 }
 
@@ -131,27 +138,17 @@ export async function chatRaw(opts: ChatOptions): Promise<ChatResult> {
   const data = (await res.json()) as {
     model?: string;
     choices?: { message?: { content?: string }; finish_reason?: string }[];
-    usage?: {
-      prompt_tokens?: number;
-      completion_tokens?: number;
-      total_tokens?: number;
-      cost?: number;
-      prompt_tokens_details?: { cached_tokens?: number };
-      completion_tokens_details?: { reasoning_tokens?: number };
-    };
   };
   const choice = data.choices?.[0];
   const content = choice?.message?.content ?? "";
-  const u = data.usage;
-  const usage: UsageInfo | undefined = u
-    ? {
-        promptTokens: u.prompt_tokens,
-        completionTokens: u.completion_tokens,
-        totalTokens: u.total_tokens,
-        cost: u.cost,
-        reasoningTokens: u.completion_tokens_details?.reasoning_tokens,
-        cachedTokens: u.prompt_tokens_details?.cached_tokens,
-      }
-    : undefined;
-  return { content, servedModel: data.model, usage, finishReason: choice?.finish_reason, raw: data };
+  // Ölçüm alanlarının okunması SAF modülde (envelope.ts): izole test edilebilmesi gerekiyor,
+  // çünkü bir alanın sessizce atılması ancak sahte bir cevapla yakalanabilir.
+  return {
+    content,
+    servedModel: data.model,
+    usage: readUsage(data),
+    citations: readCitations(data),
+    finishReason: choice?.finish_reason,
+    raw: data,
+  };
 }

@@ -37,6 +37,54 @@ export class TruncatedResponseError extends Error {
   }
 }
 
+/** Bir arama sonucu alıntısı (OpenRouter web eklentisi, `url_citation`). */
+export interface SearchCitation {
+  url: string;
+  title?: string;
+  /** arama parçası: §6.2'nin kanıt defterine URL ile birlikte giren metin */
+  content?: string;
+}
+
+/**
+ * Sağlayıcı cevabının ÖLÇÜM alanlarını okur. Saf: girdi ham JSON, çıktı sayılar.
+ *
+ * Okunmayan alan olmayan alandır. 2026-09-11 probu üç alanın kayıtta olmadığını gösterdi ve
+ * üçü de M2-C'nin ölçemeyeceği şeyleri ölçüyor: `annotations` kanıt kapısının dayanağı,
+ * `cache_write_tokens` önbellek işaretlemesinin bedeli, `upstream_inference_cost` arama ücretini
+ * model ücretinden ayıran tek alan.
+ */
+export function readUsage(data: unknown): UsageInfo | undefined {
+  const u = (data as { usage?: Record<string, unknown> })?.usage;
+  if (!u) return undefined;
+  const pd = u.prompt_tokens_details as { cached_tokens?: number; cache_write_tokens?: number } | undefined;
+  const cd = u.completion_tokens_details as { reasoning_tokens?: number } | undefined;
+  const kd = u.cost_details as { upstream_inference_cost?: number } | undefined;
+  return {
+    promptTokens: u.prompt_tokens as number | undefined,
+    completionTokens: u.completion_tokens as number | undefined,
+    totalTokens: u.total_tokens as number | undefined,
+    cost: u.cost as number | undefined,
+    reasoningTokens: cd?.reasoning_tokens,
+    cachedTokens: pd?.cached_tokens,
+    cacheWriteTokens: pd?.cache_write_tokens,
+    upstreamCost: kd?.upstream_inference_cost,
+  };
+}
+
+/** Cevabın taşıdığı arama alıntıları. Arama yapılmadıysa boş dizi; `undefined` ile karışmaz. */
+export function readCitations(data: unknown): SearchCitation[] {
+  const ann = (data as { choices?: { message?: { annotations?: unknown[] } }[] })?.choices?.[0]?.message
+    ?.annotations;
+  if (!Array.isArray(ann)) return [];
+  const out: SearchCitation[] = [];
+  for (const a of ann) {
+    const kayit = a as { type?: string; url_citation?: { url?: string; title?: string; content?: string } };
+    if (kayit?.type !== "url_citation" || typeof kayit.url_citation?.url !== "string") continue;
+    out.push({ url: kayit.url_citation.url, title: kayit.url_citation.title, content: kayit.url_citation.content });
+  }
+  return out;
+}
+
 /**
  * Sağlayıcının bize söylediğini OKUR ve sınıflar. Sorunlu her durumda hata fırlatır; sessiz
  * geçilen tek bir zarf durumu yoktur.
