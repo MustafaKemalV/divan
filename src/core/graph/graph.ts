@@ -23,6 +23,7 @@ import { usageOf, formatUsd, toNanoUsd } from "./usage.ts";
 import { estimatePhaseCost } from "./estimate.ts";
 import { runPhaseSeats, type SeatOutcome } from "./phaseRun.ts";
 import { anonymizeSummary, maskSeatNames, speakingSeats, validateSummary } from "./summary.ts";
+import { shuffleBySeed } from "./shuffle.ts";
 import { renderAudit, renderJudgment } from "./render.ts";
 import { cancelReason, contractViolation, matchGateAnswer } from "./gate.ts";
 import { buildEnvelope, defenseContext, latestSummary, rankingContext, rawOfPhase as rawOf } from "./context.ts";
@@ -415,8 +416,10 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
    * ayrıca yanıltıcıydı: söz verilen şey verilmiyordu. Ön ek kesme ve metin maskeleme artık aynı
    * yerde, iki düğüm de buradan geçiyor; ikinci bir çağrı yeri eklenirse de aynı kapıyı kullanır.
    */
-  const kimliksizSiralamalar = (rankings: readonly string[]) =>
-    rankings
+  const kimliksizSiralamalar = (rankings: readonly string[], seed: string) =>
+    // §6.1 KONUMSAL ANONİMLİK: numara kanonik sırada verilseydi sabit bir koltuk adresi olurdu.
+    // Ölçüldü: 7 Eylül'de Baş Danışman taslağında sıralayıcı numaralarını koltuklarla eşleştirdi.
+    shuffleBySeed(rankings, seed)
       .map((r, i) => `- Sıralayıcı ${i + 1}: ${maskSeatNames(r.replace(/^[^:]+:\s*/, ""), seatLabels)}`)
       .join("\n");
 
@@ -487,7 +490,7 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
       phaseSummaries: [
         {
           phase: summaryKey,
-          summary: check.ok ? anonymizeSummary(check.value, seatLabels) : out?.content,
+          summary: check.ok ? anonymizeSummary(check.value, seatLabels, state.sessionSeed) : out?.content,
         },
       ],
       // Özet KAYIT halinde koltuk etiketli tutulur: kota ancak böyle denetlenebilir.
@@ -979,7 +982,7 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
         // T3-5: taslak da seçeneklerin doğduğu fazı görmeli, yalnız haklarında söyleneni değil.
         `F3 ÖZETİ (seçenekler burada doğdu):\n${summaryOf(state, "F3") || summaryOf(state, "F2")}`,
         `F4 ÖZETİ:\n${summaryOf(state, "F4")}`,
-        `SIRALAMALAR (kimliksiz):\n${kimliksizSiralamalar(state.rankings)}`,
+        `SIRALAMALAR (kimliksiz):\n${kimliksizSiralamalar(state.rankings, state.sessionSeed)}`,
         `MUHALEFET NOTU (Denetçi'nin HAM metni; yumuşatma, kısaltma ve gömme YETKİN YOK):\n${
           stillUnmet.map((j) => j.rawText).join("\n") || "(blocking muhalefet yok)"
         }`,
@@ -1037,7 +1040,7 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
         `MUHALEFET NOTU (senin ham metnin; belgede aynen duruyor mu?):\n${
           state.dissentNote || "(blocking muhalefet yok)"
         }`,
-        `SIRALAMALAR (kimliksiz):\n${kimliksizSiralamalar(state.rankings)}`,
+        `SIRALAMALAR (kimliksiz):\n${kimliksizSiralamalar(state.rankings, state.sessionSeed)}`,
         `F4 ÖZETİ:\n${summaryOf(state, "F4")}`,
         `ŞAH'IN KARARI:\n${state.decision ?? "(yok)"}`,
       ].join("\n\n");

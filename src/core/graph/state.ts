@@ -260,6 +260,17 @@ export const DivanState = Annotation.Root({
     default: () => 0,
   }),
   /**
+   * Oturum tohumu (§6.1 konumsal anonimlik). Rota oturum başında `threadId`'den yazar. Kimliksiz
+   * görüş ve sıralayıcı numaraları bununla karıştırılır: aynı oturumda kararlı (kurul kendi
+   * tartışmasını takip edebilsin), oturumlar arasında farklı (numara sabit bir koltuk adresi
+   * olmasın).
+   */
+  sessionSeed: Annotation<string>({
+    reducer: (_prev, next) => next,
+    default: () => "",
+  }),
+
+  /**
    * DESIGN §4 kadro istisnası beyanı, OTURUM BAŞINDA yazılır (maxCalls gibi). Config'ten her
    * okunduğunda değil: 9 Eylül koşumunda config oturumun ORTASINDA değişti (metin tavanı 2.500'den
    * 6.000'e çıkarıldı). Künyeyi dosyadan ikinci kez okumak, oturumun hangi kadroyla koştuğunu

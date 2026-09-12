@@ -12,6 +12,8 @@ export interface SummaryPoint {
   point: string;
 }
 
+import { shuffleBySeed } from "./shuffle.ts";
+
 export interface SummaryOutput {
   summary: string;
   points: SummaryPoint[];
@@ -102,8 +104,15 @@ export function maskSeatNames(metin: string, seatLabels: readonly string[] = [])
   }, metin);
 }
 
-export function anonymizeSummary(value: SummaryOutput, seatLabels: readonly string[] = []): string {
+export function anonymizeSummary(
+  value: SummaryOutput,
+  seatLabels: readonly string[] = [],
+  seed = "",
+): string {
   const maskele = (metin: string) => maskSeatNames(metin, seatLabels);
-  const satirlar = value.points.map((p, i) => `- Görüş ${i + 1}: ${maskele(p.point)}`);
+  // §6.1 KONUMSAL ANONİMLİK (M2-C-4): madde sırası kanonik koltuk sırasıydı, yani "Görüş 2" sabit
+  // bir koltuk adresiydi. Tohum verilmezse sıra korunur (eski davranış, stub ve testler için).
+  const maddeler = seed ? shuffleBySeed(value.points, seed) : value.points;
+  const satirlar = maddeler.map((p, i) => `- Görüş ${i + 1}: ${maskele(p.point)}`);
   return [maskele(value.summary), "", ...satirlar].join("\n");
 }

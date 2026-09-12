@@ -101,6 +101,8 @@ export async function POST(req: Request) {
           // Kadro istisnası beyanı oturum BAŞINDA donar (K-3): config sonradan değişirse künye
           // oturumun gerçekten koştuğu kadroyu söylemeye devam eder.
           kadroIstisnasi: kadroIstisnasiMetni() ?? "",
+          // §6.1 konumsal anonimlik tohumu: oturuma bağlı, deterministik.
+          sessionSeed: threadId,
         };
         if (reTableTo) {
           // Re-table (§5): hedef fazın hemen ÖNCEKİ checkpoint'ini bul, oradan yeniden koştur.
