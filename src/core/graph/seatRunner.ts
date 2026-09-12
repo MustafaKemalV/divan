@@ -27,6 +27,13 @@ export interface SeatRunInput {
   /** OTURUM ZARFI (DESIGN §5 D-2): kod tarafından kurulur, her çağrının ilk bloğudur */
   envelope?: string;
   /**
+   * KAÇINCI DENEME (C-3). Numarayı çağıranın SÖYLEMESİ gerekir, çünkü çağrılan taraf tampondan
+   * sayarsa yanlış sayar: iptal edilen denemenin hatası zincirin dibinden (fetch) yukarı çıkarken
+   * birkaç microtask geçer, ikinci deneme o arada başlar ve tamponu henüz boş görüp kendini yine
+   * birinci sanar. Ölçüldü: gerçek derinlikte sayım [1, 1] veriyordu.
+   */
+  attempt?: number;
+  /**
    * İPTAL SİNYALİ (U-9). Zaman aşımı yalnız beklemeyi bırakmaz, isteği de iptal eder. İptal
    * edilmeyen bir istek arka planda koşmaya, para harcamaya ve geç cevabıyla bir sonraki düğümün
    * tamponunu kirletmeye devam eder; 7 Eylül koşumunda tam olarak bu oldu.

@@ -271,9 +271,12 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
         input.phase,
       ),
     };
-    // Deneme numarası düğüm içinde sayılır: aynı koltuk+faz için kaçıncı çağrı olduğu, iade ve
-    // yeniden deneme mekanizmalarının maliyetini kayıtta ayırt edilebilir kılar.
-    const attempt = buffer.filter((b) => b.seatId === seatId && b.phase === input.phase).length + 1;
+    // Deneme numarası: çağıran söylüyorsa ONUN söylediği (paralel faz döngüsü, C-3), yoksa düğüm
+    // içinde sayılır. Tampondan saymak yalnız SIRALI çağrılarda doğrudur; iade çağrıları öyledir,
+    // yeniden denemeler değil: iptal edilen denemenin hatası zincirin dibinden yukarı çıkarken
+    // ikinci deneme çoktan başlamış olur ve tamponu boş görür.
+    const attempt =
+      input.attempt ?? buffer.filter((b) => b.seatId === seatId && b.phase === input.phase).length + 1;
     try {
       const out = await runner.run(seatId, zarfli);
       buffer.push({ seatId, phase: input.phase, attempt, out });

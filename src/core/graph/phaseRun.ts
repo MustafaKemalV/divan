@@ -89,7 +89,8 @@ export async function runPhaseSeats(
       const kontrol = new AbortController();
       try {
         const out = await withTimeout(
-          run(seatId, { ...inputFor(seatId), signal: kontrol.signal }),
+          // Deneme numarası BURADAN gider: kaçıncı deneme olduğunu bilen tek yer bu döngüdür.
+          run(seatId, { ...inputFor(seatId), attempt: attemptNo, signal: kontrol.signal }),
           timeoutMs,
           seatId,
           () => kontrol.abort(),

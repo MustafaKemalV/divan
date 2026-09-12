@@ -80,29 +80,50 @@ await assert.rejects(() => withTimeout(sleep(100), 10, "t"), SeatTimeoutError);
 //
 //    GEREKÇE-KANITI: önce iptalsiz halin tamponu bozduğu gösterilir, sonra iptalin düzelttiği.
 {
-  /** Graf'taki `run` sarmalayıcısının tampon + deneme numarası davranışının modeli. */
-  function tamponluRun(iptalDinlensinMi: boolean) {
+  /**
+   * Graf'taki `run` sarmalayıcısının modeli, GERÇEK ZİNCİR DERİNLİĞİYLE.
+   *
+   * Derinlik burada süs değil, bulgunun kendisi: gerçek zincir `run -> callModel -> chatRaw ->
+   * fetch`. İptal en dipte reddedince hata yukarı katman katman çıkar ve başarısız kayıt tampona
+   * birkaç microtask SONRA düşer. `runPhaseSeats` o arada ikinci denemeyi başlatmış olur, ikinci
+   * deneme de numarasını tampondan sayar ve kendini yine birinci sanır. Tek katmanlı bir sahte
+   * runner bunu gizler: hata bir microtask'ta döner, kayıt zamanında düşer ve numara doğru görünür.
+   */
+  function tamponluRun(iptalDinlensinMi: boolean, numarayiCagirandanAl = true) {
     const tampon: { seatId: string; phase: string; attempt: number; gec?: boolean }[] = [];
     let cagriNo = 0;
+
+    // En dip katman: fetch. İptal sinyalini burası dinler, tıpkı gerçeğinde olduğu gibi.
+    const fetchSim = (inp: SeatRunInput) =>
+      new Promise<string>((cozum, red) => {
+        const t = setTimeout(() => cozum("gec gelen cevap"), 120);
+        if (iptalDinlensinMi) {
+          inp.signal?.addEventListener("abort", () => {
+            clearTimeout(t);
+            red(new Error("istek iptal edildi"));
+          });
+        }
+      });
+    // Ara katman: callModel. Hata buradan geçerek yukarı çıkar.
+    const callModelSim = async (inp: SeatRunInput) => {
+      const ham = await fetchSim(inp);
+      return { content: ham };
+    };
+
     const run = async (seatId: string, inp: SeatRunInput) => {
-      const attempt = tampon.filter((b) => b.seatId === seatId && b.phase === inp.phase).length + 1;
+      // ESKI hesap: numarayı TAMPONDAN say. YENI hesap: çağıranın söylediği numarayı kullan.
+      const tampondan = tampon.filter((b) => b.seatId === seatId && b.phase === inp.phase).length + 1;
+      const attempt = numarayiCagirandanAl ? (inp.attempt ?? tampondan) : tampondan;
       const benimNoum = ++cagriNo;
       if (benimNoum === 1) {
-        // İlk çağrı: zaman aşımından SONRA dönen yavaş istek.
-        await new Promise<void>((cozum, red) => {
-          const t = setTimeout(cozum, 120);
-          if (iptalDinlensinMi) {
-            inp.signal?.addEventListener("abort", () => {
-              clearTimeout(t);
-              red(new Error("istek iptal edildi"));
-            });
-          }
-        }).catch((e) => {
+        try {
+          const out = await callModelSim(inp);
+          tampon.push({ seatId, phase: inp.phase, attempt, gec: true });
+          return out;
+        } catch (e) {
           tampon.push({ seatId, phase: inp.phase, attempt });
           throw e;
-        });
-        tampon.push({ seatId, phase: inp.phase, attempt, gec: true });
-        return { content: "gec gelen cevap" };
+        }
       }
       tampon.push({ seatId, phase: inp.phase, attempt });
       return { content: "ikinci deneme" };
@@ -110,18 +131,19 @@ await assert.rejects(() => withTimeout(sleep(100), 10, "t"), SeatTimeoutError);
     return { run, tampon };
   }
 
-  // KIRMIZI: iptal dinlenmiyor. Geç cevap tampona düşüyor ve iki kayıt da "deneme 1".
+  // KIRMIZI 1: iptal dinlenmiyor -> geç cevap tampona düşüyor.
+  // KIRMIZI 2: numara TAMPONDAN sayılıyor -> gerçek zincir derinliğinde iki kayıt da "deneme 1".
   {
-    const { run, tampon } = tamponluRun(false);
+    const { run, tampon } = tamponluRun(false, false);
     const outcomes = await runPhaseSeats(run, ["auditor"], input, 20);
     assert.strictEqual(outcomes[0].out?.content, "ikinci deneme", "ikinci deneme donmeli");
     await sleep(180); // terk edilen istek arka planda bitsin
     assert.strictEqual(tampon.length, 2, "terk edilen istek yine de tampona dustu");
     assert.ok(tampon.some((b) => b.gec), "gec cevap tampona dustu (kirmizinin kendisi)");
     assert.deepStrictEqual(
-      tampon.map((b) => b.attempt),
+      tampon.map((b) => b.attempt).sort(),
       [1, 1],
-      "iki deneme de 'deneme 1' diye kaydedildi (C-3)",
+      "tampondan sayinca iki deneme de 'deneme 1' oluyor (C-3'un kendisi)",
     );
   }
 
@@ -134,7 +156,11 @@ await assert.rejects(() => withTimeout(sleep(100), 10, "t"), SeatTimeoutError);
     await sleep(180);
     assert.strictEqual(tampon.length, 2, "iki deneme de kayitli (basarisiz deneme de bir cagridir)");
     assert.ok(!tampon.some((b) => b.gec), "iptal edilen istegin gec cevabi tampona DUSMEZ");
-    assert.deepStrictEqual(tampon.map((b) => b.attempt), [1, 2], "deneme numaralari dogru sayilir");
+    assert.deepStrictEqual(
+      tampon.map((b) => b.attempt).sort(),
+      [1, 2],
+      "cagiran soyleyince numaralar dogru: bir birinci, bir ikinci deneme",
+    );
   }
 }
 
