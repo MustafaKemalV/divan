@@ -462,3 +462,41 @@ kaynak farklı söylüyor (OpenRouter: Opus 4.8 için 4.096; Anthropic: Opus 4.8
 ## Kapanan konu
 
 `.env.local` anahtar rotate'i Şah kararıyla kapandı ve borç listelerinden silindi.
+
+---
+
+# M2-C (Fable masası, 2026-09-12): topraklama, önbellek, konumsal anonimlik
+
+M2-B'nin önüne alındı (Şah onayı 2026-09-08). Gerekçe C-5: kanıt kapısı web araması olmadan
+SINANAMIYOR. 7 Eylül'de hiçbir iddia "doğrulanmış" demedi, kural hiç devreye girmedi; 9 Eylül'de
+URL'li bir iddia doğrulanmadan rozeti aldı. Divan'ın en merkezi vaadi bugün ölçülemez durumda ve
+kadroyu zenginleştirmek bu ölçülemezliği değiştirmez.
+
+## Prob sonucu ve buradan çıkan iki kısıt
+
+T4-7 probu (2026-09-11, iki gerçek çağrı, $0.085423) üç şeyi gösterdi: web eklentisi ve
+`json_schema` aynı istekte çalışıyor; `annotations` yalnız Exa'da geliyor (native sıfır döndürdü);
+arama ücreti Exa'da `cost - upstream_inference_cost` ile ayrılabiliyor ($0.0070002, dokümandaki
+$0.007 ile birebir), native'de ayrılamıyor çünkü girdi tokenı olarak geliyor.
+
+Bağlayıcı iki kısıt:
+
+1. **`engine` SABİT `exa`.** Kanıt kapısı `annotations`'a bağlanacağı için native kullanılamaz.
+2. **Arama ücreti ayrı kalem olarak kaydedilir**, tahmin edilmez.
+
+## Bu turun kalemleri
+
+- **M2-C-1 Ölçüm aleti.** `client.ts` `annotations`, `prompt_tokens_details.cache_write_tokens` ve
+  `cost_details.upstream_inference_cost` okur; `CallRecord` bunları taşır. Ölçüm aleti mekanizmadan
+  ÖNCE gelir: kurulacak şeyin etkisini göremeyen bir sayaçla mekanizma kurmak, sonucu inanca
+  bırakmaktır.
+- **M2-C-1 eşik probu** (Şah onayı, ~10 sent): asgari önbelleklenebilir ön ek modele bağlı ve iki
+  kaynak farklı söylüyor. Ölçülmeden D-1'in sıra kararı verilmez.
+- **M2-C-2 İstek kurucu** saf modülde (`requestBuilder.ts`), `plugins` dizisi ve ileride
+  `cache_control` blokları orada kurulur.
+- **M2-C-3 Kanıt kapısı**: "dogrulanmis" iddianın URL'si o çağrının `annotations` kümesinde olmak
+  zorunda. Aramasız çağrıda her "dogrulanmis" geçersiz.
+- **M2-C-4 Konumsal anonimlik** (§6.1): kanonik sıra bir konum kanalıdır ve kapatılır.
+- **M2-C-5 Önbellek işaretleri ve sıra**: YALNIZ eşik probu sonrası Şah kararıyla.
+- **M2-C-6 Arama ücreti künyede**, ayrı sayaç.
+- **M2-C-7 Ölçüm koşumu**: koşumdan ÖNCE Fable masası kodu satır satır okur.
