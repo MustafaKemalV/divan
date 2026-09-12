@@ -5,6 +5,7 @@
 
 import type { JudgmentItem } from "./state.ts";
 import { NodeCrashError } from "./phaseRun.ts";
+import { aramaKarari } from "./requestBuilder.ts";
 import { TruncatedResponseError } from "../openrouter/envelope.ts";
 
 export interface SeatRunInput {
@@ -104,6 +105,9 @@ export const SMALL_IDEA_MAX_CHARS = 60;
  *   [TEST:cokme:<faz>]     -> o faz BİR KEZ çöker, sonraki denemede döner (çöken oturum kurtarma, U-14)
  *   [TEST:kesik-iade]      -> İADE turunda kesilme (iade çağrısının kesilme koruması, T3-4)
  *   [TEST:kesik1:<koltuk>] -> o koltuk BİR KEZ kesilir, sonraki çağrıda döner (omurga kurtarma, K-2)
+ *   [TEST:arama]           -> aramalı fazlarda arama YAPILMIŞ gibi davranır (sahte iki alıntı)
+ *   [TEST:badurl-arama]    -> denetimin "dogrulanmis" URL'si arama sonuçlarında YOK; iadede düzelir
+ *   [TEST:badurl-arama:inat] -> iadede de listede olmayan URL (DENETIM_EKSIK kapısına kadar gider)
  */
 /**
  * [TEST:cokme:<faz>] için tek seferlik çökme kaydı (U-14). Süreç ömrü boyunca yaşar: ilk deneme
@@ -115,8 +119,65 @@ const cokenFazlar = new Set<string>();
 /** [TEST:kesik1:<koltuk>] için tek seferlik kesilme kaydı; süreç ömrü boyunca yaşar. */
 const kesilenKoltuklar = new Set<string>();
 
+/**
+ * [TEST:arama] için sahte arama sonuçları. Mekanizmanın GRAF YOLU (izinli URL kümesinin çağrıdan
+ * kapıya taşınması) bugüne kadar yalnız birim testte görünüyordu; e2e'de hiç koşmadı. Stub'ın
+ * arama yapmış gibi davranması, o yolu anahtarsız ve parasız koşulabilir kılar.
+ */
+const STUB_ALINTILAR = [
+  { url: "https://ornek.org/a", title: "Ornek kaynak A", content: "stub arama parcasi A" },
+  { url: "https://ornek.org/b", title: "Ornek kaynak B", content: "stub arama parcasi B" },
+];
+
+/**
+ * Denetimin "dogrulanmis" iddiasının URL'si. Dört dal:
+ *   [TEST:badurl]            -> hep boş (URL'siz rozet; §6.2 biçim kuralı reddeder)
+ *   [TEST:badurl1]           -> ilk çağrıda boş, iadede düzelir
+ *   [TEST:badurl-arama]      -> biçimi geçerli ama ARAMA SONUÇLARINDA OLMAYAN URL; iadede listeye döner
+ *   [TEST:badurl-arama:inat] -> iadede de listede yok (kapıya kadar gider)
+ * Aksi halde arama listesindeki ilk URL (arama varsa) ya da eski sabit örnek.
+ */
+function denetimUrlsi(idea: string, retry: number): string {
+  if (idea.includes("[TEST:badurl]")) return "";
+  if (idea.includes("[TEST:badurl1]") && retry < 1) return "";
+  // ÖN EKE göre: "[TEST:badurl-arama:inat]" içinde "[TEST:badurl-arama]" alt dizesi YOKTUR
+  // (kapanış köşeli parantezi araya girmez). Tam dizeyle arayan ilk hal inatçı dalı hiç
+  // tetiklemiyordu ve senaryo sessizce geçiyordu.
+  if (idea.includes("[TEST:badurl-arama")) {
+    const inat = idea.includes("[TEST:badurl-arama:inat]");
+    // Hafızadan yazılmış gibi: biçimi kusursuz, arama sonuçlarında yok.
+    if (inat || retry < 1) return "https://hafizadan.example/uydurma";
+    return STUB_ALINTILAR[0].url;
+  }
+  return /\[TEST:(arama|badurl-arama)/.test(idea) ? STUB_ALINTILAR[0].url : "https://example.org/kaynak";
+}
+
+/**
+ * Bu çağrıda arama yapılmış sayılır mı? İşaret VARSA kararı GERÇEK kural veriyor (`aramaKarari`),
+ * stub kendi kuralını uydurmuyor.
+ *
+ * Önemli, çünkü ilk halinde stub İADE çağrısını da "aramalı" sayıyordu; gerçek kuralda iade yeni
+ * arama YAPMAZ (M2-C-2). Bu fark tam da sınanmak istenen hatayı gizliyordu: iade doğrulamasının
+ * listesiz kalması (D-2) ancak iade gerçekten aramasızken görünür.
+ */
+function stubAramaVar(idea: string, seatId: string, input: SeatRunInput): boolean {
+  if (!/\[TEST:(arama|badurl-arama)/.test(idea)) return false;
+  // Kap testte bağlayıcı değil: işaret zaten tek fazda bir denetim çağrısı için kullanılıyor.
+  return aramaKarari(seatId, input, 0, Number.MAX_SAFE_INTEGER).eklensin;
+}
+
 export class StubSeatRunner implements SeatRunner {
+  /**
+   * Çıktıyı üretir, sonra ARAMA alanlarını ekler. Arama alanları tek yerde ekleniyor, çünkü
+   * `uret` onlarca yerden dönüyor ve her dönüşe elle eklemek birini unutmak demekti.
+   */
   async run(seatId: string, input: SeatRunInput): Promise<SeatRunOutput> {
+    const out = await this.uret(seatId, input);
+    if (!stubAramaVar(input.idea, seatId, input)) return out;
+    return { ...out, searchRequested: true, citations: STUB_ALINTILAR };
+  }
+
+  private async uret(seatId: string, input: SeatRunInput): Promise<SeatRunOutput> {
     const { phase, idea } = input;
 
     // Paralellik testleri için iki işaret (yalnız stub'a özgü, M2'de gerçek runner ile kalkar):
@@ -253,11 +314,7 @@ export class StubSeatRunner implements SeatRunner {
                 // [TEST:badurl]: rozet hak edilmeden verilir; §6.2 kod kuralı bunu reddetmeli
                 // [TEST:badurl] inatçı: iadeden sonra da URL vermez (kapıya kadar gider).
                 // [TEST:badurl1] iade turunda düzelir: red -> iade -> geçerli.
-                url:
-                  idea.includes("[TEST:badurl]") ||
-                  (idea.includes("[TEST:badurl1]") && (input.retry ?? 0) < 1)
-                    ? ""
-                    : "https://example.org/kaynak",
+                url: denetimUrlsi(idea, input.retry ?? 0),
               },
             ],
             weakestLink: "dağıtım kanalı",

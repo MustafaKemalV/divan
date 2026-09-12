@@ -8,7 +8,7 @@
 // aldı. Arama kodda yoktu.
 
 import assert from "node:assert";
-import { aramaKarari, ARAMALI_FAZLAR, buildRequest } from "./requestBuilder.ts";
+import { aramaKarari, ARAMALI_FAZLAR, buildRequest, fazAnahtari } from "./requestBuilder.ts";
 import type { SeatRunInput } from "./seatRunner.ts";
 
 const girdi = (phase: string, ek: Partial<SeatRunInput> = {}): SeatRunInput => ({
@@ -99,4 +99,24 @@ const kur = (seatId: string, input: SeatRunInput, fazdaYapilanArama = 0, perPhas
   assert.strictEqual(aramaKarari("auditor", girdi("F4:audit"), 9, 3).sebep !== undefined, true);
 }
 
-console.log("REQUEST_BUILDER_TEST_OK: arama kapsami (koltuk VE faz), engine sabit exa, iade aramaz, faz kapi");
+// 9) FAZ KAPI ANAHTARI (D-3): kap FAZ basinadir, faz DIZESI basina degil.
+//
+//    KIRMIZI: sayac "F4:feasibility" ve "F4:audit" icin AYRI sayardi, yani F4'te fizibilitenin
+//    iki aramasi denetimin sayacini hic etkilemezdi ve kap pratikte hic dolmazdi.
+{
+  assert.strictEqual(fazAnahtari("F4:feasibility"), "F4");
+  assert.strictEqual(fazAnahtari("F4:audit"), "F4", "ayni fazin iki isi TEK kapi paylasir");
+  assert.strictEqual(fazAnahtari("F4s:audit"), "F4s", "kucuk kurul ayri bir yoldur, kapisi da ayri");
+  assert.notStrictEqual(fazAnahtari("F4:audit"), fazAnahtari("F4s:audit"));
+
+  // F4'te fizibilite 2 + denetim 1 = 3; kap 3 ile DORDUNCU aramali cagri reddedilir.
+  const kap = 3;
+  assert.ok(kur("engineer1", girdi("F4:feasibility"), 0, kap).plugins, "1. arama gecer");
+  assert.ok(kur("engineer2", girdi("F4:feasibility"), 1, kap).plugins, "2. arama gecer");
+  assert.ok(kur("auditor", girdi("F4:audit"), 2, kap).plugins, "3. arama gecer (ayni faz sayaci)");
+  const dorduncu = kur("auditor", girdi("F4:audit"), 3, kap);
+  assert.strictEqual(dorduncu.plugins, undefined, "4. aramali cagri kapiya carpar");
+  assert.ok(String(dorduncu.aramaAtlandi).includes("kap"));
+}
+
+console.log("REQUEST_BUILDER_TEST_OK: arama kapsami, engine sabit exa, iade aramaz, faz kapi FAZ basina");

@@ -542,6 +542,61 @@ async function run() {
     );
   });
 
+  await scenario("S27", "Arama: iade gerekcesi izinli listeyi tasir, ikinci deneme gecer (M2-C-3)", async () => {
+    // Mekanizmanin GRAF YOLU (izinli URL kumesinin cagridan kapiya tasinmasi) bugune kadar yalniz
+    // birim testte gorunuyordu; e2e'de hic kosmadi. Stub artik gercek arama kuralini kullaniyor.
+    const T = "e2e-s27";
+    await post({ threadId: T, idea: `${LONG} [TEST:badurl-arama]` });
+    await post({ threadId: T, resume: "hmw" });
+    let s = stopEvent(await post({ threadId: T, resume: "cerceve onaylandi" }));
+    check(s.gate === "KAPI3", `iade duzelince akis surmeli: ${s.gate ?? s.type}`);
+
+    const st = await durum(T);
+    const denetimler = st.values.transcript.filter((t) => t.phase === "F4:audit");
+    check(denetimler.length === 2, `ilk deneme ve iade transkriptte olmali: ${denetimler.length}`);
+    check(
+      String(denetimler[0].content).includes("arama sonuçlarında YOK"),
+      `ilk deneme arama gerekcesiyle reddedilmeli: ${String(denetimler[0].content).slice(0, 80)}`,
+    );
+    check(String(denetimler[1].content).includes("İADE SONRASI"), "ikinci deneme iade olarak isaretlenmeli");
+    // Iade gerekcesi IZINLI LISTEYI tasimali: koltuk neye bakacagini bilmeli.
+    check(
+      String(denetimler[0].content).includes("ornek.org"),
+      `iade gerekcesi izinli listeyi tasimali: ${String(denetimler[0].content).slice(0, 200)}`,
+    );
+    check(st.values.auditComplete === true, "iade sonrasi denetim tam olmali");
+    check(st.values.auditRetries === 1, `tek iade hakki: ${st.values.auditRetries}`);
+
+    s = stopEvent(await post({ threadId: T, resume: "karar" }));
+    check(s.metrics.searchCalls > 0, `arama sayaci dolmali: ${s.metrics.searchCalls}`);
+    console.log(
+      `  kanit: ilk deneme reddedildi (izinli liste gerekcede), iade gecti, ` +
+        `searchCalls=${s.metrics.searchCalls}`,
+    );
+  });
+
+  await scenario("S28", "Arama: inatci uydurma URL DENETIM_EKSIK kapisina cikar (M2-C-3 + D-2)", async () => {
+    // KIRMIZI: iade dogrulamasi IKINCI cagrinin kumesiyle yapiliyordu; iade yeni arama yapmadigi
+    // icin liste undefined kaliyor, eski bicim kontrolu calisiyor ve hafizadan yazilmis URL
+    // IADEDE rozet aliyordu. Olculdu: kapi ACILMIYOR, auditComplete true, akis KAPI 3'e gidiyordu.
+    const T = "e2e-s28";
+    await post({ threadId: T, idea: `${LONG} [TEST:badurl-arama:inat]` });
+    await post({ threadId: T, resume: "hmw" });
+    const s = stopEvent(await post({ threadId: T, resume: "cerceve onaylandi" }));
+    check(s.gate === "DENETIM_EKSIK", `inatci uydurma URL kapiya cikmali: ${s.gate ?? s.type}`);
+    check(String(s.payload.reason).includes("arama sonuçlarında YOK"), `kapi gerekcesi: ${s.payload.reason}`);
+    check(s.payload.retries === 1, "tek iade hakki kullanilmis olmali");
+
+    const st = await durum(T);
+    check(st.values.auditComplete === false, "denetim eksik sayilmali");
+    const denetimler = st.values.transcript.filter((t) => t.phase === "F4:audit");
+    check(
+      String(denetimler[1].content).includes("İADE SONRASI DA GEÇERSİZ"),
+      "ikinci denemenin de gecersiz oldugu transkriptte kalmali",
+    );
+    console.log(`  kanit: kapi ${s.gate}, iade ${s.payload.retries}, auditComplete false`);
+  });
+
   await scenario("S21", "Iade cagrisinda kesilme: dugum cokmez, kapi acilir, para sayilir", async () => {
     // KIRMIZI: kesilme dali yalniz ILK cagrida vardi. Iade turunda gelen kesilme dugumu
     // cokertiyordu ve cokunce flushUsage kosmadigi icin harcanan para da kayboluyordu.

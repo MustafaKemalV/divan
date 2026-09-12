@@ -28,6 +28,16 @@ export interface WebPlugin {
   max_results: number;
 }
 
+/**
+ * Faz kapı ANAHTARI (D-3). DESIGN §6.2 "faz başına kap" derken F4'ü kastediyor, "F4:audit"i
+ * değil: aynı fazın fizibilite ve denetim çağrıları tek kapı paylaşır. Dizeyi olduğu gibi saymak
+ * "F4:feasibility" ve "F4:audit" için AYRI sayaçlar üretiyordu; bugün bağlayıcı değil (kap 3,
+ * F4'te en çok üç aramalı çağrı) ama kap düşürülürse yanlış sayar ve kap hiç dolmaz.
+ */
+export function fazAnahtari(phase: string): string {
+  return phase.split(":")[0];
+}
+
 export interface AramaKarari {
   /** eklenti isteğe eklenecek mi */
   eklensin: boolean;

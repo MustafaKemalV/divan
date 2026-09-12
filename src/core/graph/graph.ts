@@ -27,6 +27,7 @@ import { shuffleBySeed } from "./shuffle.ts";
 import { renderAudit, renderJudgment } from "./render.ts";
 import { cancelReason, contractViolation, matchGateAnswer } from "./gate.ts";
 import { buildEnvelope, defenseContext, latestSummary, rankingContext, rawOfPhase as rawOf } from "./context.ts";
+import { fazAnahtari } from "./requestBuilder.ts";
 
 /** Faz ham metni (özet kayıtları dışlanır, bkz. context.ts). */
 function rawOfPhase(state: DivanStateType, phasePrefix: string): string {
@@ -237,7 +238,12 @@ async function runAuditWithReturn(
     }
     calls = 2;
     outs.push(second);
-    check = validateAudit(second.data, izinli(second));
+    // İADE, İLK ÇAĞRININ kümesiyle yargılanır. İade yeni arama YAPMAZ (M2-C-2), dolayısıyla
+    // `second.searchRequested` false ve `izinli(second)` undefined olur; o da eski biçim
+    // kontrolüne düşmek, yani hafızadan yazılmış bir URL'nin İADEDE rozet alması demekti.
+    // Koltuğa gönderilen iade gerekçesi de zaten ilk çağrının sonuçlarını taşıyor: aynı kümeyle
+    // sorulan bir soru, aynı kümeyle yargılanmalı.
+    check = validateAudit(second.data, izinli(first));
     entries.push({
       phase,
       seatId: "auditor",
@@ -276,9 +282,10 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
     // Faz kapı (§6.2): bu fazda ŞU ANA KADAR kaç arama yapıldı. State'teki tamamlanmış çağrılar
     // artı bu düğümün tamponu. Eşzamanlı çağrılar aynı sayıyı okur; sınır `SeatRunInput` üzerinde
     // yazılı.
+    const anahtar = fazAnahtari(input.phase);
     const fazdakiArama =
-      state.callLog.filter((c) => c.phase === input.phase && c.searchResultCount !== undefined).length +
-      buffer.filter((b) => b.phase === input.phase && b.out.searchRequested).length;
+      state.callLog.filter((c) => fazAnahtari(c.phase) === anahtar && c.searchResultCount !== undefined).length +
+      buffer.filter((b) => fazAnahtari(b.phase) === anahtar && b.out.searchRequested).length;
     const zarfli: SeatRunInput = {
       ...input,
       searchesInPhase: fazdakiArama,
