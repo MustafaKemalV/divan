@@ -1099,7 +1099,7 @@ async function run() {
   try {
     const { buildCouncilGraph } = await import("../src/core/graph/graph.ts");
     const { StubSeatRunner } = await import("../src/core/graph/seatRunner.ts");
-    const { buildUserMessage } = await import("../src/core/graph/userMessage.ts");
+    const { buildSystemEnvelope, buildUserMessage } = await import("../src/core/graph/userMessage.ts");
     const { Command } = await import("@langchain/langgraph");
     const HMW = "HMW-PARMAKIZI-7";
     const CERCEVE = "CERCEVE-PARMAKIZI-42";
@@ -1108,7 +1108,14 @@ async function run() {
     const graph = buildCouncilGraph({
       async run(seatId, input) {
         const out = await inner.run(seatId, input);
-        mesajlar.push({ seatId, phase: input.phase, mesaj: buildUserMessage(input) });
+        // M2-C-5'ten sonra sabit katmanlar SISTEM mesajinda; tekrar sorusu artik IKI parcanin
+        // TOPLAMI uzerinden sorulur, yoksa metin "kayboldu" sanilir.
+        mesajlar.push({
+          seatId,
+          phase: input.phase,
+          sistem: buildSystemEnvelope(input),
+          kullanici: buildUserMessage(input),
+        });
         return out;
       },
     });
@@ -1123,13 +1130,18 @@ async function run() {
     const say = (m, ara) => m.split(ara).length - 1;
     for (const [faz, iz] of [["F1:frame", HMW], ["F2:idea", CERCEVE]]) {
       for (const c of mesajlar.filter((x) => x.phase === faz)) {
-        const kez = say(c.mesaj, iz);
-        check(kez === 1, `${faz}/${c.seatId}: "${iz}" ${kez} kez gitmis, 1 olmali`);
-        // Metin KAYBOLMADI, zarfta duruyor: tekrar kalkti diye cerceve dusmedi.
-        check(c.mesaj.indexOf(iz) < c.mesaj.indexOf("FİKİR:"), `${faz}: metin zarf blogunda kalmali`);
+        const kez = say(c.sistem, iz) + say(c.kullanici, iz);
+        check(kez === 1, `${faz}/${c.seatId}: "${iz}" toplam ${kez} kez gitmis, 1 olmali`);
+        // Metin KAYBOLMADI, SISTEM blogunun zarf parcasinda duruyor (M2-C-5 SECENEK A).
+        check(c.sistem.includes(iz), `${faz}: metin sistem blogunda kalmali`);
+        check(c.sistem.indexOf(iz) < c.sistem.indexOf("FİKİR:"), `${faz}: zarf fikirden once`);
+        check(!c.kullanici.includes(iz), `${faz}: kullanici mesajinda TEKRARLANMAMALI`);
       }
       const ornek = mesajlar.find((x) => x.phase === faz);
-      console.log(`  ${faz.padEnd(9)} mesaj ${String(ornek.mesaj.length).padStart(5)} krk | "${iz}" 1 kez, zarf blogunda`);
+      console.log(
+        `  ${faz.padEnd(9)} sistem ${String(ornek.sistem.length).padStart(5)} krk + kullanici ` +
+          `${String(ornek.kullanici.length).padStart(5)} krk | "${iz}" toplam 1 kez, sistem blogunda`,
+      );
     }
     console.log(`  GECTI (kirmizida ikisi de 2 kez gidiyordu)`);
     results.push({ id: "KANIT-T38", ok: true });

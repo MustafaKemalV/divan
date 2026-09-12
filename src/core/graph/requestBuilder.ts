@@ -73,8 +73,41 @@ export function aramaKarari(
   return { eklensin: true };
 }
 
+/** Mesaj içeriği: düz metin ya da işaretlenebilir parçalar (client.ts ContentPart ile aynı şekil). */
+export type IcerikParcasi = { type: "text"; text: string; cache_control?: { type: "ephemeral" } };
+
+/**
+ * SİSTEM MESAJI (D-1 katman sırası, SEÇENEK A): kimlik + zarf/fikir/ek özeti + faz talimatı.
+ *
+ * Anthropic modellerinde iki `cache_control` işareti konur: (2)'nin ve (3)'ün sonunda. Birincisi
+ * bir koltuğun BÜTÜN fazlarının paylaştığı ön eki önbelleğe alır; ikincisi aynı fazdaki iade ve
+ * yeniden deneme çağrıları içindir, onlar faz talimatını da paylaşır.
+ *
+ * Diğer sağlayıcılara AYNI SIRA düz metin olarak gider: otomatik önbellekleri de birebir ön ek
+ * ister, yani sıranın kendisi onlara da yarar. İşaret koymak yalnız Anthropic'te anlamlı olduğu
+ * için oraya konur; sırayı sağlayıcıya göre değiştirmek iki ayrı davranış demek olurdu.
+ */
+export function buildSystemContent(args: {
+  model: string;
+  kimlik: string;
+  zarfFikirEk: string;
+  fazTalimati: string;
+}): string | IcerikParcasi[] {
+  const { kimlik, zarfFikirEk, fazTalimati } = args;
+  if (!args.model.startsWith("anthropic/")) {
+    return [kimlik, zarfFikirEk, fazTalimati].filter((p) => p.trim()).join("\n\n---\n\n");
+  }
+  const parcalar: IcerikParcasi[] = [{ type: "text", text: kimlik }];
+  // Boş bir bloğu işaretlemek anlamsız: F0 brifingi zarfsız koşar (buildEnvelope faz görünürlüğü).
+  if (zarfFikirEk.trim()) {
+    parcalar.push({ type: "text", text: zarfFikirEk, cache_control: { type: "ephemeral" } });
+  }
+  parcalar.push({ type: "text", text: fazTalimati, cache_control: { type: "ephemeral" } });
+  return parcalar;
+}
+
 export interface IstekParcalari {
-  system: string;
+  system: string | IcerikParcasi[];
   user: string;
   plugins?: WebPlugin[];
   /** arama yapılmadıysa sebebi (varsa); çağrı kaydına ve transkripte girer */
@@ -88,7 +121,7 @@ export interface IstekParcalari {
 export function buildRequest(args: {
   seatId: string;
   input: SeatRunInput;
-  system: string;
+  system: string | IcerikParcasi[];
   user: string;
   fazdaYapilanArama: number;
   perPhaseCap: number;

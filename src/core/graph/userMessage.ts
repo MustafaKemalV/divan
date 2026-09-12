@@ -3,32 +3,44 @@
 // `openrouterRunner` içindeyken bir birim testi onu import EDEMİYORDU, zincir `gateway` üzerinden
 // `server-only` mührüne çarpıyordu. Kuruluşu doğrulanamayan bir sıra, kuralı olmayan bir sıradır.
 //
-// Sıra sabittir ve SABİTTEN OYNAĞA doğrudur:
+// M2-C-5 (Şah kararı 2026-09-12, SEÇENEK A) ile SABİT katmanlar SİSTEM mesajına taşındı. Burada
+// kalan tek şey DİNAMİK BAĞLAM, yani D-1'in (4). katmanı:
 //
-//   1. OTURUM ZARFI   her çağrıda aynı, KAPI 2'den sonra donar (D-2)
-//   2. FİKİR          oturum boyunca değişmez
-//   3. EK BELGE       tam metin yalnız izinli fazlarda, diğerlerinde özeti (§5)
-//   4. BAĞLAM         her çağrıda değişen tek blok (önceki faz özeti, tur bilgisi)
+//   1. EK BELGE tam metni   yalnız izinli fazlarda (F0 BD, F4); §5 bütçe bilinçli enjeksiyon
+//   2. BAĞLAM               önceki faz özeti ya da faz içi metin
+//   3. konuşan koltuklar, revizyon turu, yeniden koşum
 //
-// Sıranın iki gerekçesi var. Birincisi tasarım: "bütün müzakere seçilen çerçevede yürür" cümlesi,
-// çerçeve modelin okuduğu İLK şey olmadıkça bir temenni olarak kalır. İkincisi ölçüm: sabit
-// katmanlar başta durursa sağlayıcı önbelleği onları yakalayabilir (§7); etkisi tahmin edilmez,
-// çağrı kaydındaki `cachedTokens` ile ölçülür.
+// Zarf, fikir ve ek ÖZETİ artık sistem mesajındadır (`requestBuilder.buildSystemContent`).
+// Gerekçe ölçümdür: eski sırada bir koltuğun fazları arasındaki ortak ön ek yalnız kimlik
+// metniydi ve önbellek eşiğinin altında kalıyordu. Yeni sırada ön ek kimlik + zarf + fikir + ek
+// özetidir ve ancak faz talimatında ayrışır.
 
 import type { SeatRunInput } from "./seatRunner.ts";
 
-/** Kullanıcı mesajı: zarf + fikir + ek (tam metin ya da özet) + dinamik bağlam. Ham transkript BURADAN geçmez. */
-export function buildUserMessage(input: SeatRunInput): string {
+/**
+ * SİSTEM mesajının sabit orta bloğu: oturum zarfı + fikir + ek belgelerin ÖZETİ. Bir koltuğun
+ * bütün fazlarında birebir aynıdır; önbelleklenebilir ön ekin gövdesi budur.
+ *
+ * Ek belgelerin TAM METNİ buraya girmez: yalnız izinli fazlara gider (§5) ve fazdan fazda
+ * değişir, yani ön eki bozar. Özet her fazda aynıdır.
+ */
+export function buildSystemEnvelope(input: SeatRunInput): string {
   const parts: string[] = [];
-  // OTURUM ZARFI ilk blok: çerçeve her çağrıya gider (DESIGN §5 D-2).
   if (input.envelope?.trim()) parts.push(input.envelope.trim());
   parts.push(`FİKİR:\n${input.idea}`);
-  // Ek belgeler: TAM METİN yalnız verildiği fazlarda; diğer fazlar özet görür (DESIGN §5).
+  if (input.attachmentSummary?.trim()) {
+    parts.push(`EK BELGELERİN ÖZETİ:\n${input.attachmentSummary.trim()}`);
+  }
+  return parts.join("\n\n");
+}
+
+/** Kullanıcı mesajı: DİNAMİK bağlam (ek tam metni, faz özeti, tur bilgisi). Ham transkript BURADAN geçmez. */
+export function buildUserMessage(input: SeatRunInput): string {
+  const parts: string[] = [];
+  // Ek belgeler: TAM METİN yalnız verildiği fazlarda (DESIGN §5). Fazdan faza değiştiği için
+  // dinamik bağlamdadır, sistem mesajındaki sabit ön ekin parçası değildir.
   for (const ek of input.attachments ?? []) {
     parts.push(`EK BELGE (${ek.name}):\n${ek.content}`);
-  }
-  if (!input.attachments?.length && input.attachmentSummary?.trim()) {
-    parts.push(`EK BELGELERİN ÖZETİ:\n${input.attachmentSummary.trim()}`);
   }
   if (input.context && input.context.trim()) {
     parts.push(`BAĞLAM (önceki fazın özeti veya bu faz içi metin):\n${input.context.trim()}`);

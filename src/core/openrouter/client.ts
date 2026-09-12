@@ -7,9 +7,21 @@ import { readCitations, readUsage, type SearchCitation } from "./envelope.ts";
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
+/**
+ * Mesaj içeriğinin parçalı hali. Anthropic modellerinde `cache_control` işareti PARÇA başınadır,
+ * yani sabit ön eki işaretlemek için içeriğin dizi olması gerekir. 2026-09-12 önbellek probu bu
+ * şekli OpenRouter üzerinden çalıştırdı (eval/prob-onbellek.mjs).
+ */
+export interface ContentPart {
+  type: "text";
+  text: string;
+  cache_control?: { type: "ephemeral" };
+}
+
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
-  content: string;
+  /** düz metin ya da parçalı içerik; parçalı hal yalnız işaretleme gerektiğinde kullanılır */
+  content: string | ContentPart[];
 }
 
 export interface JsonSchemaSpec {

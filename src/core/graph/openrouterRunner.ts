@@ -6,15 +6,15 @@
 // böylece erken-uzlaşı kilidi (§6.3) devreye girer ve durum Şah'a çıkar.
 
 import { callModel } from "../openrouter/gateway.ts";
-import { buildSystemPrompt } from "../prompts/load.ts";
+import { loadIdentity, loadPrompt } from "../prompts/load.ts";
 import { getSeat } from "../seats/seats.ts";
 import type { DivanConfig } from "../config/schema.ts";
 import { schemaForPhase } from "./schemas.ts";
 import type { SeatRunInput, SeatRunOutput, SeatRunner } from "./seatRunner.ts";
 // Kullanıcı mesajının kuruluşu ayrı ve SAF modülde: burada dururken bir birim testi ona
 // ulaşamıyordu (bu dosya `gateway` üzerinden `server-only` mührü taşır).
-import { buildUserMessage } from "./userMessage.ts";
-import { buildRequest } from "./requestBuilder.ts";
+import { buildSystemEnvelope, buildUserMessage } from "./userMessage.ts";
+import { buildRequest, buildSystemContent } from "./requestBuilder.ts";
 
 export class OpenRouterSeatRunner implements SeatRunner {
   // Node'un tip-soyma modu constructor parametre özelliğini desteklemez (ERR_UNSUPPORTED_
@@ -31,8 +31,13 @@ export class OpenRouterSeatRunner implements SeatRunner {
     const sm = this.config.seats[seatId];
     if (!sm) throw new Error(`Config'de koltuk eşlemesi yok: "${seatId}".`);
 
-    // Sistem mesajı = KİMLİK + FAZ TALİMATI (DESIGN §7 D-1).
-    const system = buildSystemPrompt(seatId, input.phase);
+    // Sistem mesajı = KİMLİK + (ZARF + FİKİR + EK ÖZETİ) + FAZ TALİMATI (D-1, SEÇENEK A).
+    const system = buildSystemContent({
+      model: sm.model,
+      kimlik: loadIdentity(seatId),
+      zarfFikirEk: buildSystemEnvelope(input),
+      fazTalimati: loadPrompt(seatId, input.phase),
+    });
     const schema = schemaForPhase(input.phase);
 
     // İsteğin parçaları SAF modülde kurulur (requestBuilder): eklenti kararı bir mekanizmadır

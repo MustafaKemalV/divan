@@ -178,14 +178,22 @@ function rapor(o) {
   console.log(`\nKOLTUK BASINA:`);
   const koltuk = new Map();
   for (const c of o.cagrilar) {
-    const g = koltuk.get(c.seatId) ?? { cagri: 0, nano: 0, model: c.servedModel };
+    const g = koltuk.get(c.seatId) ?? { cagri: 0, nano: 0, cacheWrite: 0, cacheRead: 0, model: c.servedModel };
     g.cagri++;
     g.nano += c.costNanoUsd ?? 0;
+    g.cacheWrite += c.cacheWriteTokens ?? 0;
+    g.cacheRead += c.cachedTokens ?? 0;
     if (c.servedModel) g.model = c.servedModel;
     koltuk.set(c.seatId, g);
   }
   for (const [id, g] of [...koltuk].sort((a, b) => b[1].nano - a[1].nano)) {
-    console.log(`  ${id.padEnd(13)} ${String(g.cagri).padStart(2)} cagri  ${usd(g.nano).padStart(11)}  ${yuzde(g.nano, k.nano).padStart(6)}  ${g.model ?? "-"}`);
+    // Önbellek koltuk başına gösterilir: kazanç hangi koltukta gerçekleşti sorusu ancak böyle
+    // cevaplanır (D-1 sıra kararının etkisi buradan okunacak).
+    const onbellek = g.cacheWrite || g.cacheRead ? `  onbellek yaz ${g.cacheWrite} / oku ${g.cacheRead}` : "";
+    console.log(
+      `  ${id.padEnd(13)} ${String(g.cagri).padStart(2)} cagri  ${usd(g.nano).padStart(11)}  ` +
+        `${yuzde(g.nano, k.nano).padStart(6)}  ${g.model ?? "-"}${onbellek}`,
+    );
   }
 
   const d = denetimEtiketleri(o);

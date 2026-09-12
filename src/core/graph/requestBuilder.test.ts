@@ -8,7 +8,7 @@
 // aldı. Arama kodda yoktu.
 
 import assert from "node:assert";
-import { aramaKarari, ARAMALI_FAZLAR, buildRequest, fazAnahtari } from "./requestBuilder.ts";
+import { aramaKarari, ARAMALI_FAZLAR, buildRequest, buildSystemContent, fazAnahtari } from "./requestBuilder.ts";
 import type { SeatRunInput } from "./seatRunner.ts";
 
 const girdi = (phase: string, ek: Partial<SeatRunInput> = {}): SeatRunInput => ({
@@ -119,4 +119,66 @@ const kur = (seatId: string, input: SeatRunInput, fazdaYapilanArama = 0, perPhas
   assert.ok(String(dorduncu.aramaAtlandi).includes("kap"));
 }
 
-console.log("REQUEST_BUILDER_TEST_OK: arama kapsami, engine sabit exa, iade aramaz, faz kapi FAZ basina");
+// 10) ORTAK ÖN EK (M2-C-5, SEÇENEK A). Önbelleğin işe yaraması için bir koltuğun FARKLI
+//     fazlarındaki istekler BAYT BAYT aynı bir ön ekle başlamalı.
+//
+//     KIRMIZI: eski sırada sistem mesajı kimlik + faz talimatıydı ve zarf/fikir kullanıcı
+//     mesajındaydı. Ortak ön ek yalnız KİMLİK kadardı; 12 Eylül probunda önbelleğin çalıştığı en
+//     kısa ölçülmüş uzunluk 2.316 tokendi (~9.000 karakter) ve kimlik metinleri onun çok altında.
+{
+  const kimlik = "Sen Divan'in Denetcisi'sin. ".repeat(20); // ~540 karakter: gercek kimlik dosyalari bu mertebede
+  const zarfFikirEk = "OTURUM ZARFI ve FIKIR ve EK OZETI. ".repeat(300); // ~10.500 karakter
+  const f4 = "F4 denetim talimati.";
+  const f5 = "F5 final denetim talimati.";
+
+  const ortakOnEk = (a: string, b: string) => {
+    let i = 0;
+    while (i < a.length && i < b.length && a[i] === b[i]) i++;
+    return i;
+  };
+
+  // ESKI sira: sistem = kimlik + faz talimati. Ortak on ek kimlik kadar.
+  const eskiF4 = `${kimlik}\n\n---\n\n${f4}`;
+  const eskiF5 = `${kimlik}\n\n---\n\n${f5}`;
+  assert.ok(
+    ortakOnEk(eskiF4, eskiF5) < 1000,
+    `eski sirada ortak on ek kimlik kadar kaliyordu: ${ortakOnEk(eskiF4, eskiF5)} karakter`,
+  );
+
+  // YENI sira, Anthropic DISI model: tek metin ama sira ayni; ortak on ek kimlik + zarf/fikir/ek.
+  const yeniF4 = buildSystemContent({ model: "openai/gpt-5.1", kimlik, zarfFikirEk, fazTalimati: f4 }) as string;
+  const yeniF5 = buildSystemContent({ model: "openai/gpt-5.1", kimlik, zarfFikirEk, fazTalimati: f5 }) as string;
+  assert.strictEqual(typeof yeniF4, "string", "Anthropic disi modelde duz metin gider");
+  assert.ok(
+    ortakOnEk(yeniF4, yeniF5) > 10_000,
+    `yeni sirada ortak on ek zarf+fikir+ek kadar: ${ortakOnEk(yeniF4, yeniF5)} karakter`,
+  );
+
+  // YENI sira, Anthropic: parcali icerik. Ilk ISARETE kadar olan blok BAYT BAYT ayni.
+  const antF4 = buildSystemContent({ model: "anthropic/claude-sonnet-5", kimlik, zarfFikirEk, fazTalimati: f4 });
+  const antF5 = buildSystemContent({ model: "anthropic/claude-sonnet-5", kimlik, zarfFikirEk, fazTalimati: f5 });
+  assert.ok(Array.isArray(antF4) && Array.isArray(antF5), "Anthropic'te parcali icerik");
+  const p4 = antF4 as { type: string; text: string; cache_control?: unknown }[];
+  const p5 = antF5 as { type: string; text: string; cache_control?: unknown }[];
+  assert.strictEqual(p4.length, 3, "kimlik + zarf/fikir/ek + faz talimati");
+  assert.deepStrictEqual(p4.slice(0, 2), p5.slice(0, 2), "ilk isarete kadar olan blok BAYT BAYT ayni");
+  assert.notDeepStrictEqual(p4[2], p5[2], "faz talimati isaretten SONRA ve fazlar arasi farkli");
+
+  // Iki isaret: (2)'nin ve (3)'un sonunda. Birincisi fazlar arasi, ikincisi ayni fazin iadesi icin.
+  assert.strictEqual(p4[0].cache_control, undefined, "kimlik tek basina isaretlenmez, zarfla birlikte onbelleklenir");
+  assert.deepStrictEqual(p4[1].cache_control, { type: "ephemeral" });
+  assert.deepStrictEqual(p4[2].cache_control, { type: "ephemeral" });
+}
+
+// 11) Zarfsız çağrı (F0 brifingi): boş blok İŞARETLENMEZ, çünkü işaretlenecek bir ön ek yok.
+{
+  const parcalar = buildSystemContent({
+    model: "anthropic/claude-sonnet-5",
+    kimlik: "kimlik",
+    zarfFikirEk: "   ",
+    fazTalimati: "faz",
+  }) as { text: string }[];
+  assert.strictEqual(parcalar.length, 2, "bos zarf blogu hic eklenmez");
+}
+
+console.log("REQUEST_BUILDER_TEST_OK: arama kapsami + faz kapi + katman sirasi (ortak on ek bayt bayt ayni)");
