@@ -98,6 +98,16 @@ M2-A kapandığında açık kalan her şey burada, tek yerde. Kaynaklar: `docs/M
 - **C-9** metin tavanı: 2.500 iki çağrıda yetmedi, 6.000'e çıkarıldı. Kalıcı değer ölçümle
   belirlenecek, geç fazların akıl yürütme payı ayrıca bakılacak.
 - **C-10** aynı model iki koltuğa atanamaz (kadro kuralı, DESIGN §4 değişikliği, Şah onayı ayrı).
+- **U-9 kalan payı: denetim ve özet çağrıları korkuluksuz.** `runAuditWithReturn` ve `runSummary`
+  kendi çağrılarını doğrudan yapıyor; zaman aşımı ve yeniden deneme yok (kesilme koruması var).
+  `runTek`'e bağlanmalı ama İADE MANTIĞI korunarak: iade bir yeniden deneme değildir, gerekçeli
+  ikinci bir çağrıdır ve `runPhaseSeats`'in kör tekrarı onun yerini tutmaz.
+- **U-16 "doğrulanmış" için alıntı şartı:** bugün URL'nin arama sonuçlarında olması yetiyor;
+  sayfanın iddiayı DESTEKLEDİĞİ hâlâ doğrulanmıyor. `openrouter:web_fetch` ile sayfa içeriğinden
+  alıntı istenebilir. M2-C-7 ölçüm koşumunun verisinden sonra tartışılacak.
+- **Kayıt-tekrar koşucusu (M2-D adayı):** JSONL'e çağrı başına ham çıktı yazılırsa bir oturum
+  parasız yeniden oynatılabilir; mekanizma değişiklikleri gerçek veriyle sınanır. Bugün JSONL
+  yalnız özet ve künye taşıyor.
 
 **T3 turundan kalan yapı borçları.**
 
