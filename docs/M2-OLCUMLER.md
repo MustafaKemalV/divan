@@ -772,6 +772,24 @@ Süre 102,1 saniye: mevcut `timeouts.perCallMs` 120.000'e yakın. Üç arama yap
 HTTP 402: "This request would exceed your available credits". OpenRouter bakiyesi tükendi. Müh-1
 kolunun (gpt-5.1) davranışı bilinmiyor; iki ailenin bir arada çalışıp çalışmadığı ölçülmedi.
 
+### Yan ölçüm (P-3): şema ile `cache_control` BİRLİKTE çalışıyor
+
+(ii) kolunda `tools` ile `json_schema` birlikte çalışmadığı görülünce aynı soru işaretleme için de
+soruldu: M2-C-5 `cache_control`'ü bütün çağrılara koyuyor ve şema-kritik çağrılar da onların
+arasında. Ölçüm (sonnet-5, 2.673 tokenlik işaretli sistem bloğu, gerçek `divan_faz_ozeti` şeması,
+60 saniye içinde iki çağrı):
+
+| | 1. çağrı | 2. çağrı |
+|---|---|---|
+| Önbelleğe yazılan | 2.632 | 0 |
+| Önbellekten okunan | 0 | **2.632** |
+| Maliyet | $0,008612 | $0,002598 |
+| `finish_reason` | stop | stop |
+| Şema | | **GEÇERLİ (2 madde)** |
+
+Yani sessiz düşme `tools`'a özgü: işaretleme şemayı bozmuyor, şema da işaretlemeyi engellemiyor.
+M2-C-5'in kurduğu yapı bu yönden sağlam. Maliyet $0,011210.
+
 ### Karar kuralının sonucu: DUR
 
 Şah'ın verdiği kural şuydu: "(ii) şemayı geçip annotations döndürüyorsa M2-C-2 sunucu aracına

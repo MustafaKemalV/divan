@@ -40,7 +40,7 @@ function blok(hedefToken) {
   return cumle.repeat(tekrar);
 }
 
-async function cagir(model, sistemBlogu) {
+async function cagir(model, sistemBlogu, sema) {
   const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -51,14 +51,20 @@ async function cagir(model, sistemBlogu) {
     },
     body: JSON.stringify({
       model,
-      max_tokens: 16,
+      max_tokens: sema ? 2048 : 16,
+      ...(sema ? { response_format: { type: "json_schema", json_schema: { name: sema.name, strict: true, schema: sema.schema } } } : {}),
       messages: [
         {
           role: "system",
           // İŞARET BURADA: sabit ön ek önbelleğe alınsın diye.
           content: [{ type: "text", text: sistemBlogu, cache_control: { type: "ephemeral" } }],
         },
-        { role: "user", content: "Tek kelimeyle cevapla: tamam." },
+        {
+          role: "user",
+          content: sema
+            ? "Iki koltuk konustu: visionary ve market. Her biri icin birer maddelik ozet yaz."
+            : "Tek kelimeyle cevapla: tamam.",
+        },
       ],
     }),
   });
@@ -66,6 +72,8 @@ async function cagir(model, sistemBlogu) {
   const j = await res.json();
   const u = j.usage ?? {};
   return {
+    icerik: j.choices?.[0]?.message?.content ?? "",
+    finishReason: j.choices?.[0]?.finish_reason,
     promptTokens: u.prompt_tokens,
     cached: u.prompt_tokens_details?.cached_tokens ?? 0,
     cacheWrite: u.prompt_tokens_details?.cache_write_tokens ?? 0,
@@ -77,7 +85,13 @@ async function cagir(model, sistemBlogu) {
 const kayit = [];
 let toplam = 0;
 
-for (const model of ["anthropic/claude-opus-4.8", "anthropic/claude-sonnet-5"]) {
+/**
+ * `--sema`: yalnız P-3 kolunu koşar. Eşik kolları 12 Eylül'de ölçüldü ve sonucu
+ * `docs/M2-OLCUMLER.md`'de; onları yeniden koşmak ödenmiş bir ölçümü ikinci kez satın almaktır.
+ */
+const yalnizSema = process.argv.includes("--sema");
+
+for (const model of yalnizSema ? [] : ["anthropic/claude-opus-4.8", "anthropic/claude-sonnet-5"]) {
   for (const hedef of [3000, 1200]) {
     const sistem = blok(hedef);
     const ilk = await cagir(model, sistem);
@@ -97,6 +111,35 @@ for (const model of ["anthropic/claude-opus-4.8", "anthropic/claude-sonnet-5"]) 
         `${ikinci.cached > 0 ? ` (${ikinci.cached} token okundu)` : " (bu uzunluk esigin altinda)"}`,
     );
   }
+}
+
+// --- P-3: ŞEMA + cache_control AYNI İSTEKTE ---------------------------------------------------
+// Neden ayrı bir kol: 15 Eylül probu `tools` ile `json_schema`'nın BİRLİKTE çalışmadığını gösterdi
+// (şema sessizce düştü, markdown geldi). Aynı sessiz düşme `cache_control` ile de olabilir; M2-C-5
+// işaretlemeyi bütün çağrılara koyuyor ve şema-kritik çağrılar da onların arasında.
+{
+  const { schemaForPhase } = await import(join(KOK, "src/core/graph/schemas.ts"));
+  const sema = schemaForPhase("F2:summary");
+  const model = "anthropic/claude-sonnet-5";
+  const sistem = blok(1200);
+  const ilk = await cagir(model, sistem, sema);
+  const ikinci = await cagir(model, sistem, sema);
+  toplam += (ilk.cost ?? 0) + (ikinci.cost ?? 0);
+  kayit.push({ model, hedefToken: 1200, sema: sema.name, ilk, ikinci });
+
+  let semaDurumu = "AYRISTIRILAMADI";
+  try {
+    const d = JSON.parse(ikinci.icerik ?? "");
+    semaDurumu = Array.isArray(d?.points) ? `GECERLI (${d.points.length} madde)` : "GECERSIZ (points yok)";
+  } catch {
+    semaDurumu = `AYRISTIRILAMADI: ${String(ikinci.icerik).slice(0, 40)}`;
+  }
+  console.log(`\n### ${model}  SEMA + cache_control ayni istekte (gercek girdi ${ilk.promptTokens})`);
+  console.log(`  1. cagri: yazilan ${ilk.cacheWrite}, okunan ${ilk.cached}, $${(ilk.cost ?? 0).toFixed(6)}`);
+  console.log(`  2. cagri: yazilan ${ikinci.cacheWrite}, okunan ${ikinci.cached}, $${(ikinci.cost ?? 0).toFixed(6)}`);
+  console.log(`  finish_reason : ${ikinci.finishReason}`);
+  console.log(`  sema          : ${semaDurumu}`);
+  console.log(`  -> onbellek ${ikinci.cached > 0 ? "CALISTI" : "CALISMADI"}, sema ${semaDurumu.startsWith("GECERLI") ? "TUTTU" : "TUTMADI"}`);
 }
 
 mkdirSync(join(KOK, "oturum-ciktisi"), { recursive: true });
