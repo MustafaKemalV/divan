@@ -687,3 +687,98 @@ Divan'da her koltuk çağrısı aynı kimlik + zarf + fikir + ek bloğuyla başl
 çağrı var. Yani ön ek defalarca tekrarlanıyor; bu ölçüme göre işaretleme oturum başına belirgin
 bir tasarruf demek. **Sıra kararı (zarf + fikir + ek özetinin faz talimatının önüne alınması)
 yine de Şah'ındır ve M2-C-5 o karar gelmeden yazılmaz.**
+
+---
+
+## Arama probu 2: eski eklenti, sunucu aracı (2026-09-15, P-1)
+
+11 Eylül probu KISA bir soruyla koşuldu ve eski web eklentisinin sorguyu PROMPT'UN TAMAMINDAN
+türettiğini göremedi. Divan'ın gerçek denetim çağrısı 35k karakterlik README metinleriyle başlar.
+Bu prob aynı çağrıyı GERÇEK UZUNLUKTA kurdu: kullanıcı mesajı 50.802 karakter (üç ek belgenin tam
+metni + 7 Eylül koşumunun F4 fizibilite metinleri), sistem mesajı 2.382 karakter (Denetçi kimliği
++ F4 denetim talimatı), gerçek denetim şeması. Betik: `eval/prob-arama-2.mjs`, ham cevaplar
+`oturum-ciktisi/prob-arama2-2026-09-15T12-56-32-236Z.json`.
+
+| | (i) eski eklenti | (ii) sunucu aracı | (iii) sunucu aracı |
+|---|---|---|---|
+| Model | deepseek-v4-pro | deepseek-v4-pro | openai/gpt-5.1 |
+| HTTP | 200 | 200 | **402 (kredi yetmedi)** |
+| Süre | 4,6 sn | **102,1 sn** | ölçülemedi |
+| Şema | GEÇERLİ (5 iddia) | **GEÇERSİZ: markdown döndü** | ölçülemedi |
+| `annotations` | 5 | **15** | ölçülemedi |
+| Sonuçlar alakalı mı | **HAYIR** | **EVET** | ölçülemedi |
+| Girdi token | 17.165 | **33.701** (1,96x) | ölçülemedi |
+| Çıktı token | 2.563 | 4.673 | ölçülemedi |
+| Arama kalemi | $0,007 (1 arama) | $0,021 (3 arama) | $0 |
+| Toplam | $0,044500 | $0,071192 | 0 |
+
+Prob toplamı: **$0,115692**. Kestirim ~5 sentti; aşımın sebebi prompt'un gerçek uzunluğu ve
+sunucu aracının prompt'u turlar arası yeniden göndermesi. Koşumdan önce bu risk belirtilmişti.
+
+### (i) Eski eklenti: arama çalışıyor ama YANLIŞ ŞEYİ arıyor
+
+Beş sonucun tamamı Şah'ın kütüphaneleriyle ilgisiz:
+
+```
+github.com                   RestDB/webhook-verify
+github.com                   JacobStephens2/webhook-verify
+www.linkedin.com             Webhook signatures are calculated over bytes, not JSON objects.
+www.interviewexplainer.com   Webhook HMAC-SHA256 Signature Verification in Spring Boot
+github.com                   vinkurov/webhook-kit
+```
+
+Sorgu prompt'un tamamından türediği ve prompt webhook-verify README'siyle başladığı için Exa
+"webhook verify" arayıp BAŞKALARININ aynı adlı projelerini getirdi. Denetimin sorduğu soruların
+(Java 25 / Boot 4.1 benimsemesi, org yeniden adlandırmanın Maven koordinatlarına etkisi) hiçbiri
+aranmadı. Fable masasının teşhisi birebir doğrulandı: rozet bu sonuçlarla hak edilirse, kaynak
+disiplini bir tiyatroya dönüşür.
+
+### (ii) Sunucu aracı: aramalar MÜKEMMEL, ama şema bozuldu
+
+On beş sonucun hepsi denetimin gerçekten sorduğu sorulara ait:
+
+```
+openjdk.org / oracle.com      JDK 25
+spring.io / github.com        Spring Boot 4.1 ve 4.0 surum notlari
+docs.github.com / github.blog GitHub org yeniden adlandirma ve silme
+maven.apache.org              Guide to relocation
+central.sonatype.org          Can I change/modify/delete a component on Central
+docs.gradle.org               The Maven Publish Plugin
+```
+
+`usage.server_tool_use_details`: `{"web_search_requests":3,"tool_calls_requested":3,"tool_calls_executed":3}`.
+Üç arama yapıldı, ücret $0,021 (3 x $0,007) ve `cost - upstream` ile ayrılabiliyor.
+
+**Ama `response_format: json_schema` ONURLANMADI.** `finish_reason: "stop"` gelmesine rağmen
+içerik JSON değil markdown:
+
+```
+"# Denetim Raporu\n\n---\n\n## premortem\n\n**Bir yıl sonra, Eylül 2027. Plan başarısız oldu..."
+```
+
+Yani bu model/sağlayıcıda `tools` ile `json_schema` aynı istekte BİRLİKTE çalışmıyor: araç turu
+varken şema sessizce düşüyor. Sessizce, çünkü HTTP 200 ve `finish_reason: stop`; hata yok, yalnız
+istenen biçim yok.
+
+Prompt yeniden gönderiliyor: girdi 33.701 token, tek turluk (i) kolunun 17.165'inin **1,96 katı**.
+Yani araç turu başına prompt bir kez daha faturalanıyor ve 50k karakterlik bir denetim çağrısında
+bu, aramanın kendisinden pahalı.
+
+Süre 102,1 saniye: mevcut `timeouts.perCallMs` 120.000'e yakın. Üç arama yapan bir denetim
+çağrısı, bugünkü zaman aşımı tavanının içinde ama payı dar.
+
+### (iii) Ölçülemedi
+
+HTTP 402: "This request would exceed your available credits". OpenRouter bakiyesi tükendi. Müh-1
+kolunun (gpt-5.1) davranışı bilinmiyor; iki ailenin bir arada çalışıp çalışmadığı ölçülmedi.
+
+### Karar kuralının sonucu: DUR
+
+Şah'ın verdiği kural şuydu: "(ii) şemayı geçip annotations döndürüyorsa M2-C-2 sunucu aracına
+geçer; (ii) çalışmıyorsa DUR". (ii) annotations döndürdü ama **şemayı geçmedi**. Koşul
+karşılanmadığı için M2-C-2 sunucu aracına GEÇİRİLMEDİ ve eski eklenti kodu SİLİNMEDİ; iki adımlı
+tasarım (önce sorgu üret, kod arasın, sonra denetle) Fable masasına ve Şah'a döner.
+
+Bu tablonun eklediği üç şey, o tasarım konuşulurken ölçülmüş veri olarak masada durur:
+şema ile araç turunun birlikte çalışmaması, prompt'un tur başına yeniden faturalanması, ve
+aramaların sorgu modelden geldiğinde gerçekten isabetli olması.
