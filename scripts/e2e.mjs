@@ -16,7 +16,7 @@
  */
 
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -1321,6 +1321,41 @@ async function run() {
     check(cikti2.includes("[--yanit] KAPI3 ="), "devam yazili yanitla gecmeli");
     check(existsSync(join(process.cwd(), "oturum-ciktisi", `${tid}.md`)), "devam md yazmali");
     console.log(`  kanit: cikis 3 + JSONL yanitsiz-kapi(KAPI3), --devam ile cikis 0`);
+  });
+
+  await scenario("S29", "Cikis kodu sozlesmesi: sebepli durus 4, cokme 1, temiz 0 (C-6)", async () => {
+    // KIRMIZI: omurga durusu da dugum cokmesi de cikis 0 veriyordu, yani otomasyon (deney kollari,
+    // M5 kor degerlendirmesi) basarisiz bir kosumu basarili sayiyordu.
+    //
+    // Test isareti fikir DOSYASINA yazilir: surucu zaten dosyadan okuyor, yeni bir yol acmiyoruz.
+    const fikirYaz = (ad, isaret) => {
+      const yol = join(TMP, `${ad}.txt`);
+      writeFileSync(yol, `${LONG} ${isaret}`, "utf8");
+      return yol;
+    };
+    const YANITLAR = ["--yanit", "KAPI1=1", "--yanit", "KAPI2=onay", "--yanit", "KAPI3=karar"];
+    const kosVeTopla = (dosya) => {
+      const r = surucuKos([dosya, ...YANITLAR]);
+      const cikti = `${r.stdout ?? ""}${r.stderr ?? ""}`;
+      const tid = threadIdOf(cikti);
+      if (tid) uretilenler.push(tid);
+      return { status: r.status, cikti };
+    };
+
+    // (a) SEBEPLI DURUS -> 4: brifing bir kez kesilir, omurga sebeple durur (K-2).
+    const durus = kosVeTopla(fikirYaz("cikis-durus", "[TEST:kesik1:chiefAdvisor]"));
+    check(durus.status === 4, `sebepli durus cikis 4 olmali, gelen ${durus.status}\n${durus.cikti.slice(-500)}`);
+    check(durus.cikti.includes("alınamadı"), "durus sebebi basilmali");
+
+    // (b) DUGUM COKMESI -> 1.
+    const cokme = kosVeTopla(fikirYaz("cikis-cokme", "[TEST:cokme:F1-frame]"));
+    check(cokme.status === 1, `cokme cikis 1 olmali, gelen ${cokme.status}\n${cokme.cikti.slice(-500)}`);
+    check(cokme.cikti.includes("! hata"), "cokme ciktida gorunmeli");
+
+    // (c) TEMIZ BITIS -> 0: sozlesmenin oteki ucu, yoksa "hep 4 donduruyor" da gecerdi.
+    const temiz = kosVeTopla(fikirYaz("cikis-temiz", ""));
+    check(temiz.status === 0, `temiz bitis cikis 0 olmali, gelen ${temiz.status}\n${temiz.cikti.slice(-400)}`);
+    console.log(`  kanit: sebepli durus 4, cokme 1, temiz bitis 0`);
   });
 
   await scenario("S25", "Kadro istisnasi: beyan done olayina ve kunyeye damgalanir (DESIGN §4)", async () => {

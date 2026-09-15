@@ -173,6 +173,15 @@ function gunlukYaz(kayit) {
  * ölçüsüdür (paralellik onu düşürür); kapı beklemesi bir kullanım ölçüsüdür.
  */
 const sure = { modelMs: 0, kapiMs: 0, dugum: new Map() };
+/**
+ * ÇIKIŞ KODU SÖZLEŞMESİ (C-6). Bir koşumun nasıl bittiği kabuktan okunabilir olmalı:
+ *   0  temiz bitiş
+ *   1  düğüm çöktü (`error` olayı) ya da sürücü hata aldı
+ *   3  yanıtsız kapı (TTY yok, --yanit verilmedi): güvenli duruş, --devam ile sürer
+ *   4  sebepli duruş (`done.reason` dolu): omurga sustu, kapı iptali, sözleşme dışı yanıt
+ * Önceden çöken oturum da sebepli duruş da 0 ile çıkıyordu, yani "her şey yolunda" diyordu.
+ */
+let hataOlayi = false;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let server = null;
 
@@ -248,7 +257,12 @@ async function gonder(body) {
         }
         if ((e.entries ?? []).length) console.log("");
       }
-      if (e.type === "error") console.log(`   ! hata: ${e.message}`);
+      if (e.type === "error") {
+        console.log(`   ! hata: ${e.message}`);
+        // C-6: cokme SESSIZ gecmez, cikis kodunda gorunur. Otomasyon (deney kollari, M5 kor
+        // degerlendirmesi) cikis koduna bakar; coken bir kosumu basarili saymasi yanlis veri uretir.
+        hataOlayi = true;
+      }
       if (e.type === "gate" || e.type === "done") durak = e;
     }
   }
@@ -543,6 +557,15 @@ async function main() {
   const yol = ciktiYaz(threadId, st, st.runnerMode, sureMs, sure);
   console.log(`\n  cikti      : ${yol}`);
   console.log(`  olay gunlugu: ${gunlukYolu}`);
+
+  // Çıkış kodu sözleşmesi (C-6): çökme 1, sebepli duruş 4, temiz bitiş 0.
+  if (hataOlayi) {
+    console.log(`  cikis      : 1 (dugum coktu; --devam ile kurtarilabilir)`);
+    process.exitCode = 1;
+  } else if (durak?.type === "done" && durak.reason) {
+    console.log(`  cikis      : 4 (sebepli durus)`);
+    process.exitCode = 4;
+  }
 }
 
 try {
