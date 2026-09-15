@@ -22,6 +22,13 @@ import { join } from "node:path";
 
 const PORT = Number(process.env.E2E_PORT ?? 3131);
 const BASE = `http://127.0.0.1:${PORT}`;
+
+// ÇAĞRI TABANI (§5). Üç adımlı topraklamadan (M2-C-2) sonra denetim TEK çağrı değil: sorgu turu (1)
+// + arama (stub iki sorgu üretir, 2) + denetimin kendisi (1). Eski taban 27/13 idi; denetimin üç
+// adıma çıkması her koşuma +3 ekledi. Sabitler burada tek yerde durur, çünkü aynı aritmetik dokuz
+// senaryoda geçiyor ve dokuz yerde elle güncellenen bir sayı er geç birinde yanlış kalır.
+const TAM_KURUL = 30;
+const KUCUK_KURUL = 16;
 const TMP = mkdtempSync(join(tmpdir(), "divan-e2e-"));
 const DB = join(TMP, "checkpoints.sqlite");
 const CTX_DB = join(TMP, "context.sqlite");
@@ -153,7 +160,7 @@ async function run() {
     s = stopEvent(await post({ threadId: "e2e-s01", resume: "karar: devam" }));
     check(s.type === "done", `done bekleniyordu: ${s.type}`);
     check(s.runnerMode === "stub", `stub kosumu damgalanmali, gelen: ${s.runnerMode}`);
-    check(s.metrics.callCount === 27, `27 cagri bekleniyordu, gelen ${s.metrics.callCount}`);
+    check(s.metrics.callCount === TAM_KURUL, `${TAM_KURUL} cagri bekleniyordu, gelen ${s.metrics.callCount}`);
     // Maliyet sayacı: stub sağlayıcı maliyet bildirmez, bu SESSİZ geçilmez.
     check(s.metrics.costNanoUsd === 0, "stub kosumda bildirilmis maliyet olmamali");
     check(s.metrics.costUsd === "0.000000", `maliyet metni bicimlendirilmis gelmeli: ${s.metrics.costUsd}`);
@@ -162,7 +169,7 @@ async function run() {
       `maliyeti bilinmeyen cagri sayisi toplamla esit olmali: ${s.metrics.costUnknownCalls}/${s.metrics.callCount}`,
     );
     console.log(`  kanit: maliyet bilinmeyen ${s.metrics.costUnknownCalls}/${s.metrics.callCount} cagri (stub)`);
-    check(s.metrics.callCount >= 26 && s.metrics.callCount <= 28, "DESIGN §5 tipik bant 26-28 disinda");
+    check(s.metrics.callCount >= 27 && s.metrics.callCount <= 31, "DESIGN §5 tipik bant 27-31 disinda");
     // T3-1: denetimin YAPILANDIRILMIS hali state'te durmali. Onceden hic yazilmiyordu; sema ile
     // zorlanan kanit defteri dogrulandigi yerde oluyordu.
     const st01 = await durum("e2e-s01");
@@ -189,7 +196,7 @@ async function run() {
 
     s = stopEvent(await post({ threadId: "e2e-s02", resume: "karar" }));
     check(s.councilMode === "small", "done olayinda mode small olmali");
-    check(s.metrics.callCount === 13, `13 cagri bekleniyordu, gelen ${s.metrics.callCount}`);
+    check(s.metrics.callCount === KUCUK_KURUL, `${KUCUK_KURUL} cagri bekleniyordu, gelen ${s.metrics.callCount}`);
     console.log(`  kanit: mode=${s.councilMode}, callCount=${s.metrics.callCount}`);
   });
 
@@ -273,7 +280,7 @@ async function run() {
     s = stopEvent(await post({ threadId: "e2e-s07", resume: "devam" }));
     check(s.payload.dissentNote.includes("BLOCKING"), "muhalefet notu HAM olmali");
     s = stopEvent(await post({ threadId: "e2e-s07", resume: "karar" }));
-    check(s.metrics.callCount === 13, `13 cagri bekleniyordu: ${s.metrics.callCount}`);
+    check(s.metrics.callCount === KUCUK_KURUL, `${KUCUK_KURUL} cagri bekleniyordu: ${s.metrics.callCount}`);
     console.log(`  kanit: mode=${s.councilMode}, callCount=${s.metrics.callCount}`);
   });
 
@@ -306,7 +313,7 @@ async function run() {
     s = stopEvent(await post({ threadId: "e2e-s08", resume: 40 }));
     check(s.gate === "KAPI3", "tavan yukseltilince akis tamamlanmaliydi");
     s = stopEvent(await post({ threadId: "e2e-s08", resume: "karar" }));
-    check(s.metrics.callCount === 27, `27 cagri bekleniyordu: ${s.metrics.callCount}`);
+    check(s.metrics.callCount === TAM_KURUL, `${TAM_KURUL} cagri bekleniyordu: ${s.metrics.callCount}`);
     console.log(`  kanit: devam -> tavan 5 kaldi, sayi -> 40, toplam ${s.metrics.callCount} cagri`);
   });
 
@@ -355,8 +362,9 @@ async function run() {
     );
     s = stopEvent(await post({ threadId: "e2e-s16", resume: "karar" }));
     check(s.silentSeats.length > 0, "done olayinda da susan koltuklar gorunmeli");
-    // market F2/F3/F5'te 3 kez cagriliyor, her biri 2 deneme: 27 + 3 ek deneme
-    check(s.metrics.callCount === 30, `yeniden denemeler sayaca yazilmali: ${s.metrics.callCount}`);
+    // market F2/F3/F5'te 3 kez cagriliyor, her biri 2 deneme: taban + 3 ek deneme.
+    // Bu koşum TAVANA (33) oturuyor: yeniden denemeli bir tam kurul, config tavanının tam sınırında.
+    check(s.metrics.callCount === TAM_KURUL + 3, `yeniden denemeler sayaca yazilmali: ${s.metrics.callCount}`);
     // Cevapsiz denemenin maliyeti BILINMIYOR, asla sifir
     check(
       s.metrics.costUnknownCalls === s.metrics.callCount,
@@ -458,10 +466,10 @@ async function run() {
     son = stopEvent(await post({ threadId: T, resume: "karar" }));
     check(son.type === "done", `oturum tamamlanmali: ${son.type}`);
 
-    // Para: yeniden faturalama olsaydı sayaç ~27 degil ~47 olurdu (tamamlanmis 20 cagri + kalan).
+    // Para: yeniden faturalama olsaydı sayaç tabanda degil ~20 cagri fazlasinda olurdu.
     check(
-      son.metrics.callCount <= 28,
-      `onceki cagrilar yeniden faturalanmamali; beklenen <=28, gelen ${son.metrics.callCount}`,
+      son.metrics.callCount <= TAM_KURUL + 1,
+      `onceki cagrilar yeniden faturalanmamali; beklenen <=${TAM_KURUL + 1}, gelen ${son.metrics.callCount}`,
     );
     check(son.metrics.callCount >= cokmedekiCagri, "sayac geriye gitmemeli");
     console.log(
@@ -552,6 +560,23 @@ async function run() {
     check(s.gate === "KAPI3", `iade duzelince akis surmeli: ${s.gate ?? s.type}`);
 
     const st = await durum(T);
+
+    // ÜÇ ADIM TRANSKRİPTTE GÖRÜNÜR (M2-C-2). Sorgu turu ayrı bir çağrıdır ve ne aradığı kayda geçer;
+    // aksi halde Şah, denetimin neyi aramadığını okuyamaz ve "arandı ama bulunamadı" ile "hiç
+    // aranmadı" ayrımı kaybolur. 15 Eylül probunun bulgusu tam olarak buydu.
+    const sorguTuru = st.values.transcript.filter((t) => t.phase === "F4:audit:queries");
+    const aramaTuru = st.values.transcript.filter((t) => t.phase === "F4:search");
+    check(sorguTuru.length === 1, `sorgu turu transkriptte olmali: ${sorguTuru.length}`);
+    check(
+      String(sorguTuru[0].content).includes("ARAMA SORGULARI (2)"),
+      `sorgu metinleri kayda gecmeli: ${String(sorguTuru[0].content).slice(0, 80)}`,
+    );
+    check(aramaTuru.length === 1, `arama turu transkriptte olmali: ${aramaTuru.length}`);
+    check(
+      String(aramaTuru[0].content).includes("ornek.org/a") && String(aramaTuru[0].content).includes("ornek.org/b"),
+      `iki sorgunun sonuclari birlesmeli: ${String(aramaTuru[0].content).slice(0, 80)}`,
+    );
+
     const denetimler = st.values.transcript.filter((t) => t.phase === "F4:audit");
     check(denetimler.length === 2, `ilk deneme ve iade transkriptte olmali: ${denetimler.length}`);
     check(
@@ -568,11 +593,73 @@ async function run() {
     check(st.values.auditRetries === 1, `tek iade hakki: ${st.values.auditRetries}`);
 
     s = stopEvent(await post({ threadId: T, resume: "karar" }));
-    check(s.metrics.searchCalls > 0, `arama sayaci dolmali: ${s.metrics.searchCalls}`);
+    // TAM SAYI: iki sorgu -> iki arama. ">0" yazmak, kabin calistigini da sorgu basina tek cagri
+    // atildigini da kanitlamaz; ucuncu bir arama sizsaydi ">0" yine gecerdi.
+    check(s.metrics.searchCalls === 2, `iki sorgu iki arama demek: ${s.metrics.searchCalls}`);
+    check(s.metrics.callCount === TAM_KURUL + 1, `iadeli topraklanmis kosum: ${s.metrics.callCount}`);
     console.log(
-      `  kanit: ilk deneme reddedildi (izinli liste gerekcede), iade gecti, ` +
-        `searchCalls=${s.metrics.searchCalls}`,
+      `  kanit: sorgu turu 2 sorgu, ${s.metrics.searchCalls} arama, ilk deneme reddedildi ` +
+        `(izinli liste gerekcede), iade gecti, toplam ${s.metrics.callCount} cagri`,
     );
+  });
+
+  await scenario("S40", "Alinti sarti: URL listede ama alinti parcada yok -> iade (M2-C-2)", async () => {
+    // KIRMIZI ve neden bu senaryo var: 9 Eylul kosumunda denetim, izinli listedeki bir URL'nin
+    // yanina HAFIZADAN yazilmis bir cumle koyarak rozet aldi. URL kontrolu bunu yakalamaz, cunku
+    // URL gercekten listede. Yakalayan tek sey, alintinin o parcanin METNINDE gecmesi sartidir.
+    const T = "e2e-s40";
+    await post({ threadId: T, idea: `${LONG} [TEST:alinti-yok]` });
+    await post({ threadId: T, resume: "hmw" });
+    let s = stopEvent(await post({ threadId: T, resume: "cerceve onaylandi" }));
+    check(s.gate === "KAPI3", `iade duzelince akis surmeli: ${s.gate ?? s.type}`);
+
+    const st = await durum(T);
+    const denetimler = st.values.transcript.filter((t) => t.phase === "F4:audit");
+    check(denetimler.length === 2, `ilk deneme ve iade transkriptte: ${denetimler.length}`);
+    check(
+      String(denetimler[0].content).includes("ALINTISI arama parçasında yok"),
+      `ret gerekcesi alintiyi sebep gostermeli: ${String(denetimler[0].content).slice(0, 120)}`,
+    );
+    // URL'nin kendisi KUSURSUZ: ret gerekcesi URL'ye degil alintiya dayanmali.
+    check(
+      !String(denetimler[0].content).includes("arama sonuçlarında YOK"),
+      "URL listede oldugu halde URL gerekcesiyle reddedilmemeli",
+    );
+    check(String(denetimler[1].content).includes("İADE SONRASI"), "iade isaretlenmeli");
+    check(st.values.auditComplete === true, "birebir alintiyla iade gecmeli");
+    check(st.values.auditRetries === 1, `tek iade: ${st.values.auditRetries}`);
+
+    s = stopEvent(await post({ threadId: T, resume: "karar" }));
+    console.log(`  kanit: URL gecerli + alinti uydurma -> iade, birebir alintiyla gecti (${s.metrics.callCount} cagri)`);
+  });
+
+  await scenario("S41", "Sorgu turu susarsa: arama YOK, rozet imkansiz, kapi acilir (M2-C-2)", async () => {
+    // Tasarim karari burada goruluyor: sorgu uretilemediginde denetim aramasiz kosar ama
+    // "dogrulanmis" HAK EDILEMEZ. Sessizce eski bicim kontrolune dusmek, aramasiz bir denetime
+    // rozet dagitmak olurdu; Sah da bunu okuyamazdi.
+    const T = "e2e-s41";
+    await post({ threadId: T, idea: `${LONG} [TEST:sorgu-yok]` });
+    await post({ threadId: T, resume: "hmw" });
+    const s = stopEvent(await post({ threadId: T, resume: "cerceve onaylandi" }));
+    check(s.gate === "DENETIM_EKSIK", `aramasiz rozet kapiya cikmali: ${s.gate ?? s.type}`);
+    check(
+      String(s.payload.reason).includes("arama sonucu yok"),
+      `kapi gerekcesi aramasizligi soylemeli: ${s.payload.reason}`,
+    );
+
+    const st = await durum(T);
+    check(st.values.searchCalls === 0, `hic arama yapilmamali: ${st.values.searchCalls}`);
+    const sorguTuru = st.values.transcript.filter((t) => t.phase === "F4:audit:queries");
+    check(sorguTuru.length === 1, "sorgu turu yine de kayda gecmeli");
+    check(
+      String(sorguTuru[0].content).includes("SORGU ÜRETİLEMEDİ"),
+      `sorgu uretilemedigi transkriptte yazmali: ${String(sorguTuru[0].content).slice(0, 80)}`,
+    );
+    check(
+      st.values.transcript.filter((t) => t.phase === "F4:search").length === 0,
+      "sorgu yoksa arama turu hic kaydedilmemeli",
+    );
+    console.log(`  kanit: 0 sorgu -> 0 arama, kapi ${s.gate}, sorgusuzluk transkriptte`);
   });
 
   await scenario("S28", "Arama: inatci uydurma URL DENETIM_EKSIK kapisina cikar (M2-C-3 + D-2)", async () => {
@@ -657,7 +744,7 @@ async function run() {
     s = stopEvent(await post({ threadId: "e2e-s15", resume: "karar" }));
     check(s.type === "done", "oturum tamamlanmali");
     check(!s.reason, `tamamlanan oturumda durus sebebi olmamali: ${s.reason}`);
-    check(s.metrics.callCount === 27, `tam oturum 27 cagri: ${s.metrics.callCount}`);
+    check(s.metrics.callCount === TAM_KURUL, `tam oturum ${TAM_KURUL} cagri: ${s.metrics.callCount}`);
     console.log(`  kanit (tamamlanma): ${s.metrics.callCount} cagri, durus sebebi yok`);
   });
 
@@ -718,8 +805,8 @@ async function run() {
     check(s.gate === "KAPI3", `devam sonrasi KAPI3 bekleniyordu: ${s.gate ?? s.type}`);
     check(s.payload.auditComplete === false, "eksiklik karar ekranina tasinmali");
     s = stopEvent(await post({ threadId: "e2e-s12", resume: "karar" }));
-    // iade cagrisi butceye yazilir: normal 27 + 1 iade
-    check(s.metrics.callCount === 28, `iade cagrisi butceye yazilmaliydi (28): ${s.metrics.callCount}`);
+    // iade cagrisi butceye yazilir: taban + 1 iade
+    check(s.metrics.callCount === TAM_KURUL + 1, `iade cagrisi butceye yazilmaliydi: ${s.metrics.callCount}`);
     console.log(`  kanit: iade butcede sayildi, toplam ${s.metrics.callCount} cagri`);
   });
 
@@ -733,7 +820,7 @@ async function run() {
     check(s.payload.auditComplete === true, "iade turunda duzelen denetim GECERLI sayilmali");
     check(nodesOf(ev).includes("f4_revision"), "denetim gecerli olunca revizyon turu kosmali");
     const done = stopEvent(await post({ threadId: "e2e-s13", resume: "karar" }));
-    check(done.metrics.callCount === 28, `iade cagrisi sayilmaliydi (28): ${done.metrics.callCount}`);
+    check(done.metrics.callCount === TAM_KURUL + 1, `iade cagrisi sayilmaliydi: ${done.metrics.callCount}`);
     console.log(`  kanit: auditComplete=true, iade dahil ${done.metrics.callCount} cagri`);
   });
 

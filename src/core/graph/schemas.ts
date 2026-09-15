@@ -38,7 +38,7 @@ const AUDIT: JsonSchemaSpec = {
         items: {
           type: "object",
           additionalProperties: false,
-          required: ["claim", "evidence", "source", "url"],
+          required: ["claim", "evidence", "source", "url", "quote"],
           properties: {
             claim: { type: "string" },
             evidence: { type: "string", enum: ["dogrulanmis", "model-bilgisi", "varsayim"] },
@@ -46,10 +46,39 @@ const AUDIT: JsonSchemaSpec = {
             source: { type: "string" },
             // §6.2: "dogrulanmis" için ZORUNLU (audit.ts denetler); diğer etiketlerde boş kalır
             url: { type: "string" },
+            /**
+             * §6.2 M2-C: "dogrulanmis" için ZORUNLU. O URL'nin arama parçasından BİREBİR bir
+             * alıntı. URL'nin listede olması sayfanın iddiayı desteklediğini göstermez; alıntı,
+             * modelin gerçekten okuduğu metne bağlanmasının tek ucuz yoludur.
+             */
+            quote: { type: "string" },
           },
         },
       },
       weakestLink: { type: "string" },
+    },
+  },
+};
+
+/**
+ * Topraklamanın BİRİNCİ adımı (§6.2 M2-C): Denetçi arama sorgularını üretir. Ayrı bir şema,
+ * çünkü sorgu üretmek denetim yapmak değildir: aynı çağrıda ikisini birden istemek, modeli
+ * henüz aramadığı şey hakkında hüküm vermeye çağırır.
+ */
+const AUDIT_QUERIES: JsonSchemaSpec = {
+  name: "divan_f4_audit_queries",
+  schema: {
+    type: "object",
+    additionalProperties: false,
+    required: ["summary", "queries"],
+    properties: {
+      summary: { type: "string" },
+      queries: {
+        type: "array",
+        minItems: 1,
+        maxItems: 3,
+        items: { type: "string" },
+      },
     },
   },
 };
@@ -134,6 +163,8 @@ const BY_PHASE: Record<string, JsonSchemaSpec> = {
   "F0:hmw": HMW,
   "F4:audit": AUDIT,
   "F4s:audit": AUDIT,
+  "F4:audit:queries": AUDIT_QUERIES,
+  "F4s:audit:queries": AUDIT_QUERIES,
   "F4:judgment": JUDGMENT,
   "F4s:judgment": JUDGMENT,
   "F2:summary": SUMMARY,

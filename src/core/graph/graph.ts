@@ -39,6 +39,7 @@ function summaryOf(state: DivanStateType, phase: string): string {
   return latestSummary(state.phaseSummaries, phase);
 }
 import { SEATS } from "../seats/seats.ts";
+import { loadConfig } from "../config/load.ts";
 
 // DESIGN §4/§5 koltuk rolleri per faz (tam kurul).
 const IDEATORS = ["visionary", "market", "engineer1", "architect"] as const; // F2/F3
@@ -159,6 +160,18 @@ function modeRouter(state: DivanStateType): "full" | "small" {
  * transkriptte kalır (silinmez), ve iade çağrısı bütçe sayacına yazılır: iade bedavaya gelmez.
  * İkinci çıktı da geçersizse akış durur ve DENETIM_EKSIK kapısıyla Şah'a çıkar.
  */
+/**
+ * Faz kapı (§6.2): bir denetimde en çok kaç arama yapılabilir. Config okunamazsa varsayılan 3;
+ * kapın kendisi bir fren olduğu için config hatası yüzünden SINIRSIZ aramaya düşmek yanlış olurdu.
+ */
+function perPhaseCapOku(): number {
+  try {
+    return loadConfig().search.perPhaseCap;
+  } catch {
+    return 3;
+  }
+}
+
 async function runAuditWithReturn(
   run: (seatId: string, input: SeatRunInput) => Promise<SeatRunOutput>,
   state: DivanStateType,
@@ -179,38 +192,119 @@ async function runAuditWithReturn(
    * kesilme düğümü çökertiyordu; çökünce flushUsage hiç koşmadığı için harcanan para da
    * kayboluyordu. Kesilme nerede olursa olsun aynı arızadır.
    */
-  const altyapiArizasi = (e: unknown, calls: number) => ({
+  const altyapiArizasi = (e: unknown, calls: number, iade: number) => ({
     auditComplete: false,
     auditIssue: (e as Error).message,
-    auditRetries: calls - 1,
+    // İADE SAYISI ADIM SAYISI DEĞİLDİR: sorgu ve arama turları da bu fonksiyonun çağrılarıdır ama
+    // hiçbiri "koltuğa kendi çıktısını düzelttirme" değildir. İkisi tek sayaçta toplanırsa Şah
+    // denetimin kaç kez reddedildiğini okuyamaz; ayrıca kapı 3 notu yanlış sayı gösterir.
+    auditRetries: iade,
     infraFailures: [`${phase}/auditor`],
     transcript: [...entries, { phase, seatId: "auditor", content: `[ALTYAPI ARIZASI: ${(e as Error).message}]` }],
     callCount: calls,
   });
   const kesilme = (e: unknown) => (e as Error).name === "TruncatedResponseError";
 
-  let first: SeatRunOutput;
+  // ============ ADIM 1: SORGU TURU (§6.2 M2-C) ============
+  // Denetçi, denetim bağlamının tamamını görerek arama SORGULARINI üretir. Ayrı bir çağrı, çünkü
+  // sorgu üretmek denetim yapmak değildir: aynı çağrıda ikisini birden istemek, modeli henüz
+  // aramadığı şey hakkında hüküm vermeye çağırır.
+  //
+  // Kendi prompt dosyası var (`auditor-F4-audit-queries.md`): denetim talimatı burada YANLIŞ olurdu,
+  // çünkü bu turda istenen çıktı premortem ve iddia değil, sorgu listesi. D-1 önbelleği yine çalışır:
+  // kimlik ve zarf+fikir+ek özeti blokları üç çağrıda da aynı, ayrışma faz talimatında başlıyor.
+  //
+  // EK BELGELERİN TAM METNİ GİTMEZ (§5 kapsamı: F0 brifingi, F4 fizibilite, F4 denetim). Sorgu
+  // üretmek için gereken şey iddiaların kendisi, yani bağlam; ek özeti zaten sabit ön ekte duruyor.
+  const aramaKapi = perPhaseCapOku();
+  let sorgular: string[] = [];
+  let sorguNotu = "";
   try {
-    first = await run("auditor", { phase, idea: state.idea, context, attachments, retry: 0 });
+    const sorguCikti = await run("auditor", {
+      phase: `${phase}:queries`,
+      idea: state.idea,
+      context: `${context}\n\nADIM 1: yalnız arama sorgularını üret. Denetimi bu turda VERME.`,
+      retry: 0,
+    });
+    const ham = (sorguCikti.data?.queries as string[] | undefined) ?? [];
+    sorgular = ham.map((q) => String(q).trim()).filter(Boolean).slice(0, aramaKapi);
+    entries.push({
+      phase: `${phase}:queries`,
+      seatId: "auditor",
+      content: sorgular.length
+        ? `ARAMA SORGULARI (${sorgular.length}):\n${sorgular.map((q) => `- ${q}`).join("\n")}`
+        : `[SORGU ÜRETİLEMEDİ] ${sorguCikti.content}`,
+    });
+    if (ham.length > aramaKapi) {
+      sorguNotu = `${ham.length - aramaKapi} sorgu kap yüzünden aranmadı (faz kapı ${aramaKapi})`;
+    }
+    if (!sorgular.length) sorguNotu = "sorgu üretilemedi: denetim aramasız koşuyor";
   } catch (e) {
     if (!kesilme(e)) throw e;
-    return altyapiArizasi(e, 1);
+    return altyapiArizasi(e, 1, 0);
+  }
+  let calls0 = 1;
+
+  // ============ ADIM 2: ARAMA (kod yapar) ============
+  // Her sorgu için TEK ve KISA bir çağrı: kullanıcı mesajı yalnız sorgudur. Eklentinin sorguyu
+  // prompt'tan türetmesi böyle engellenir (15 Eylül probu: 35k karakterlik prompt'ta alakasız
+  // sonuçlar). Sıralı koşar: kap sayımı eşzamanlılıkta yanılmasın.
+  const sonuclar: { url: string; title?: string; content?: string }[] = [];
+  for (const sorgu of sorgular) {
+    try {
+      const aramaCikti = await run("auditor", { phase: `${phase.replace(":audit", ":search")}`, idea: state.idea, context: sorgu, retry: 0 });
+      calls0++;
+      for (const c of aramaCikti.citations ?? []) {
+        if (!sonuclar.some((x) => x.url === c.url)) sonuclar.push(c);
+      }
+    } catch (e) {
+      if (!kesilme(e)) throw e;
+      calls0++;
+      sorguNotu = `${sorguNotu ? `${sorguNotu}; ` : ""}bir arama çağrısı kesildi`;
+    }
+  }
+  if (sorgular.length) {
+    entries.push({
+      phase: `${phase.replace(":audit", ":search")}`,
+      seatId: "auditor",
+      content: sonuclar.length
+        ? `ARAMA SONUÇLARI (${sonuclar.length}):\n${sonuclar.map((r) => `- ${r.url} | ${r.title ?? "(başlık yok)"}`).join("\n")}`
+        : "[ARAMA SONUÇ VERMEDİ]",
+    });
+  }
+
+  // ============ ADIM 3: DENETİM ============
+  // Aynı bağlam + arama sonuçları. "dogrulanmis" yalnız bu kümeden ve ALINTIYLA hak edilir.
+  const sonucBlogu = sonuclar.length
+    ? `\n\nARAMA SONUÇLARI (yalnız bunlar "dogrulanmis" sayılabilir):\n${sonuclar
+        .map((r) => `- ${r.url} | ${r.title ?? ""} | ${(r.content ?? "").slice(0, 2000)}`)
+        .join("\n")}`
+    : `\n\nARAMA SONUCU YOK${sorguNotu ? ` (${sorguNotu})` : ""}: bu denetimde hiçbir iddia "dogrulanmis" olamaz.`;
+  const denetimBaglami = `${context}${sonucBlogu}\n\nADIM 2: denetimi ver.`;
+
+  let first: SeatRunOutput;
+  try {
+    first = await run("auditor", { phase, idea: state.idea, context: denetimBaglami, attachments, retry: 0 });
+  } catch (e) {
+    if (!kesilme(e)) throw e;
+    return altyapiArizasi(e, calls0 + 1, 0);
   }
   outs.push(first);
-  // İZİNLİ URL KÜMESİ (M2-C-3): o çağrının arama sonuçları. Arama İSTENMEDİYSE liste verilmez ve
-  // eski davranış (yalnız biçim kontrolü) sürer; arama istendiyse liste verilir, boş olsa bile.
-  // "Arama yapılmadı" ile "arandı, sonuç yok" ayrı şeylerdir.
-  const izinli = (o: SeatRunOutput) => (o.searchRequested ? (o.citations ?? []).map((c) => c.url) : undefined);
-  let check = validateAudit(first.data, izinli(first));
+  // İZİNLİ KÜME: ADIM 2'nin sonuçları. Sorgu turu şema üretemediyse (sorgular boş) arama hiç
+  // yapılmadı demektir; o zaman liste BOŞ verilir, `undefined` değil: "arandı, sonuç yok" ile
+  // "hiç aranmadı" arasındaki fark burada kaybolmaz ve her iki halde de "dogrulanmis" imkansızdır.
+  const izinli = sorgular.length || sonuclar.length ? sonuclar : [];
+  let check = validateAudit(first.data, izinli);
   // SADIK TRANSKRİPT (T3-1): geçerli denetim, doğrulanmış İÇERİĞİYLE yazılır. Önceden yalnız
   // `first.content` (yani data.summary) giriyordu ve premortem, iddialar, kaynaklar doğrulandığı
   // yerde ölüyordu. Geçersiz çıktı DÜZELTİLMEZ, ham haliyle ve gerekçesiyle kalır (§6).
   entries.push({
     phase,
     seatId: "auditor",
-    content: check.ok ? renderAudit(check.audit, first.citations ?? []) : `[GEÇERSİZ: ${check.reason}] ${first.content}`,
+    content: check.ok ? renderAudit(check.audit, sonuclar) : `[GEÇERSİZ: ${check.reason}] ${first.content}`,
   });
-  let calls = 1;
+  let calls = calls0 + 1;
+  let iade = 0;
 
   if (!check.ok) {
     let second: SeatRunOutput;
@@ -218,37 +312,34 @@ async function runAuditWithReturn(
       second = await run("auditor", {
         phase,
         idea: state.idea,
+        // İade YENİ ARAMA YAPMAZ: aynı sonuç kümesiyle yeniden sorulur. Sonuçlar bağlamda zaten
+        // duruyor (denetimBaglami), üstüne yalnız reddin gerekçesi eklenir.
         context:
-          `${context}\n\nİADE GEREKÇESİ (çıktın reddedildi, aynı denetimi bu eksiği gidererek yeniden ver): ` +
-          `${check.reason}` +
-          // İade yeni arama YAPMAZ (M2-C-2); ilk çağrının sonuçları buradan gider, yoksa koltuk
-          // kaynak gösteremeyeceği bir kuralla yeniden sınanmış olurdu.
-          (first.searchRequested
-            ? `\n\nİLK ÇAĞRININ ARAMA SONUÇLARI (yalnız bunlar "dogrulanmis" sayılabilir):\n${
-                (first.citations ?? []).map((c) => `- ${c.url}${c.title ? ` (${c.title})` : ""}`).join("\n") ||
-                "(sonuç yok)"
-              }`
-            : ""),
+          `${denetimBaglami}\n\nİADE GEREKÇESİ (çıktın reddedildi, aynı denetimi bu eksiği gidererek yeniden ver): ` +
+          `${check.reason}`,
         attachments,
         retry: 1,
       });
     } catch (e) {
       if (!kesilme(e)) throw e;
-      return altyapiArizasi(e, 2);
+      return altyapiArizasi(e, calls0 + 2, 1);
     }
-    calls = 2;
+    // Sabit "2" DEĞİL: adım 1 ve adım 2'nin çağrıları da harcandı. Sabit yazıldığında iade,
+    // bütçeye çağrı EKLEMEK yerine ondan düşüyordu (arama kolunda 29, iade kolunda 27).
+    calls = calls0 + 2;
+    iade = 1;
     outs.push(second);
     // İADE, İLK ÇAĞRININ kümesiyle yargılanır. İade yeni arama YAPMAZ (M2-C-2), dolayısıyla
     // `second.searchRequested` false ve `izinli(second)` undefined olur; o da eski biçim
     // kontrolüne düşmek, yani hafızadan yazılmış bir URL'nin İADEDE rozet alması demekti.
     // Koltuğa gönderilen iade gerekçesi de zaten ilk çağrının sonuçlarını taşıyor: aynı kümeyle
     // sorulan bir soru, aynı kümeyle yargılanmalı.
-    check = validateAudit(second.data, izinli(first));
+    check = validateAudit(second.data, izinli);
     entries.push({
       phase,
       seatId: "auditor",
       content: check.ok
-        ? `[İADE SONRASI]\n${renderAudit(check.audit, second.citations ?? [])}`
+        ? `[İADE SONRASI]\n${renderAudit(check.audit, sonuclar)}`
         : `[İADE SONRASI DA GEÇERSİZ: ${check.reason}] ${second.content}`,
     });
   }
@@ -256,7 +347,8 @@ async function runAuditWithReturn(
   return {
     auditComplete: check.ok,
     auditIssue: check.ok ? "" : check.reason,
-    auditRetries: calls - 1,
+    ...(sorguNotu ? { summaryIssues: [`${phase}: ${sorguNotu}`] } : {}),
+    auditRetries: iade,
     // Yapılandırılmış hali de state'e yazılır; yalnız GEÇERLİ olan (§6: geçersiz çıktı taşınmaz).
     audit: check.ok ? check.audit : null,
     transcript: entries,

@@ -19,6 +19,26 @@ export interface AuditClaim {
   source: string;
   /** §6.2: `dogrulanmis` için zorunlu; diğer etiketlerde boş kalabilir */
   url: string;
+  /** §6.2 M2-C: `dogrulanmis` için zorunlu, o URL'nin arama parçasından BİREBİR alıntı */
+  quote: string;
+}
+
+/** İzinli kaynak: o çağrının arama sonucu. Alıntı, `content` içinde aranır. */
+export interface IzinliKaynak {
+  url: string;
+  content?: string;
+}
+
+/** Alıntının anlamlı sayılması için en az uzunluk. */
+export const MIN_QUOTE_LEN = 20;
+
+/**
+ * Alıntı karşılaştırma normali: boşluk dizileri tek boşluğa iner, baş/son kırpılır, küçük harfe
+ * çevrilir. Satır sarması ve girinti farkı bir alıntıyı geçersiz kılmamalı; model metni kopyalarken
+ * biçimi korumak zorunda değil, İÇERİĞİ korumak zorunda.
+ */
+export function normalizeQuote(v: string): string {
+  return v.replace(/\s+/gu, " ").trim().toLocaleLowerCase("tr");
 }
 
 /** §6.2 rozet kuralı: URL'siz hiçbir iddia "doğrulanmış" olamaz. Biçim kontrolü. */
@@ -73,7 +93,7 @@ function isLabel(v: unknown): v is EvidenceLabel {
  * bu yoldan geçer. Liste BOŞ verilirse "arama yapıldı ama sonuç yok" demektir ve her
  * "dogrulanmis" reddedilir; ikisi ayrı şeydir ve karıştırılmaz.
  */
-export function validateAudit(data: unknown, izinliUrller?: readonly string[]): AuditCheck {
+export function validateAudit(data: unknown, izinliKaynaklar?: readonly IzinliKaynak[]): AuditCheck {
   if (!data || typeof data !== "object") return { ok: false, reason: "denetim çıktısı şemaya uymadı" };
   const d = data as Record<string, unknown>;
 
@@ -106,12 +126,13 @@ export function validateAudit(data: unknown, izinliUrller?: readonly string[]): 
         reason: `"dogrulanmis" etiketli iddia URL'siz olamaz (§6.2): "${c.claim.slice(0, 60)}"`,
       };
     }
+    const quote = typeof c.quote === "string" ? c.quote : "";
     // M2-C-3: URL'nin VAR OLMASI yetmez, o çağrının ARAMA SONUÇLARINDAN gelmiş olmalı.
-    if (c.evidence === "dogrulanmis" && izinliUrller) {
-      const izinli = new Set(izinliUrller.map(normalizeUrl));
-      if (!izinli.has(normalizeUrl(url))) {
-        const liste = izinliUrller.length
-          ? `Bu çağrının arama sonuçları: ${izinliUrller.slice(0, 8).join(", ")}`
+    if (c.evidence === "dogrulanmis" && izinliKaynaklar) {
+      const kaynak = izinliKaynaklar.find((k) => normalizeUrl(k.url) === normalizeUrl(url));
+      if (!kaynak) {
+        const liste = izinliKaynaklar.length
+          ? `Bu çağrının arama sonuçları: ${izinliKaynaklar.map((k) => k.url).slice(0, 8).join(", ")}`
           : "Bu çağrıda arama sonucu yok.";
         return {
           ok: false,
@@ -120,12 +141,32 @@ export function validateAudit(data: unknown, izinliUrller?: readonly string[]): 
             `"${c.claim.slice(0, 60)}" -> ${url}. Hafızadan yazılan URL kaynak sayılmaz. ${liste}`,
         };
       }
+      // ALINTI ŞARTI (§6.2 M2-C): URL'nin listede olması sayfanın iddiayı DESTEKLEDİĞİNİ
+      // göstermez. Alıntı, modelin gerçekten okuduğu metne bağlanmasının tek ucuz yoludur.
+      if (normalizeQuote(quote).length < MIN_QUOTE_LEN) {
+        return {
+          ok: false,
+          reason:
+            `"dogrulanmis" etiketli iddia en az ${MIN_QUOTE_LEN} karakterlik bir ALINTI taşımalı ` +
+            `(§6.2): "${c.claim.slice(0, 60)}". Gelen alıntı: "${quote.slice(0, 40)}"`,
+        };
+      }
+      if (!normalizeQuote(kaynak.content ?? "").includes(normalizeQuote(quote))) {
+        return {
+          ok: false,
+          reason:
+            `"dogrulanmis" etiketli iddianın ALINTISI arama parçasında yok (§6.2): ` +
+            `"${c.claim.slice(0, 60)}" -> alıntı "${quote.slice(0, 60)}". ` +
+            `Alıntı, ${url} sonucunun içerik parçasından BİREBİR olmalı.`,
+        };
+      }
     }
     claims.push({
       claim: c.claim,
       evidence: c.evidence,
       source: typeof c.source === "string" ? c.source : "",
       url,
+      quote,
     });
   }
 

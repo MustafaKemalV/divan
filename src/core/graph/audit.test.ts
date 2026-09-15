@@ -4,7 +4,7 @@
 // şartlarından biri gevşetilirse burada düşer.
 
 import assert from "node:assert";
-import { validateAudit, MIN_AUDIT_CLAIMS, EVIDENCE_LABELS } from "./audit.ts";
+import { normalizeQuote, validateAudit, MIN_AUDIT_CLAIMS, EVIDENCE_LABELS } from "./audit.ts";
 
 const claim = (evidence: string, url = "") => ({
   claim: "dagitim maliyeti gelirden yuksek",
@@ -61,69 +61,92 @@ for (const label of EVIDENCE_LABELS) {
 assert.strictEqual(validateAudit(undefined).ok, false);
 assert.strictEqual(validateAudit({}).ok, false);
 
-// KANIT KAPISI, ARAMA SONUCUNA BAGLI (M2-C-3).
+// KANIT KAPISI: ARAMA SONUCU + ALINTI (M2-C-3 ve §6.2 M2-C alıntı şartı).
 //
 // GEREKÇE-KANITI GERÇEK VERİDEN: aşağıdaki iddia 9 Eylül koşumunun denetiminden alındı. Biçimi
-// geçerli bir URL taşıyor ve kod onu GEÇİRDİ; ama o koşumda web araması yoktu, yani URL modelin
-// hafızasından geldi ve hiç doğrulanmadı. §6.2'nin rozeti o gün kaynak GÖSTERME disiplinini
-// zorluyordu, kaynağın varlığını değil.
+// geçerli bir URL taşıyor ve kod onu GEÇİRDİ; o koşumda web araması yoktu, yani URL modelin
+// hafızasından geldi. Sonra bir adım daha: URL arama sonuçlarında OLSA BİLE sayfanın iddiayı
+// desteklediğini göstermez. Alıntı, modelin gerçekten okuduğu metne bağlanmasının tek ucuz yolu.
 {
-  const gercekIddia = {
-    claim: "audit-chain README'sinde Maven Central badge'i mevcut ancak kutuphane henuz yayinlanmamis.",
+  const PARCA =
+    "Spring Boot 4.1.1 is now available from Maven Central. This maintenance release includes " +
+    "dependency upgrades and bug fixes for the 4.1 line.";
+  const URL = "https://spring.io/blog/spring-boot-4-1-1";
+
+  const iddia = (ek = {}) => ({
+    claim: "Spring Boot 4.1.1 Maven Central'da yayinda.",
     evidence: "dogrulanmis",
-    source: "audit-chain README.md",
-    url: "https://central.sonatype.com/artifact/io.github.mustafakemalv/audit-chain-spring-boot-starter",
-  };
-  const denetim = {
+    source: "spring.io blog",
+    url: URL,
+    quote: "Spring Boot 4.1.1 is now available from Maven Central",
+    ...ek,
+  });
+  const denetim = (ilk: Record<string, unknown>) => ({
     summary: "ozet",
     premortem: "bir yil sonra basarisiz olduk",
     weakestLink: "dagitim",
     claims: [
-      gercekIddia,
-      { claim: "iddia2", evidence: "varsayim", source: "s", url: "" },
-      { claim: "iddia3", evidence: "model-bilgisi", source: "s", url: "" },
+      ilk,
+      { claim: "iddia2", evidence: "varsayim", source: "s", url: "", quote: "" },
+      { claim: "iddia3", evidence: "model-bilgisi", source: "s", url: "", quote: "" },
     ],
-  };
+  });
+  const kaynak = [{ url: URL, content: PARCA }];
 
-  // KIRMIZI: izinli liste VERİLMEZSE (bugünkü aramasız yol) iddia geçiyor.
-  assert.strictEqual(validateAudit(denetim).ok, true, "aramasiz yolda bicim kontrolu geciriyor (9 Eylul'de olan bu)");
+  // KIRMIZI 1: liste VERİLMEZSE (aramasız yol) hafızadan URL geçiyor. 9 Eylül'de olan bu.
+  assert.strictEqual(validateAudit(denetim(iddia())).ok, true, "aramasiz yolda bicim kontrolu geciriyor");
 
-  // YEŞİL 1: arama YAPILDI ve bu URL sonuçlarda YOK -> reddedilir, gerekçe izinli listeyi taşır.
-  const red = validateAudit(denetim, ["https://spring.io/", "https://github.com/spring-projects/spring-boot"]);
-  assert.strictEqual(red.ok, false, "arama sonuclarinda olmayan URL rozeti alamaz");
-  assert.ok(String((red as { reason: string }).reason).includes("arama sonuçlarında YOK"), "gerekce acik olmali");
-  assert.ok(String((red as { reason: string }).reason).includes("spring.io"), "iade gerekcesi izinli listeyi tasimali");
-
-  // YEŞİL 2: URL sonuçlardaysa geçer.
-  const gecer = validateAudit(denetim, [gercekIddia.url]);
-  assert.strictEqual(gecer.ok, true, "arama sonucundaki URL rozeti hak eder");
-
-  // YEŞİL 3: arama yapıldı ama SONUÇ YOK -> her "dogrulanmis" reddedilir. "Arama yapılmadı" ile
-  // "arandı, sonuç yok" ayrı şeylerdir: ilki listeyi vermez, ikincisi boş liste verir.
-  const bos = validateAudit(denetim, []);
-  assert.strictEqual(bos.ok, false, "arama sonucu yoksa dogrulanmis olamaz");
-  assert.ok(String((bos as { reason: string }).reason).includes("arama sonucu yok"));
-
-  // Normalleştirme: aynı kaynağın farklı yazımı reddedilmemeli, yoksa kural gerçek bir kaynağı
-  // biçim farkı yüzünden düşürür ve modeli URL'i harfi harfine kopyalamaya zorlar.
-  const farkliYazim = validateAudit(
-    { ...denetim, claims: [{ ...gercekIddia, url: "HTTPS://Central.Sonatype.com/artifact/io.github.mustafakemalv/audit-chain-spring-boot-starter/#readme" }, ...denetim.claims.slice(1)] },
-    [gercekIddia.url],
-  );
-  assert.strictEqual(farkliYazim.ok, true, "host buyuk/kucuk ve fragment farki ayni kaynagi bozmamali");
-
-  // Ama sorgu dizesi KORUNUR: ?v=2 cogu sitede baska bir sayfadir.
+  // KIRMIZI 2: URL LİSTEDE ama alıntı parçada YOK. Alıntı şartı olmasaydı bu geçerdi: model
+  // gerçek bir kaynağı gösterip onun söylemediği bir şeyi iddia edebilirdi.
+  const uydurmaAlinti = iddia({ quote: "Spring Boot 4.1.1 drops support for Java 17 entirely" });
+  const yalnizUrl = { ...denetim(uydurmaAlinti) };
   assert.strictEqual(
-    validateAudit({ ...denetim, claims: [{ ...gercekIddia, url: `${gercekIddia.url}?v=2` }, ...denetim.claims.slice(1)] }, [gercekIddia.url]).ok,
+    normalizeQuote(PARCA).includes(normalizeQuote(uydurmaAlinti.quote)),
     false,
-    "sorgu dizesi farki ayni sayfa sayilmamali",
+    "uydurma alinti parcada YOK (kirmizinin kendisi)",
+  );
+  const red = validateAudit(yalnizUrl, kaynak);
+  assert.strictEqual(red.ok, false, "URL listede olsa bile uydurma alinti gecmemeli");
+  assert.ok(String((red as { reason: string }).reason).includes("ALINTISI arama parçasında yok"));
+  assert.ok(String((red as { reason: string }).reason).includes(URL), "gerekce hangi kaynak oldugunu soylemeli");
+
+  // YEŞİL: alıntı parçada varsa geçer.
+  assert.strictEqual(validateAudit(denetim(iddia()), kaynak).ok, true, "parcadan birebir alinti gecmeli");
+
+  // Biçim farkı alıntıyı düşürmemeli: satır sarması ve girinti, içerik değil biçimdir.
+  const bicimFarki = iddia({ quote: "Spring   Boot 4.1.1\n  is now available\tfrom Maven Central" });
+  assert.strictEqual(validateAudit(denetim(bicimFarki), kaynak).ok, true, "bosluk farki alintiyi bozmamali");
+
+  // KISA alıntı reddedilir: üç kelimelik bir parça her metinde bulunur, kanıt değeri yoktur.
+  const kisa = iddia({ quote: "Spring Boot" });
+  const kisaRed = validateAudit(denetim(kisa), kaynak);
+  assert.strictEqual(kisaRed.ok, false, "kisa alinti kanit sayilmaz");
+  assert.ok(String((kisaRed as { reason: string }).reason).includes("ALINTI"));
+
+  // URL listede YOKSA alıntıya bakılmadan reddedilir ve gerekçe izinli listeyi taşır.
+  const listeDisi = validateAudit(denetim(iddia({ url: "https://hafizadan.example/uydurma" })), kaynak);
+  assert.strictEqual(listeDisi.ok, false);
+  assert.ok(String((listeDisi as { reason: string }).reason).includes("arama sonuçlarında YOK"));
+  assert.ok(String((listeDisi as { reason: string }).reason).includes("spring.io"), "gerekce izinli listeyi tasimali");
+
+  // Arama yapıldı ama SONUÇ YOK: her "dogrulanmis" reddedilir.
+  assert.strictEqual(validateAudit(denetim(iddia()), []).ok, false, "arama sonucu yoksa dogrulanmis olamaz");
+
+  // Etiketsiz iddialar alıntı istemez: kural yalnız "dogrulanmis" içindir.
+  assert.strictEqual(
+    validateAudit(
+      { ...denetim(iddia()), claims: denetim(iddia()).claims.map((c) => ({ ...c, evidence: "varsayim", url: "", quote: "" })) },
+      [],
+    ).ok,
+    true,
+    "varsayim ve model-bilgisi alinti istemez",
   );
 
-  // Etiketsiz iddialar liste verilse de etkilenmez: kural yalniz "dogrulanmis" icindir.
+  // Normalleştirme: host büyük/küçük ve fragment farkı aynı kaynağı bozmamalı.
   assert.strictEqual(
-    validateAudit({ ...denetim, claims: denetim.claims.map((c) => ({ ...c, evidence: "varsayim", url: "" })) }, []).ok,
+    validateAudit(denetim(iddia({ url: "HTTPS://Spring.io/blog/spring-boot-4-1-1#readme" })), kaynak).ok,
     true,
-    "varsayim ve model-bilgisi arama sonucu istemez",
+    "host ve fragment farki ayni kaynagi bozmamali",
   );
 }
 

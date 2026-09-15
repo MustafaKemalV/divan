@@ -13,8 +13,8 @@ const denetim: AuditOutput = {
   summary: "Denetim: premortem + 3 etiketli iddia.",
   premortem: "Bir yıl sonra başarısız olduk: dağıtım maliyeti gelirden yüksek kaldı.",
   claims: [
-    { claim: "Dağıtım maliyeti gelirden yüksek.", evidence: "varsayim", source: "sınanmamış öngörü", url: "" },
-    { claim: "Hedef segment bu fiyata alışkın.", evidence: "dogrulanmis", source: "sektör raporu", url: "https://example.org/kaynak" },
+    { claim: "Dağıtım maliyeti gelirden yüksek.", evidence: "varsayim", source: "sınanmamış öngörü", url: "", quote: "" },
+    { claim: "Hedef segment bu fiyata alışkın.", evidence: "dogrulanmis", source: "sektör raporu", url: "https://example.org/kaynak", quote: "hedef segment bu fiyata alisik" },
   ],
   weakestLink: "dağıtım kanalı",
 };
@@ -48,7 +48,7 @@ const denetim: AuditOutput = {
 // 3) Render YARGILAMAZ: etiket çevirmez, madde düşürmez, metin kısaltmaz (§6 beyan bütünlüğü).
 {
   const uzun = "x".repeat(500);
-  const m = renderAudit({ ...denetim, claims: [{ claim: uzun, evidence: "model-bilgisi", source: "", url: "" }] });
+  const m = renderAudit({ ...denetim, claims: [{ claim: uzun, evidence: "model-bilgisi", source: "", url: "", quote: "" }] });
   assert.ok(m.includes(uzun), "uzun iddia kisaltilmamali");
   assert.ok(m.includes("kaynak belirtilmedi"), "bos kaynak sessizce yutulmamali");
 }

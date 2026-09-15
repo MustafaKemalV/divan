@@ -10,16 +10,14 @@ import { getSeat } from "../seats/seats.ts";
 import type { SeatRunInput } from "./seatRunner.ts";
 
 /**
- * ARAMA YAPILAN FAZLAR (DESIGN §6.2 kapsam). Koltuğun `webTool` yetkisi TEK BAŞINA yetmez: yetki
- * "bu koltuk arayabilir" der, faz kümesi "bu işte aramak gerekir" der. İkisi birden olmalı, yoksa
- * Müh-1 her fazda arama yapar ve kap bir fazda tükenir.
+ * ARAMA FAZI (DESIGN §6.2 M2-C): eklenti YALNIZ kodun yaptığı kısa arama çağrısına eklenir.
+ *
+ * Eskiden denetim, fizibilite ve final denetim çağrılarının kendilerine ekleniyordu ve eklenti
+ * sorguyu PROMPT'UN TAMAMINDAN türetiyordu; 15 Eylül probu 35k karakterlik bir denetim prompt'uyla
+ * koşulduğunda Exa'nın başkalarının aynı adlı repolarını getirdiğini ölçtü. Artık sorguyu Denetçi
+ * yazar (adım 1), kod arar (adım 2, bu faz), Denetçi sonuçlarla denetler (adım 3).
  */
-export const ARAMALI_FAZLAR: ReadonlySet<string> = new Set([
-  "F4:audit",
-  "F4s:audit",
-  "F4:feasibility",
-  "F5:output",
-]);
+export const ARAMA_FAZLARI: ReadonlySet<string> = new Set(["F4:search", "F4s:search"]);
 
 /** Web eklentisi isteği (OpenRouter). `engine` SABİT `exa`. */
 export interface WebPlugin {
@@ -48,10 +46,10 @@ export interface AramaKarari {
 /**
  * Bu çağrıda arama yapılacak mı?
  *
- * Üç şart birden: koltuğun yetkisi, fazın arama gerektirmesi, ve fazın kapının dolmamış olması.
- * Ayrıca İADE çağrısı (retry >= 1) YENİ ARAMA YAPMAZ: iade, koltuğu kendi çıktısını düzeltmeye
- * çağırmaktır, yeniden araştırmaya değil. İlk çağrının sonuçları bağlam olarak zaten gider;
- * ikinci kez aramak hem para harcar hem de iadeyi "başka bir denetim" haline getirir.
+ * Üç şart birden: koltuğun yetkisi, fazın ARAMA FAZI olması, ve kapın dolmamış olması.
+ *
+ * İade çağrısına ayrı bir kural gerekmiyor artık: iade `F4:audit` fazındadır, arama fazı değil,
+ * yani eklenti oraya zaten eklenmez. Kural yapıdan çıkıyor, ayrı bir koşuldan değil.
  */
 export function aramaKarari(
   seatId: string,
@@ -61,10 +59,7 @@ export function aramaKarari(
 ): AramaKarari {
   const seat = getSeat(seatId);
   if (!seat?.webTool) return { eklensin: false };
-  if (!ARAMALI_FAZLAR.has(input.phase)) return { eklensin: false };
-  if ((input.retry ?? 0) >= 1) {
-    return { eklensin: false, sebep: "iade çağrısı yeni arama yapmaz, ilk çağrının sonuçlarını görür" };
-  }
+  if (!ARAMA_FAZLARI.has(input.phase)) return { eklensin: false };
   if (fazdaYapilanArama >= perPhaseCap) {
     // D-8 mantığı: kapa dayanan mekanizma çağrısı YAPILMAZ ve bu kayda geçer. Sessizce
     // aramadan geçmek, "aradık ama bulamadık" ile "hiç aramadık"ı ayırt edilemez kılardı.
@@ -118,6 +113,9 @@ export interface IstekParcalari {
  * İsteğin parçalarını kurar. Mesaj metinlerini KURMAZ (o `load.ts` ve `userMessage.ts`'in işi),
  * onları alır ve isteğin geri kalanını ekler.
  */
+/** Arama çağrısı mı: sistem yalnız kimlik, kullanıcı yalnız sorgu, çıktı kısa. */
+export const aramaCagrisi = (phase: string) => ARAMA_FAZLARI.has(phase);
+
 export function buildRequest(args: {
   seatId: string;
   input: SeatRunInput;

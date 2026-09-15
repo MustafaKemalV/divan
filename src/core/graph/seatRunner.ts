@@ -105,9 +105,10 @@ export const SMALL_IDEA_MAX_CHARS = 60;
  *   [TEST:cokme:<faz>]     -> o faz BİR KEZ çöker, sonraki denemede döner (çöken oturum kurtarma, U-14)
  *   [TEST:kesik-iade]      -> İADE turunda kesilme (iade çağrısının kesilme koruması, T3-4)
  *   [TEST:kesik1:<koltuk>] -> o koltuk BİR KEZ kesilir, sonraki çağrıda döner (omurga kurtarma, K-2)
- *   [TEST:arama]           -> aramalı fazlarda arama YAPILMIŞ gibi davranır (sahte iki alıntı)
  *   [TEST:badurl-arama]    -> denetimin "dogrulanmis" URL'si arama sonuçlarında YOK; iadede düzelir
  *   [TEST:badurl-arama:inat] -> iadede de listede olmayan URL (DENETIM_EKSIK kapısına kadar gider)
+ *   [TEST:alinti-yok]      -> URL listede ama ALINTI parçada yok; iade turunda düzelir (§6.2 M2-C)
+ *   [TEST:sorgu-yok]       -> sorgu turu şema üretemez; denetim aramasız koşar, rozet imkansız
  */
 /**
  * [TEST:cokme:<faz>] için tek seferlik çökme kaydı (U-14). Süreç ömrü boyunca yaşar: ilk deneme
@@ -120,14 +121,25 @@ const cokenFazlar = new Set<string>();
 const kesilenKoltuklar = new Set<string>();
 
 /**
- * [TEST:arama] için sahte arama sonuçları. Mekanizmanın GRAF YOLU (izinli URL kümesinin çağrıdan
+ * Sahte arama sonuçları. Mekanizmanın GRAF YOLU (izinli URL kümesinin çağrıdan
  * kapıya taşınması) bugüne kadar yalnız birim testte görünüyordu; e2e'de hiç koşmadı. Stub'ın
  * arama yapmış gibi davranması, o yolu anahtarsız ve parasız koşulabilir kılar.
  */
 const STUB_ALINTILAR = [
-  { url: "https://ornek.org/a", title: "Ornek kaynak A", content: "stub arama parcasi A" },
-  { url: "https://ornek.org/b", title: "Ornek kaynak B", content: "stub arama parcasi B" },
+  {
+    url: "https://ornek.org/a",
+    title: "Ornek kaynak A",
+    content: "Ornek kaynak A: hedef segment bu fiyata aliskin ve pazar bu bandi kabul ediyor.",
+  },
+  {
+    url: "https://ornek.org/b",
+    title: "Ornek kaynak B",
+    content: "Ornek kaynak B: dagitim maliyeti gelirden yuksek kalirsa plan bir yilda tikanir.",
+  },
 ];
+
+/** Alıntı: parçadan BİREBİR bir dilim (en az 20 karakter, §6.2 M2-C). */
+const STUB_ALINTI = "hedef segment bu fiyata aliskin";
 
 /**
  * Denetimin "dogrulanmis" iddiasının URL'si. Dört dal:
@@ -149,20 +161,26 @@ function denetimUrlsi(idea: string, retry: number): string {
     if (inat || retry < 1) return "https://hafizadan.example/uydurma";
     return STUB_ALINTILAR[0].url;
   }
-  return /\[TEST:(arama|badurl-arama)/.test(idea) ? STUB_ALINTILAR[0].url : "https://example.org/kaynak";
+  // Arama ARTIK HER DENETİMDE koşuyor (üç adımlı topraklama), yani "aramasız denetim" diye bir hal
+  // kalmadı: varsayılan URL de arama sonuçlarından biri olmalı. Sabit `example.org` bırakılsaydı
+  // işaretsiz her senaryo DENETIM_EKSIK'e düşerdi; ölçüldü, 20 e2e senaryosu birden düştü.
+  // İstisna [TEST:sorgu-yok]: orada gerçekten arama yok, rozet de olamaz (kapı açılır, doğrusu bu).
+  return STUB_ALINTILAR[0].url;
 }
 
 /**
- * Bu çağrıda arama yapılmış sayılır mı? İşaret VARSA kararı GERÇEK kural veriyor (`aramaKarari`),
- * stub kendi kuralını uydurmuyor.
+ * Bu çağrıda arama yapılmış sayılır mı? Kararı GERÇEK kural veriyor (`aramaKarari`), stub kendi
+ * kuralını uydurmuyor. Üç adımlı topraklamadan sonra bunun anlamı tek bir faz: `F4:search`.
+ *
+ * Eskiden bir `[TEST:arama]` işareti vardı ve arama ancak onunla açılıyordu. O işaret artık YALAN
+ * olurdu: arama, denetimin isteğe bağlı eklentisi değil, zorunlu adımı.
  *
  * Önemli, çünkü ilk halinde stub İADE çağrısını da "aramalı" sayıyordu; gerçek kuralda iade yeni
  * arama YAPMAZ (M2-C-2). Bu fark tam da sınanmak istenen hatayı gizliyordu: iade doğrulamasının
  * listesiz kalması (D-2) ancak iade gerçekten aramasızken görünür.
  */
-function stubAramaVar(idea: string, seatId: string, input: SeatRunInput): boolean {
-  if (!/\[TEST:(arama|badurl-arama)/.test(idea)) return false;
-  // Kap testte bağlayıcı değil: işaret zaten tek fazda bir denetim çağrısı için kullanılıyor.
+function stubAramaVar(seatId: string, input: SeatRunInput): boolean {
+  // Kap testte bağlayıcı değil: gerçek kap grafta sorgu sayısıyla zaten uygulanıyor.
   return aramaKarari(seatId, input, 0, Number.MAX_SAFE_INTEGER).eklensin;
 }
 
@@ -173,7 +191,7 @@ export class StubSeatRunner implements SeatRunner {
    */
   async run(seatId: string, input: SeatRunInput): Promise<SeatRunOutput> {
     const out = await this.uret(seatId, input);
-    if (!stubAramaVar(input.idea, seatId, input)) return out;
+    if (!stubAramaVar(seatId, input)) return out;
     return { ...out, searchRequested: true, citations: STUB_ALINTILAR };
   }
 
@@ -290,6 +308,25 @@ export class StubSeatRunner implements SeatRunner {
           content: `Çerçeve itirazı (stub): "${idea}" için seçilen HMW gömülü bir varsayım içeriyor olabilir; doğru soruyu mu soruyoruz?`,
         };
       }
+      // ADIM 1: sorgu turu (§6.2 M2-C). İki sorgu döner; kap 3 olduğu için ikisi de aranır.
+      if (phase === "F4:audit:queries" || phase === "F4s:audit:queries") {
+        if (idea.includes("[TEST:sorgu-yok]")) {
+          return { content: "Sorgu uretilemedi (stub).", data: { summary: "sorgu yok" } };
+        }
+        return {
+          content: "Arama sorgulari (stub): iki sorgu.",
+          data: {
+            summary: "Iki arama sorgusu uretildi.",
+            queries: ["hedef segment fiyat kabulu", "dagitim maliyeti gelir orani"],
+          },
+        };
+      }
+
+      // ADIM 2: arama çağrısı. Sonuçları `stubAramaVar` ekler; kullanıcı mesajı yalnız sorgudur.
+      if (phase === "F4:search" || phase === "F4s:search") {
+        return { content: `Arama yapildi (stub): "${input.context ?? ""}"` };
+      }
+
       if (phase === "F4:audit" || phase === "F4s:audit") {
         // Stub gerçek çıktı ŞEKLİNİ taklit eder (§6.3.1 şeması), yoksa e2e mekanizmayı değil
         // yalnız akışı test etmiş olurdu. [TEST:noaudit] premortemsiz eksik denetimi tetikler.
@@ -305,8 +342,8 @@ export class StubSeatRunner implements SeatRunner {
             summary: "Denetim (stub): premortem + 3 etiketli sınanmış iddia + en zayıf halka.",
             premortem: "Bir yıl sonra başarısız olduk: dağıtım maliyeti gelirden yüksek kaldı.",
             claims: [
-              { claim: "Dağıtım maliyeti gelirden yüksek.", evidence: "varsayim", source: "sınanmamış öngörü", url: "" },
-              { claim: "Benzer ürünler bu kanalda tutundu.", evidence: "model-bilgisi", source: "hafızadan", url: "" },
+              { claim: "Dağıtım maliyeti gelirden yüksek.", evidence: "varsayim", source: "sınanmamış öngörü", url: "", quote: "" },
+              { claim: "Benzer ürünler bu kanalda tutundu.", evidence: "model-bilgisi", source: "hafızadan", url: "", quote: "" },
               {
                 claim: "Hedef segment bu fiyata alışkın.",
                 evidence: "dogrulanmis",
@@ -315,6 +352,11 @@ export class StubSeatRunner implements SeatRunner {
                 // [TEST:badurl] inatçı: iadeden sonra da URL vermez (kapıya kadar gider).
                 // [TEST:badurl1] iade turunda düzelir: red -> iade -> geçerli.
                 url: denetimUrlsi(idea, input.retry ?? 0),
+                // [TEST:alinti-yok]: URL listede ama ALINTI parçada YOK; iade turunda düzelir.
+                quote:
+                  idea.includes("[TEST:alinti-yok]") && (input.retry ?? 0) < 1
+                    ? "bu cumle arama parcasinda hic gecmiyor ve uydurmadir"
+                    : STUB_ALINTI,
               },
             ],
             weakestLink: "dağıtım kanalı",
