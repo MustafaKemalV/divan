@@ -186,6 +186,7 @@ export async function POST(req: Request) {
               failedAttempts: v.failedAttempts ?? 0,
               failedCostNanoUsd: v.failedCostNanoUsd ?? 0,
               searchCalls: v.searchCalls ?? 0,
+              searchResults: v.searchResults ?? 0,
               searchCostNanoUsd: v.searchCostNanoUsd ?? 0,
             },
             silentSeats: v.silentSeats ?? [],

@@ -49,6 +49,7 @@ export type DivanEvent =
         failedCostNanoUsd: number;
         /** M2-C-6: arama sorgusu sayısı ve ücreti; ücret `costNanoUsd`'nin İÇİNDEDİR */
         searchCalls: number;
+        searchResults: number;
         searchCostNanoUsd: number;
         /** gösterim için biçimlendirilmiş USD metni; hesapta kullanılmaz */
         costUsd: string;

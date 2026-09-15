@@ -161,11 +161,32 @@ function rapor(o) {
   console.log(`Onbellek         : okunan ${k.cache} token, yazilan ${k.cacheWrite} token`);
   if (k.aramaCagri) {
     console.log(`Arama            : ${k.aramaCagri} sorgu, ${k.aramaSonuc} sonuc, ${usd(k.aramaNano)} (toplam maliyete DAHIL)`);
+    if (k.aramaSonuc === 0) console.log(`                    SONUC YOK: para yandi, topraklama olmadi`);
   }
   if (k.bitti) {
     console.log(`Sure              : toplam ${Math.round(k.bitti.sureMs / 1000)} sn = model ${Math.round(k.bitti.modelMs / 1000)} + kapida ${Math.round(k.bitti.kapiMs / 1000)}`);
   }
   console.log(`Revizyon turu     : ${k.done?.metrics.revisionRounds ?? "-"} | denetim tam: ${k.done?.metrics.auditComplete ?? "-"} | susan: ${(k.done?.silentSeats ?? []).join(",") || "yok"}`);
+
+  // ARAMA DÖKÜMÜ (M2-C-2 G-4). Sayı yetmez: 15 Eylül probunda arama KOŞTU, para yandı ve gelen
+  // sonuçlar fikirle alakasızdı, çünkü sorgu prompt'un tamamından türetilmişti. O arızayı ancak
+  // sorgunun METNİNİ okuyarak görebiliriz; "2 sorgu, 5 sonuc" satırı onu gizler.
+  const sorguKayitlari = o.kayitlar.filter((e) => String(e.phase).endsWith(":audit:queries"));
+  const aramaKayitlari = o.kayitlar.filter((e) => /:search$/.test(String(e.phase)));
+  if (sorguKayitlari.length || aramaKayitlari.length) {
+    console.log(`\nARAMA DOKUMU (sorgu metinleri ve donen kaynaklar):`);
+    for (const e of sorguKayitlari) {
+      for (const satir of String(e.content).split("\n")) console.log(`  ${satir}`);
+    }
+    // Çağrı başına sonuç: hangi sorgunun boş döndüğü ancak böyle görünür.
+    const aramaCagrilari = o.cagrilar.filter((c) => /:search$/.test(String(c.phase)));
+    for (const [i, c] of aramaCagrilari.entries()) {
+      console.log(`  ${i + 1}. arama cagrisi: ${c.searchResultCount ?? 0} sonuc, ${usd(c.searchCostNanoUsd ?? 0)}`);
+    }
+    for (const e of aramaKayitlari) {
+      for (const satir of String(e.content).split("\n")) console.log(`  ${satir}`);
+    }
+  }
 
   const bas = basarisizlar(o);
   if (bas.length) {

@@ -642,6 +642,10 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
     // Arama: yalnız eklenti İSTENEN çağrılar sayılır; ücret toplam maliyetin içindedir.
     const aramali = buffer.filter((b) => b.out.searchRequested);
     const searchCalls = aramali.length;
+    // Tekilleştirme YOK: bu, arama çağrılarının KAÇ kaynak döndürdüğüdür. İki sorgu aynı kaynağı
+    // getirdiyse arama iki kez ödendi ve iki kez döndü; künye ödenen işi gösterir. Denetime giden
+    // izinli küme ayrıca tekilleştirilir (runAuditWithReturn), ikisi farklı soruların cevabı.
+    const searchResults = aramali.reduce((n, b) => n + (b.out.citations?.length ?? 0), 0);
     const searchCostNanoUsd = aramali.reduce((n, b) => {
       const u = b.out.usage;
       return u?.cost !== undefined && u?.upstreamCost !== undefined
@@ -653,7 +657,7 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
       .filter((b) => b.failed && b.out.usage?.cost !== undefined)
       .reduce((n, b) => n + toNanoUsd(b.out.usage!.cost!), 0);
     buffer.length = 0;
-    return { ...totals, seatCostNano, seatCalls, seatCostCalls, callLog, failedAttempts, failedCostNanoUsd, searchCalls, searchCostNanoUsd };
+    return { ...totals, seatCostNano, seatCalls, seatCostCalls, callLog, failedAttempts, failedCostNanoUsd, searchCalls, searchResults, searchCostNanoUsd };
   };
 
   const graph = new StateGraph(DivanState)
@@ -1136,6 +1140,7 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
         failedCostUsd: formatUsd(state.failedCostNanoUsd),
         // M2-C-6: arama kalemi ayrı görünür ama toplamın İÇİNDEDİR.
         searchCalls: state.searchCalls,
+        searchResults: state.searchResults,
         searchCostUsd: formatUsd(state.searchCostNanoUsd),
         callCount: state.callCount,
       }) as string;

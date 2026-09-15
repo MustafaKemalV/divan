@@ -596,6 +596,9 @@ async function run() {
     // TAM SAYI: iki sorgu -> iki arama. ">0" yazmak, kabin calistigini da sorgu basina tek cagri
     // atildigini da kanitlamaz; ucuncu bir arama sizsaydi ">0" yine gecerdi.
     check(s.metrics.searchCalls === 2, `iki sorgu iki arama demek: ${s.metrics.searchCalls}`);
+    // SONUC sayisi ayri sayilir: "2 sorgu" yazan bir kunye, sekiz kaynak getiren kosumla hic
+    // getirmeyeni ayni gosterir. Stub her aramada iki alinti dondurur -> 2 x 2 = 4.
+    check(s.metrics.searchResults === 4, `iki arama x iki alinti: ${s.metrics.searchResults}`);
     check(s.metrics.callCount === TAM_KURUL + 1, `iadeli topraklanmis kosum: ${s.metrics.callCount}`);
     console.log(
       `  kanit: sorgu turu 2 sorgu, ${s.metrics.searchCalls} arama, ilk deneme reddedildi ` +
@@ -649,6 +652,7 @@ async function run() {
 
     const st = await durum(T);
     check(st.values.searchCalls === 0, `hic arama yapilmamali: ${st.values.searchCalls}`);
+    check(st.values.searchResults === 0, `arama yoksa sonuc da yok: ${st.values.searchResults}`);
     const sorguTuru = st.values.transcript.filter((t) => t.phase === "F4:audit:queries");
     check(sorguTuru.length === 1, "sorgu turu yine de kayda gecmeli");
     check(

@@ -291,6 +291,17 @@ export const DivanState = Annotation.Root({
     reducer: (prev, next) => prev + next,
     default: () => 0,
   }),
+  /**
+   * Arama ÇAĞRISI ile arama SONUCU ayrı sayılır. Tek sayaçla "2 sorgu" yazan bir künye, sekiz
+   * kaynak getiren koşumla hiçbir şey getirmeyen koşumu aynı gösterir; 15 Eylül probunun bulduğu
+   * arıza tam olarak ikincisiydi (eklenti koştu, para yandı, kullanılabilir sonuç gelmedi).
+   * Sonuç sayısı sıfırken denetim "dogrulanmis" veremez, yani bu sayı Şah için topraklamanın
+   * gerçekten olup olmadığının tek göstergesi.
+   */
+  searchResults: Annotation<number>({
+    reducer: (prev, next) => prev + next,
+    default: () => 0,
+  }),
   searchCostNanoUsd: Annotation<number>({
     reducer: (prev, next) => prev + next,
     default: () => 0,
