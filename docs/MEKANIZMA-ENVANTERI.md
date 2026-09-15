@@ -73,6 +73,8 @@ Son güncelleme: M2-A3 (bağlam mimarisi revizyonu; Blok 1 kapandı, kapanış t
 | 6.1 Anonimleştirme | **YOK** | M2-C borcu | borç (M2-C) |
 | 6.2 Kanıt kapısı, üç durum etiketi | şema + kod + test | denetim şemasında zorunlu enum, `audit.test.ts` | M2-A yeni |
 | 6.2 URL zorunluluğu (rozet yapısal olarak hak edilir) | şema + kod + test | e2e S12; ilk gerçek çağrıda tetiklendi, kural öne çekildi | M2-A: borç kapandı |
+| 6.2 Üç adımlı topraklama (sorgu turu -> kod arar -> denetim) | kod + test | e2e S27 (sorgu ve arama turları transkriptte), S41 (sorgusuz denetim rozet alamaz) | M2-C-2 yeni |
+| 6.2 Alıntı şartı ("dogrulanmis" için URL + birebir alıntı) | şema + kod + test | `audit.test.ts` (uydurma alıntı reddedilir), e2e S40 | M2-C-2 yeni; U-16'nın yarısı |
 | 6.3.1 Zorunlu premortem + >=3 sınanmış iddia | şema + kod + test | `schemas.ts` AUDIT, `audit.ts`, `audit.test.ts`, e2e S11 | M2-A: borç kapandı |
 | 6.3.2 Tam-uyum bayrağı | **YOK** | M4 borcu | borç (M4) |
 | 6.3.3 Hüküm turu tamamlanmadan F5 açılmaz | graf + test | `lock.ts`, e2e S05/S06 | M1 |

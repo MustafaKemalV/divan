@@ -484,6 +484,50 @@ Bağlayıcı iki kısıt:
 1. **`engine` SABİT `exa`.** Kanıt kapısı `annotations`'a bağlanacağı için native kullanılamaz.
 2. **Arama ücreti ayrı kalem olarak kaydedilir**, tahmin edilmez.
 
+## M2-C-2 yeniden: prob 2 ve iki adımlı tasarım (2026-09-15)
+
+T4-7 probu doğru soruyu sormuştu ama KISA bir promptla sormuştu. Divan'ın gerçek denetim çağrısı
+35k karakterle başlıyor (üç ek belgenin tam metni + F4 fizibilite metinleri) ve P-1 probu aynı
+çağrıyı gerçek uzunlukta kurunca mekanizma çöktü:
+
+- **(i) Eski web eklentisi.** Sorguyu PROMPT'UN TAMAMINDAN türetiyor. 35k karakterlik bir metin
+  arama kutusuna yazılınca gelen sonuçlar fikirle alakasız çıktı. Arama koştu, para yandı,
+  topraklama olmadı. Kapının "URL `annotations` kümesinde mi" kuralı bu sonuçlarla teknik olarak
+  sağlanıyordu: yani kapı geçiyor, topraklama olmuyordu. Yanlış olan kapı değil, aramanın kendisi.
+- **(ii)/(iii) Sunucu aracı (`openrouter:web_search`).** `json_schema`'yı SESSİZCE düşürüyor;
+  yerine markdown dönüyor. Şema Divan'ın bütün §6 mekaniklerinin dayanağı olduğu için bu kol
+  kullanılamaz. (P-3 ayrıca ölçtü: sessiz düşme `tools`'a özgü, `cache_control` ile şema birlikte
+  sorunsuz çalışıyor. Yani kusur şemada değil, araç kanalında.)
+
+Buradan çıkan tasarım (Şah onayı 2026-09-15, DESIGN §6.2): **topraklama üç adım.**
+
+1. **Sorgu turu.** Denetçi denetim bağlamını görür ve ŞEMAYLA en çok `search.perPhaseCap` arama
+   sorgusu üretir. Denetim bu turda İSTENMEZ: aramadan önce hüküm vermeye çağırmak, sorgunun da
+   hükmün de kalitesini düşürür.
+2. **Arama, kodun işi.** Her sorgu için tek ve KISA bir çağrı; kullanıcı mesajı yalnız sorgudur.
+   Eklentinin sorguyu prompt'tan türetmesi böyle engellenir: türeteceği bir prompt yok.
+3. **Denetim.** Aynı bağlam + arama sonuçları. İade YENİ ARAMA YAPMAZ, aynı kümeyle sorulur.
+
+**Alıntı şartı (U-16'nın kapanan yarısı).** "dogrulanmis" artık iki şartla hak edilir: URL izinli
+kümede olacak VE `quote` alanı o kaynağın metninden birebir bir dilim taşıyacak (en az 20 karakter,
+boşluk ve büyük-küçük harf normalize edilerek). Gerekçe 9 Eylül koşumunda ölçüldü: denetim, izinli
+listedeki gerçek bir URL'nin yanına HAFIZADAN yazılmış bir cümle koyarak rozet aldı. URL kontrolü
+bunu yakalayamaz, çünkü URL gerçekten listede. Yakalayan tek şey alıntının parçada geçmesidir.
+U-16'nın açık kalan yarısı: alıntı arama sonucunun ÖZETİNDEN alınıyor, sayfanın kendisinden değil.
+
+**Bütçe sonucu.** Denetim bir çağrıdan dörde çıktı (1 sorgu + 2 arama + 1 denetim): tam kurul
+tabanı 27 -> 30, küçük kurul 13 -> 16, tavan 30 -> 33. M3'ün iki çağrısı eklenince tipik 32 olur;
+Blok 3'teki Müh-1/Müh-2 araması ve F5 final topraklaması eklenirse tavan yetmez, o noktada §5'in
+kesim adayları açılacak.
+
+**Uygulamada çıkan üç hata** (hepsi ölçümle yakalandı, ölçüm olmasa "bitti" denirdi):
+
+- `auditRetries` adım sayısını iade sanıyordu; hiç iade olmayan mutlu yol künyede "3 iade" diyordu.
+- İade çağrı sayısı sabit `2` yazıyordu: iade bütçeye çağrı eklemek yerine ondan düşüyordu
+  (aramalı kol 29, iadeli kol 27 gösteriyordu; iade sayıyı DÜŞÜREMEZ).
+- Stub'ın varsayılan iddia URL'si arama dışı sabit bir adresti. Arama zorunlu olunca 20 e2e
+  senaryosu birden DENETIM_EKSIK'e düştü: mekanizma doğruydu, sahte dünya eskiydi.
+
 ## Bu turun kalemleri
 
 - **M2-C-1 Ölçüm aleti.** `client.ts` `annotations`, `prompt_tokens_details.cache_write_tokens` ve

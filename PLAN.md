@@ -102,9 +102,20 @@ M2-A kapandığında açık kalan her şey burada, tek yerde. Kaynaklar: `docs/M
   kendi çağrılarını doğrudan yapıyor; zaman aşımı ve yeniden deneme yok (kesilme koruması var).
   `runTek`'e bağlanmalı ama İADE MANTIĞI korunarak: iade bir yeniden deneme değildir, gerekçeli
   ikinci bir çağrıdır ve `runPhaseSeats`'in kör tekrarı onun yerini tutmaz.
-- **U-16 "doğrulanmış" için alıntı şartı:** bugün URL'nin arama sonuçlarında olması yetiyor;
-  sayfanın iddiayı DESTEKLEDİĞİ hâlâ doğrulanmıyor. `openrouter:web_fetch` ile sayfa içeriğinden
-  alıntı istenebilir. M2-C-7 ölçüm koşumunun verisinden sonra tartışılacak.
+- **U-16 alıntı şartı: YARISI KAPANDI (2026-09-15, M2-C-2).** "dogrulanmis" artık izinli URL'ye
+  EK OLARAK o kaynağın metninden birebir bir alıntı istiyor (`quote`, en az 20 karakter). Açık
+  kalan yarı: alıntı arama sonucunun ÖZETİNDEN alınıyor, sayfanın kendisinden değil; özet iddiayı
+  desteklemiyor da olabilir. `openrouter:web_fetch` adayı, M2-C-7 verisinden sonra tartışılacak.
+- **Müh-1 ve Müh-2 için F4 araması.** DESIGN §4 tablosunda web'i açık iki koltuk daha var ama
+  M2-C'de YALNIZ Denetçi'nin denetimi topraklandı. İki mühendisin fizibilite turunda arama yapması
+  aynı üç adımı gerektirir (sorgu turu + arama + değerlendirme) ve koşum başına +6 çağrı demektir;
+  bugünkü 33 tavanı buna yetmez. Kadro ve tavan birlikte konuşulmalı.
+- **F5 final denetiminin topraklanması.** §9.2'nin bağımlılık listesi doğrulaması gerçek arama
+  ister; bugün final denetim aramasız koşuyor, yani karar belgesine giren son kontrol rozet
+  veremiyor. M3 belge üretimiyle birlikte ele alınacak.
+- **Sorgu turunun ek belge körlüğü.** Sorgu turu ek belgelerin TAM METNİNİ görmüyor (§5 kapsamı
+  korundu); yalnız ek özetini ve bağlamı görüyor. Ek belgeye özgü bir iddianın doğru sorgusu
+  üretilemeyebilir. Ölçülmedi; M2-C-7 koşumunun sorgu metinleri okunarak karara bağlanacak.
 - **Kayıt-tekrar koşucusu (M2-D adayı):** JSONL'e çağrı başına ham çıktı yazılırsa bir oturum
   parasız yeniden oynatılabilir; mekanizma değişiklikleri gerçek veriyle sınanır. Bugün JSONL
   yalnız özet ve künye taşıyor.
