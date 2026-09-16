@@ -1523,6 +1523,48 @@ async function run() {
     console.log(`  kanit: soru soruldu, "h" -> cikis ${r.status}, sunucu hic baslamadi`);
   });
 
+  await scenario("S47", "--evet gercek kosumda soruyu atlar (gecersiz anahtarla, PARASIZ) (H-10)", async () => {
+    // S45 korkulugun ACILMA dalini kosuyor; bu senaryo ATLAMA dalini kosuyor. Ikisi ayri iddia:
+    // "soru soruluyor" ile "--evet soruyu atliyor" birbirinin kaniti degil.
+    //
+    // PARASIZ olmasinin sarti GECERSIZ ANAHTAR. Onceki turda bu dal e2e'ye konmamisti cunku
+    // sonuna kadar kosturmak para harcamak demek; gecersiz anahtar o bagi kesiyor. Olculdu:
+    // OPENROUTER_API_KEY env'i .env.local'daki GERCEK anahtari EZIYOR (401 geldi, maliyet $0).
+    const pty = spawnSync("sh", ["-c", "command -v script"], { encoding: "utf8" });
+    if (process.platform !== "darwin" || pty.status !== 0) {
+      console.log(`  ATLANDI: PTY yok (platform ${process.platform}); --evet dali sinanmadi`);
+      results.push({ id: "S47", ok: true, atlandi: true });
+      return;
+    }
+    const r = spawnSync(
+      "sh",
+      ["-c", `{ sleep 90; } | script -q /dev/null node scripts/oturum.mjs fikir.ornek.txt --evet`],
+      {
+        cwd: process.cwd(),
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          // GECERSIZ anahtar: gercek runner kosar ama hicbir cagri faturalanmaz.
+          OPENROUTER_API_KEY: "sk-or-GECERSIZ-H10",
+          DIVAN_PORT: String(SURUCU_PORT + 2),
+          // DIVAN_RUNNER VERILMEZ: varsayilan gercek runner.
+        },
+        timeout: 180_000,
+      },
+    );
+    const cikti = `${r.stdout ?? ""}${r.stderr ?? ""}`;
+    const tid = threadIdOf(cikti);
+    if (tid) uretilenler.push(tid);
+    check(!cikti.includes("GERCEK KOSUM"), `--evet soruyu atlamaliydi:\n${cikti.slice(-400)}`);
+    check(cikti.includes("hazir."), "sunucu baslamis olmali (soru atlandi, akis basladi)");
+    check(/OpenRouter 401/.test(cikti), `ilk cagri 401 almaliydi:\n${cikti.slice(-400)}`);
+    check(/maliyet\s*:\s*\$0\.000000/.test(cikti), `hicbir cagri faturalanmamali:\n${cikti.slice(-400)}`);
+    // CIKIS 4, 1 DEGIL: 401 bir SURUCU cokmesi degil, koltugun susmasi -> sebepli durus. Cikis 1
+    // "dugum coktu" demek olurdu ve burada dugum cokmedi; sozlesme bu ayrimi tasiyor (C-6).
+    check(r.status === 4, `sebepli durus cikis 4 vermeli, gelen ${r.status}`);
+    console.log(`  kanit: soru atlandi, sunucu basladi, 401, maliyet $0.000000, cikis ${r.status}`);
+  });
+
   await scenario("S22", "Klavyesiz kosum: --yanit ile tam oturum, cikis 0 ve md ciktisi", async () => {
     const r = surucuKos([
       "fikir.ornek.txt",
