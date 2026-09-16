@@ -32,11 +32,14 @@ export class OpenRouterSeatRunner implements SeatRunner {
     if (!sm) throw new Error(`Config'de koltuk eşlemesi yok: "${seatId}".`);
 
     // Sistem mesajı = KİMLİK + (ZARF + FİKİR + EK ÖZETİ) + FAZ TALİMATI (D-1, SEÇENEK A).
+    // Arama çağrısında bu kurulur ama KULLANILMAZ: `buildRequest` orada yalın isteği döndürür
+    // (H-1). Kurulmasının bedeli birkaç dosya okuması, kararı tek yerde tutmanın karşılığı bu.
+    const fazTalimati = loadPrompt(seatId, input.phase);
     const system = buildSystemContent({
       model: sm.model,
       kimlik: loadIdentity(seatId),
       zarfFikirEk: buildSystemEnvelope(input),
-      fazTalimati: loadPrompt(seatId, input.phase),
+      fazTalimati,
     });
     const schema = schemaForPhase(input.phase);
 
@@ -48,6 +51,7 @@ export class OpenRouterSeatRunner implements SeatRunner {
       input,
       system,
       user: buildUserMessage(input),
+      fazTalimati,
       fazdaYapilanArama: input.searchesInPhase ?? 0,
       perPhaseCap: this.config.search.perPhaseCap,
       maxResults: this.config.search.maxResults,

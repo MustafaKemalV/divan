@@ -113,7 +113,7 @@ export interface IstekParcalari {
  * İsteğin parçalarını kurar. Mesaj metinlerini KURMAZ (o `load.ts` ve `userMessage.ts`'in işi),
  * onları alır ve isteğin geri kalanını ekler.
  */
-/** Arama çağrısı mı: sistem yalnız kimlik, kullanıcı yalnız sorgu, çıktı kısa. */
+/** Arama çağrısı mı: sistem yalnız arama talimatı, kullanıcı yalnız ham sorgu. */
 export const aramaCagrisi = (phase: string) => ARAMA_FAZLARI.has(phase);
 
 export function buildRequest(args: {
@@ -121,11 +121,35 @@ export function buildRequest(args: {
   input: SeatRunInput;
   system: string | IcerikParcasi[];
   user: string;
+  /** arama çağrısının sistem mesajı: yalnız bu, kimliksiz ve zarfsız (H-1) */
+  fazTalimati: string;
   fazdaYapilanArama: number;
   perPhaseCap: number;
   maxResults: number;
 }): IstekParcalari {
   const karar = aramaKarari(args.seatId, args.input, args.fazdaYapilanArama, args.perPhaseCap);
+
+  /**
+   * ARAMA ÇAĞRISI YALINDIR (H-1). Sistem YALNIZ arama talimatıdır: kimlik yok, zarf yok, fikir yok,
+   * ek özeti yok. Kullanıcı mesajı HAM SORGUDUR: "BAĞLAM (...)" etiketi bile yok.
+   *
+   * Sebep ölçülmüş bir arızadır: eklenti sorguyu prompt'un tamamından türetiyor (15 Eylül probu).
+   * Üç adımlı topraklamanın bütün kazancı, arama çağrısının kısa olmasından geliyor; oraya 1.500
+   * karakterlik bir zarf koymak, kaçmak için kurduğumuz şeyi geri getirmek olurdu. Bu çağrıda
+   * modelin bir kimliğe ihtiyacı da yok: yorum yapmıyor, yalnız arıyor.
+   *
+   * `cache_control` DA KONMAZ: işaret bir ön eki önbelleğe almak içindir, burada paylaşılan bir
+   * ön ek yok (her arama çağrısının metni farklı) ve işaretin kendisi de ücretli bir yazma tetikler.
+   */
+  if (aramaCagrisi(args.input.phase)) {
+    return {
+      system: args.fazTalimati,
+      user: (args.input.context ?? "").trim(),
+      ...(karar.eklensin ? { plugins: [{ id: "web", engine: "exa", max_results: args.maxResults } as WebPlugin] } : {}),
+      ...(karar.sebep ? { aramaAtlandi: karar.sebep } : {}),
+    };
+  }
+
   return {
     system: args.system,
     user: args.user,

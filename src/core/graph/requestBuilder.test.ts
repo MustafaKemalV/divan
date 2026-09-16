@@ -18,7 +18,16 @@ const girdi = (phase: string, ek: Partial<SeatRunInput> = {}): SeatRunInput => (
 });
 
 const kur = (seatId: string, input: SeatRunInput, fazdaYapilanArama = 0, perPhaseCap = 3) =>
-  buildRequest({ seatId, input, system: "sistem", user: "kullanici", fazdaYapilanArama, perPhaseCap, maxResults: 5 });
+  buildRequest({
+    seatId,
+    input,
+    system: "sistem",
+    user: "kullanici",
+    fazTalimati: "ARAMA TALIMATI",
+    fazdaYapilanArama,
+    perPhaseCap,
+    maxResults: 5,
+  });
 
 // 1) KIRMIZI: eklenti kararı olmadan istek ne taşırdı? Hiçbir şey. Denetim çağrısı aramasız gider
 //    ve "doğrulanmış" rozeti kaynaksız verilir. Ölçülen hal buydu.
@@ -84,8 +93,11 @@ const kur = (seatId: string, input: SeatRunInput, fazdaYapilanArama = 0, perPhas
 }
 
 // 7) Mesajlar olduğu gibi taşınır: bu modül metin KURMAZ, isteğin geri kalanını ekler.
+//    TEK İSTİSNA arama çağrısıdır (madde 11): orada mesajı bilerek DEĞİŞTİRİR, çünkü yalınlık
+//    mekanizmanın kendisi. Bu madde örnek olarak önce `F4:search` kullanıyordu; H-1'den sonra
+//    istisnayı kural sanan bir test olurdu.
 {
-  const istek = kur("auditor", girdi("F4:search"));
+  const istek = kur("auditor", girdi("F4:audit"));
   assert.strictEqual(istek.system, "sistem");
   assert.strictEqual(istek.user, "kullanici");
 }
@@ -177,6 +189,73 @@ const kur = (seatId: string, input: SeatRunInput, fazdaYapilanArama = 0, perPhas
     fazTalimati: "faz",
   }) as { text: string }[];
   assert.strictEqual(parcalar.length, 2, "bos zarf blogu hic eklenmez");
+}
+
+// 11) ARAMA ÇAĞRISI YALIN (H-1). Eklentinin sorguyu prompt'tan türetmesi ölçülmüş bir arızadır;
+//     üç adımlı topraklamanın bütün kazancı arama çağrısının KISA olmasından gelir.
+{
+  const zarfli = girdi("F4:search", {
+    envelope: "OTURUM ZARFI\nSecilen HMW: nasil farklilasiriz?",
+    attachmentSummary: "Ek ozeti: uc starter.",
+    attachments: [{ name: "README.md", content: "ek belgenin tam metni" }],
+    context: "hedef segment fiyat kabulu",
+  });
+
+  // KIRMIZI: eski kuruluş sistemi kimlik + zarf + FİKİR + ek özeti + talimat olarak yığıyordu ve
+  // kullanıcı mesajını "BAĞLAM (...)" diye etiketliyordu. Ölçülen hal: sistem 1.517 karakter,
+  // kullanıcı mesajı sorgunun kendisi DEĞİL. Naif kuruluş burada yeniden üretiliyor.
+  const naifSistem = buildSystemContent({
+    model: "deepseek/deepseek-v4-pro",
+    kimlik: "DENETCI KIMLIGI: sen kurulun denetcisisin.",
+    zarfFikirEk: `OTURUM ZARFI\n${zarfli.envelope}\n\nFİKİR:\n${zarfli.idea}`,
+    fazTalimati: "ARAMA TALIMATI",
+  }) as string;
+  assert.ok(naifSistem.includes("OTURUM ZARFI"), "naif kurulusta zarf sistemde (kirmizinin kendisi)");
+  assert.ok(naifSistem.includes("FİKİR:"), "naif kurulusta fikir sistemde");
+  assert.ok(naifSistem.includes("DENETCI KIMLIGI"), "naif kurulusta kimlik sistemde");
+
+  // YEŞİL: `buildRequest` arama fazında bunların HİÇBİRİNİ taşımaz.
+  const istek = kur("auditor", zarfli);
+  assert.strictEqual(istek.system, "ARAMA TALIMATI", `sistem YALNIZ arama talimati olmali: ${istek.system}`);
+  assert.strictEqual(typeof istek.system, "string", "arama isteginde parcali icerik yok");
+  assert.strictEqual(istek.user, "hedef segment fiyat kabulu", `kullanici mesaji HAM SORGU olmali: ${istek.user}`);
+  assert.ok(!String(istek.system).includes("OTURUM ZARFI"), "zarf arama cagrisina girmez");
+  assert.ok(!String(istek.system).includes("FİKİR"), "fikir arama cagrisina girmez");
+  assert.ok(!istek.user.includes("BAĞLAM"), "ham sorgu etiketlenmez");
+  assert.ok(!istek.user.includes("ek belgenin tam metni"), "ek belge arama cagrisina girmez");
+  // Sorgu boş gelirse boş gider: uydurma bir metin koymak, aranmayan şeyi aranmış gibi gösterirdi.
+  assert.strictEqual(kur("auditor", girdi("F4:search")).user, "", "sorgusuz arama cagrisi bos user tasir");
+  // Küçük kurul varyantı da yalın.
+  assert.strictEqual(kur("auditor", girdi("F4s:search", { context: "  x  " })).user, "x", "kucuk kurul de yalin");
+}
+
+// 12) `cache_control` ARAMA ÇAĞRISINA KONMAZ: işaret bir ön eki önbelleğe almak içindir, burada
+//     paylaşılan ön ek yok (her sorgu farklı) ve işaretin kendisi ücretli bir yazma tetikler.
+{
+  const anthropic = buildRequest({
+    seatId: "auditor",
+    input: girdi("F4:search", { context: "sorgu" }),
+    system: buildSystemContent({ model: "anthropic/claude-opus-4.8", kimlik: "K", zarfFikirEk: "Z", fazTalimati: "T" }),
+    user: "kullanici",
+    fazTalimati: "ARAMA TALIMATI",
+    fazdaYapilanArama: 0,
+    perPhaseCap: 3,
+    maxResults: 5,
+  });
+  assert.strictEqual(typeof anthropic.system, "string", "Anthropic'te de arama sistemi duz metin");
+  // Kıyas: aynı model, arama DIŞI bir fazda işaretler duruyor. Fark fazdan geliyor, modelden değil.
+  const denetim = buildRequest({
+    seatId: "auditor",
+    input: girdi("F4:audit"),
+    system: buildSystemContent({ model: "anthropic/claude-opus-4.8", kimlik: "K", zarfFikirEk: "Z", fazTalimati: "T" }),
+    user: "kullanici",
+    fazTalimati: "T",
+    fazdaYapilanArama: 0,
+    perPhaseCap: 3,
+    maxResults: 5,
+  });
+  const isaretli = (denetim.system as { cache_control?: unknown }[]).filter((p) => p.cache_control).length;
+  assert.strictEqual(isaretli, 2, `denetim cagrisinda iki isaret duruyor: ${isaretli}`);
 }
 
 console.log("REQUEST_BUILDER_TEST_OK: arama kapsami + faz kapi + katman sirasi (ortak on ek bayt bayt ayni)");
