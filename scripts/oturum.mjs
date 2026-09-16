@@ -22,6 +22,9 @@
  *
  *   npm run oturum -- fikir.txt --yanit KAPI1=2 --yanit KAPI2="cerceve onaylandi" --yanit KAPI3=karar
  *
+ * `--evet` gerçek koşumun onay sorusunu atlar (H-8). Soru YALNIZ klavyeli koşumda sorulur; yazılı
+ * yanıtla koşan bir kol zaten TTY'siz olduğu için soruyu hiç görmez.
+ *
  * Yanıtı verilen kapı sorulmaz. Yanıtı OLMAYAN kapıda stdin bir TTY ise sorulur; değilse oturum
  * güvenli durur (çıkış kodu 3) ve `--devam` ile sürdürülür. Sessizce varsayılan uydurulmaz.
  *
@@ -179,6 +182,7 @@ const sure = { modelMs: 0, kapiMs: 0, dugum: new Map() };
  *   1  düğüm çöktü (`error` olayı) ya da sürücü hata aldı
  *   3  yanıtsız kapı (TTY yok, --yanit verilmedi): güvenli duruş, --devam ile sürer
  *   4  sebepli duruş (`done.reason` dolu): omurga sustu, kapı iptali, sözleşme dışı yanıt
+ *   5  gerçek koşum onaylanmadı (H-8 korkuluğu): hiç çağrı yapılmadı, hiç para harcanmadı
  * Önceden çöken oturum da sebepli duruş da 0 ile çıkıyordu, yani "her şey yolunda" diyordu.
  */
 let hataOlayi = false;
@@ -473,6 +477,25 @@ async function main() {
     fikirDosyasi: dosya,
     fikirUzunlugu: fikir.length,
   });
+
+  // GERÇEK KOŞUM KORKULUĞU (H-8). Şart İKİ TANE: runner gerçek VE stdin bir TTY. TTY şartı,
+  // otomasyonu (e2e, --yanit kolları) hiç dokunmadan geçirmek için: orada soru sorulamaz zaten,
+  // sorulsaydı koşum sessizce kilitlenirdi.
+  //
+  // Neden var: bu korkuluk olmadan `npm run oturum` stub sanılıp koşuldu ve gerçek runner çalıştı
+  // (2026-09-16). O sefer bakiye bos oldugu icin iki cagri da 400 dondu ve maliyet sifir kaldi;
+  // bakiye dolu olsaydi izinsiz bir capstone baslamis olacakti. Varsayilanin GERCEK olmasi dogru
+  // (sahte kosum acikca istenir), ama varsayilanin pahali olmasi bir onay sorusunu hak eder.
+  const gercekRunner = (process.env.DIVAN_RUNNER ?? "openrouter") !== "stub";
+  if (gercekRunner && stdin.isTTY && !process.argv.includes("--evet")) {
+    const c = (await rl.question("\nGERCEK KOSUM, para harcar. Devam? [e/h]: ")).trim().toLowerCase();
+    if (c !== "e" && c !== "evet") {
+      // Sunucu daha BASLAMADI ve hicbir cagri yapilmadi: burada durmak bedava.
+      console.log("Iptal edildi: hic cagri yapilmadi, hic para harcanmadi.");
+      rl.close();
+      process.exit(5);
+    }
+  }
 
   await startServer();
   const t0 = Date.now();

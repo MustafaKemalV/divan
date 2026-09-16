@@ -1461,6 +1461,40 @@ async function run() {
   const threadIdOf = (cikti) => (cikti.match(/thread\s+:\s+(\S+)/) ?? [])[1];
   const uretilenler = uretilenTumu;
 
+  await scenario("S45", "Gercek kosum korkulugu: TTY'de sorar, 'h' ile hic para harcamaz (H-8)", async () => {
+    // KIRMIZI: korkuluk yokken `npm run oturum` stub sanilip kosuldu ve GERCEK runner calisti
+    // (2026-09-16). O sefer bakiye bos oldugu icin iki cagri da 400 dondu; bakiye dolu olsaydi
+    // izinsiz bir capstone baslamis olacakti.
+    //
+    // Bu senaryo korkulugun ASIL dalini kosar: gercek runner + TTY. TTY'yi `script` veriyor
+    // (PTY ayirir). "h" cevabiyla sunucu HIC BASLAMAZ, yani gercek bir cagri riski yok.
+    const pty = spawnSync("sh", ["-c", "command -v script"], { encoding: "utf8" });
+    if (process.platform !== "darwin" || pty.status !== 0) {
+      // SESSIZ GECILMEZ: atlandigi yazilir. Sessizce gecen bir test, kosmamis bir testtir.
+      console.log(`  ATLANDI: PTY yok (platform ${process.platform}); korkulugun TTY dali sinanmadi`);
+      results.push({ id: "S45", ok: true, atlandi: true });
+      return;
+    }
+    const r = spawnSync(
+      "sh",
+      ["-c", `{ printf 'h\n'; sleep 4; } | script -q /dev/null node scripts/oturum.mjs fikir.ornek.txt`],
+      {
+        cwd: process.cwd(),
+        encoding: "utf8",
+        // DIVAN_RUNNER VERILMEZ: varsayilan gercek runner, korkulugun sinanacagi hal budur.
+        env: { ...process.env, DIVAN_PORT: String(SURUCU_PORT + 1) },
+        timeout: 120_000,
+      },
+    );
+    const cikti = `${r.stdout ?? ""}${r.stderr ?? ""}`;
+    check(cikti.includes("GERCEK KOSUM, para harcar"), `soru sorulmaliydi:\n${cikti.slice(-400)}`);
+    check(r.status === 5, `onaylanmayan kosum cikis 5 vermeli, gelen ${r.status}`);
+    check(cikti.includes("hic para harcanmadi"), "hic harcanmadigi acikca yazilmali");
+    // EN ONEMLI KANIT: sunucu hic baslamadi, yani tek bir cagri bile yapilmadi.
+    check(!cikti.includes("sunucu baslatiliyor"), "reddedilen kosumda sunucu hic baslamamali");
+    console.log(`  kanit: soru soruldu, "h" -> cikis ${r.status}, sunucu hic baslamadi`);
+  });
+
   await scenario("S22", "Klavyesiz kosum: --yanit ile tam oturum, cikis 0 ve md ciktisi", async () => {
     const r = surucuKos([
       "fikir.ornek.txt",
@@ -1480,6 +1514,9 @@ async function run() {
       check(cikti.includes(`[--yanit] ${g} =`), `${g} yazili yanitla gecilmeliydi`);
     }
     check(!cikti.includes("YANITSIZ KAPI"), "butun kapilarin yaniti vardi");
+    // H-8: TTY YOKSA gercek kosum sorusu SORULMAZ. Otomasyonda sorulsaydi kosum sessizce
+    // kilitlenirdi; korkulugun TTY sarti tam da bunun icin var.
+    check(!cikti.includes("GERCEK KOSUM"), "TTY'siz kosumda onay sorusu sorulmamali");
     // KAPI1'de "1" NUMARASI HMW cumlesine cevrilmeli, ham "1" resume edilmemeli.
     check(/\[--yanit\] KAPI1 = "HMW-1:/.test(cikti), "KAPI1 numarasi secenege cevrilmeliydi");
     const md = join(process.cwd(), "oturum-ciktisi", `${tid}.md`);
