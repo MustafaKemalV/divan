@@ -75,7 +75,12 @@ const AUDIT_QUERIES: JsonSchemaSpec = {
       summary: { type: "string" },
       queries: {
         type: "array",
-        minItems: 1,
+        // minItems 0 (H-5): prompt "doğrulanacak bir şey yoksa boş liste döndürebilirsin" diyor ve
+        // `minItems: 1` bu cümleyi yalan yapıyordu. Model istemediği bir sorguyu uydurmak zorunda
+        // kalırdı; uydurma sorgu aramamaktan kötüdür, çünkü hem para yakar hem denetime alakasız
+        // bir sonuç kümesi sokar. Boş listenin bedeli zaten ağır ve kayıtlı: o denetimde hiçbir
+        // iddia "dogrulanmis" olamaz (e2e S41).
+        minItems: 0,
         maxItems: 3,
         items: { type: "string" },
       },
