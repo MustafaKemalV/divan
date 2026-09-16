@@ -113,6 +113,22 @@ M2-A kapandığında açık kalan her şey burada, tek yerde. Kaynaklar: `docs/M
 - **F5 final denetiminin topraklanması.** §9.2'nin bağımlılık listesi doğrulaması gerçek arama
   ister; bugün final denetim aramasız koşuyor, yani karar belgesine giren son kontrol rozet
   veremiyor. M3 belge üretimiyle birlikte ele alınacak.
+- **Faz kapı state'ten gelmeli.** `runAuditWithReturn` kapı değerini `loadConfig()` ile DOSYADAN
+  okuyor (`perPhaseCapOku`). Graf saf olmalı: config'i okuyan bir düğüm, aynı checkpoint'ten
+  farklı bir config'le devam edildiğinde sessizce başka bir kap uygular ve bütçe kapısının beyan
+  ettiği sayı ile fazın harcadığı sayı ayrışır. Kap `maxCalls` gibi state'e yazılmalı.
+- **Arama sonuçlarının içerik parçası `callLog`'a.** Bugün kayıtta yalnız URL ve sonuç SAYISI var
+  (`searchUrls`, `searchResultCount`); "dogrulanmis" rozetinin dayandığı METİN hiçbir yere
+  yazılmıyor. Alıntı şartı o metne karşı doğrulanıyor, yani kanıt defterinin kendisi kayıt dışı:
+  bir rozet sonradan denetlenmek istendiğinde dayanağı bulunamaz. M3'ün kanıt defteri bunu ister.
+- **Arama çağrısının `maxTokens`'ı ve süresi ölçülsün.** Arama çağrısı şemasız olduğu için
+  `textMaxTokens` (6.000) ile gidiyor, oysa istenen çıktı bir iki cümle. Ölçülmedi: gerçek
+  koşumda arama çağrısının kaç çıktı tokenı ve kaç saniye harcadığı görülüp ayrı bir tavan konacak.
+- **Sorgu METNİNİN uzunluğu sınırsız.** Şema `queries` elemanlarına uzunluk sınırı koymuyor. H-1
+  isteği yalınlaştırdı ama sorguyu MODEL yazıyor: 35k karakterlik bir "sorgu" üretirse 15 Eylül'ün
+  arızası aynen geri gelir, çünkü o metin doğrudan arama kutusuna gider. Ölçülmedi (stub iki kısa
+  sorgu döndürüyor); M2-C-7'nin gerçek sorgu metinleri okunduktan sonra `maxLength` ya da kod
+  tarafında kırpma kararı verilecek. Kırpma sessiz olmamalı, nota düşmeli.
 - **Sorgu turunun ek belge körlüğü.** Sorgu turu ek belgelerin TAM METNİNİ görmüyor (§5 kapsamı
   korundu); yalnız ek özetini ve bağlamı görüyor. Ek belgeye özgü bir iddianın doğru sorgusu
   üretilemeyebilir. Ölçülmedi; M2-C-7 koşumunun sorgu metinleri okunarak karara bağlanacak.
