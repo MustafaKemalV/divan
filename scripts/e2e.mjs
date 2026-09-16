@@ -636,6 +636,34 @@ async function run() {
     console.log(`  kanit: URL gecerli + alinti uydurma -> iade, birebir alintiyla gecti (${s.metrics.callCount} cagri)`);
   });
 
+  await scenario("S46", "Sorgu uzunluk kapisi: cok uzun sorgu ARANMAZ, kirpilmaz (H-9)", async () => {
+    // KIRMIZI (olculdu, stub [TEST:uzun-sorgu]): 937 karakterlik sorgu ARANIYORDU ve hicbir not
+    // dusmuyordu. H-1 istegi yalinlastirdi ama sorguyu MODEL yaziyor; prompt'un bir parcasini
+    // "sorgu" diye geri yazarsa 15 Eylul arizasi aynen geri gelir.
+    const T = "e2e-s46";
+    await post({ threadId: T, idea: `${LONG} [TEST:uzun-sorgu]` });
+    await post({ threadId: T, resume: "hmw" });
+    const s = stopEvent(await post({ threadId: T, resume: "cerceve onaylandi" }));
+    check(s.gate === "KAPI3", `kalan sorguyla akis surmeli: ${s.gate ?? s.type}`);
+
+    const st = await durum(T);
+    // Uzun sorgu ARANMADI, kisa olan ARANDI: iki sorgudan biri.
+    check(st.values.searchCalls === 1, `yalniz kisa sorgu aranmali: ${st.values.searchCalls}`);
+    check(st.values.searchResults === 2, `kosan aramanin sonuclari duruyor: ${st.values.searchResults}`);
+    check(st.values.auditComplete === true, "kalan sonuclarla denetim tamamlanmali");
+    // KIRPILMADI: kirpmak, kayitta "sunu aradik" yazarken baska bir sey aramak olurdu.
+    check(
+      st.values.groundingNotes.some((n) => n.includes("sorgu çok uzun (937 krk, sınır 300), aranmadı")),
+      `atlama notu uzunlugu ve siniri soylemeli: ${JSON.stringify(st.values.groundingNotes)}`,
+    );
+    const aramaKaydi = st.values.transcript.find((t) => t.phase === "F4:search");
+    check(
+      String(aramaKaydi.content).includes("1 sorgu atlandı"),
+      `atlama transkriptte de olmali: ${String(aramaKaydi.content).slice(-120)}`,
+    );
+    console.log(`  kanit: 937 krk sorgu atlandi (kirpilmadi), 28 krk sorgu arandi, denetim tam`);
+  });
+
   await scenario("S44", "F4 butce kapisi topraklamayi da beyan eder (H-4)", async () => {
     // KIRMIZI (olculdu): kapi F4 icin 7 cagri beyan ediyordu (fizibilite 3 + denetim 1 + savunma 2
     // + hukum 1); faz GERCEKTE 8 harciyordu (sorgu turu 1 + arama 2 eklendi) ve kap uc sorguya

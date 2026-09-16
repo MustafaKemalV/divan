@@ -27,7 +27,7 @@ import { shuffleBySeed } from "./shuffle.ts";
 import { renderAudit, renderJudgment } from "./render.ts";
 import { cancelReason, contractViolation, matchGateAnswer } from "./gate.ts";
 import { buildEnvelope, defenseContext, latestSummary, rankingContext, rawOfPhase as rawOf } from "./context.ts";
-import { fazAnahtari } from "./requestBuilder.ts";
+import { fazAnahtari, SORGU_MAX_KRK } from "./requestBuilder.ts";
 
 /** Faz ham metni (özet kayıtları dışlanır, bkz. context.ts). */
 function rawOfPhase(state: DivanStateType, phasePrefix: string): string {
@@ -260,7 +260,14 @@ async function runAuditWithReturn(
   // sonuçlar). Sıralı koşar: kap sayımı eşzamanlılıkta yanılmasın.
   const sonuclar: { url: string; title?: string; content?: string }[] = [];
   let basarisizArama = 0;
+  const atlanan: string[] = [];
   for (const sorgu of sorgular) {
+    // UZUNLUK KAPISI (H-9): kırpmadan ATLA. Kırpmak, kayıtta "şunu aradık" yazarken başka bir şey
+    // aramak olurdu; atlamak ise ne aranmadığını söyler ve öbür sorguları yakmaz.
+    if (sorgu.length > SORGU_MAX_KRK) {
+      atlanan.push(`sorgu çok uzun (${sorgu.length} krk, sınır ${SORGU_MAX_KRK}), aranmadı`);
+      continue;
+    }
     try {
       const aramaCikti = await run("auditor", { phase: `${phase.replace(":audit", ":search")}`, idea: state.idea, context: sorgu, retry: 0 });
       calls0++;
@@ -278,6 +285,7 @@ async function runAuditWithReturn(
       sorguNotu = `${sorguNotu ? `${sorguNotu}; ` : ""}${ne}`;
     }
   }
+  for (const not of atlanan) sorguNotu = `${sorguNotu ? `${sorguNotu}; ` : ""}${not}`;
   if (sorgular.length) {
     entries.push({
       phase: `${phase.replace(":audit", ":search")}`,
@@ -288,7 +296,8 @@ async function runAuditWithReturn(
           : "[ARAMA SONUÇ VERMEDİ]") +
         // Başarısız çağrı transkriptte GÖRÜNÜR: "iki sorgudan biri patladı" ile "iki sorgu da boş
         // döndü" aynı sonuç kümesini üretir ama aynı şey değildir, ve farkı yalnız burası söyler.
-        (basarisizArama ? `\n[${basarisizArama} arama çağrısı başarısız]` : ""),
+        (basarisizArama ? `\n[${basarisizArama} arama çağrısı başarısız]` : "") +
+        (atlanan.length ? `\n[${atlanan.length} sorgu atlandı: ${atlanan.join("; ")}]` : ""),
     });
   }
 

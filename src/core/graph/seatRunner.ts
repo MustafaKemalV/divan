@@ -111,6 +111,7 @@ export const SMALL_IDEA_MAX_CHARS = 60;
  *   [TEST:sorgu-yok]       -> sorgu turu şema üretemez; denetim aramasız koşar, rozet imkansız
  *   [TEST:arama-hata]      -> BİRİNCİ arama çağrısı kesilme DIŞI hatayla patlar (H-3 dayanıklılığı)
  *   [TEST:sorgu-hata]      -> sorgu turu kesilme DIŞI hatayla patlar; denetim aramasız sürer
+ *   [TEST:uzun-sorgu]      -> BİRİNCİ sorgu ~1.000 karakter (sorgu uzunluk kapısı, H-9)
  */
 /**
  * [TEST:cokme:<faz>] için tek seferlik çökme kaydı (U-14). Süreç ömrü boyunca yaşar: ilk deneme
@@ -314,6 +315,17 @@ export class StubSeatRunner implements SeatRunner {
       if (phase === "F4:audit:queries" || phase === "F4s:audit:queries") {
         if (idea.includes("[TEST:sorgu-hata]")) {
           throw new Error("OpenRouter 503: upstream unavailable");
+        }
+        // [TEST:uzun-sorgu]: BIRINCI sorgu 1.000 karakter. Modelin prompt'un bir parçasını sorgu
+        // diye geri yazması, 15 Eylül arızasının tam olarak yeniden doğuş yolu (H-9).
+        if (idea.includes("[TEST:uzun-sorgu]")) {
+          return {
+            content: "Arama sorgulari (stub): biri cok uzun.",
+            data: {
+              summary: "Biri kap disi uzunlukta iki sorgu.",
+              queries: ["hedef segment ".repeat(67).trim(), "dagitim maliyeti gelir orani"],
+            },
+          };
         }
         if (idea.includes("[TEST:sorgu-yok]")) {
           return { content: "Sorgu uretilemedi (stub).", data: { summary: "sorgu yok" } };

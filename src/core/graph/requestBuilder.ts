@@ -113,6 +113,23 @@ export interface IstekParcalari {
  * İsteğin parçalarını kurar. Mesaj metinlerini KURMAZ (o `load.ts` ve `userMessage.ts`'in işi),
  * onları alır ve isteğin geri kalanını ekler.
  */
+/**
+ * SORGU UZUNLUK KAPISI (H-9). Bundan uzun bir sorgu ARANMAZ.
+ *
+ * H-1 isteği yalınlaştırdı ama sorguyu MODEL yazıyor: prompt'un bir parçasını "sorgu" diye geri
+ * yazarsa, 15 Eylül'ün arızası (eklentinin 35k karakterlik metinden sorgu türetmesi) aynen geri
+ * gelir, çünkü o metin doğrudan arama kutusuna gider.
+ *
+ * KIRPILMAZ, ATLANIR. Kırpmak sessizce BAŞKA bir sorgu aramak demektir: ilk 300 karakterin
+ * anlamı, modelin sorduğu şeyin anlamı olmak zorunda değil ve kayıtta "şunu aradık" yazarken
+ * aslında başka bir şey aranmış olur. Atlanan sorgu nota ve transkripte girer, kalanlar aranır.
+ *
+ * 300 ölçülmüş bir eşik DEĞİL, üst sınır olarak seçildi: gerçek sorgular (stub'da 26-28 karakter,
+ * Exa dokümanında örnekler benzer) buna yaklaşmıyor, yani kapı normal koşumda hiç değmiyor.
+ * M2-C-7'nin gerçek sorgu metinleri ölçüldükten sonra gözden geçirilecek.
+ */
+export const SORGU_MAX_KRK = 300;
+
 /** Arama çağrısı mı: sistem yalnız arama talimatı, kullanıcı yalnız ham sorgu. */
 export const aramaCagrisi = (phase: string) => ARAMA_FAZLARI.has(phase);
 

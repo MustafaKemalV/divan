@@ -8,7 +8,14 @@
 // aldı. Arama kodda yoktu.
 
 import assert from "node:assert";
-import { aramaKarari, ARAMA_FAZLARI, buildRequest, buildSystemContent, fazAnahtari } from "./requestBuilder.ts";
+import {
+  aramaKarari,
+  ARAMA_FAZLARI,
+  buildRequest,
+  buildSystemContent,
+  fazAnahtari,
+  SORGU_MAX_KRK,
+} from "./requestBuilder.ts";
 import type { SeatRunInput } from "./seatRunner.ts";
 
 const girdi = (phase: string, ek: Partial<SeatRunInput> = {}): SeatRunInput => ({
@@ -256,6 +263,25 @@ const kur = (seatId: string, input: SeatRunInput, fazdaYapilanArama = 0, perPhas
   });
   const isaretli = (denetim.system as { cache_control?: unknown }[]).filter((p) => p.cache_control).length;
   assert.strictEqual(isaretli, 2, `denetim cagrisinda iki isaret duruyor: ${isaretli}`);
+}
+
+// 13) SORGU UZUNLUK SINIRI (H-9). H-1 isteği yalınlaştırdı ama sorguyu MODEL yazıyor: prompt'un
+//     bir parçasını "sorgu" diye geri yazarsa 15 Eylül arızası aynen geri gelir.
+{
+  // KIRMIZI: sınır olmadan 937 karakterlik bir "sorgu" doğrudan arama kutusuna giderdi. Ölçüldü
+  // (stub [TEST:uzun-sorgu]): iki sorgu da arandı, hiçbir not düşmedi.
+  const uzun = "hedef segment ".repeat(67).trim();
+  assert.ok(uzun.length > 900, `kirmizinin olcusu: ${uzun.length} krk`);
+  assert.strictEqual(uzun.length > SORGU_MAX_KRK, true, "bu sorgu sinirin ustunde");
+
+  // YEŞİL: sınır 300 ve gerçek sorgular buna YAKLAŞMIYOR; kapı normal koşumda hiç değmez.
+  assert.strictEqual(SORGU_MAX_KRK, 300);
+  for (const gercek of ["hedef segment fiyat kabulu", "dagitim maliyeti gelir orani"]) {
+    assert.ok(gercek.length <= SORGU_MAX_KRK, `gercek sorgu sinirin altinda olmali: ${gercek.length}`);
+  }
+  // Sınırın TAM üstü aranır, bir fazlası aranmaz: eşik "aşarsa" demek, "yaklaşırsa" değil.
+  assert.strictEqual("x".repeat(SORGU_MAX_KRK).length > SORGU_MAX_KRK, false, "tam sinir aranir");
+  assert.strictEqual("x".repeat(SORGU_MAX_KRK + 1).length > SORGU_MAX_KRK, true, "bir fazlasi aranmaz");
 }
 
 console.log("REQUEST_BUILDER_TEST_OK: arama kapsami + faz kapi + katman sirasi (ortak on ek bayt bayt ayni)");
