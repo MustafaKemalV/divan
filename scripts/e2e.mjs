@@ -636,6 +636,76 @@ async function run() {
     console.log(`  kanit: URL gecerli + alinti uydurma -> iade, birebir alintiyla gecti (${s.metrics.callCount} cagri)`);
   });
 
+  await scenario("S42", "Arama cagrisi patlarsa: dugum cokmez, kalan sorgu kosar (H-3)", async () => {
+    // KIRMIZI (olculdu, stub): [TEST:arama-hata] ile birinci arama cagrisi Error firlatinca dugum
+    // COKUYORDU -> "Error: OpenRouter 402: Insufficient credits", error olayi, cikis 1. Bir
+    // sorgunun patlamasi butun denetimi dusuruyordu; ustelik 402 tam da bakiye bittiginde gelen
+    // hata, yani en olasi hal.
+    const T = "e2e-s42";
+    await post({ threadId: T, idea: `${LONG} [TEST:arama-hata]` });
+    await post({ threadId: T, resume: "hmw" });
+    const s = stopEvent(await post({ threadId: T, resume: "cerceve onaylandi" }));
+    check(s.gate === "KAPI3", `bir arama patlasa da akis surmeli: ${s.gate ?? s.type}`);
+
+    const st = await durum(T);
+    // IKINCI sorgu KOSTU: "cokmedi" ile "surdu" ayri iddialar, ikincisinin kaniti bu.
+    check(st.values.searchCalls === 1, `ikinci arama kosmali (biri patladi): ${st.values.searchCalls}`);
+    check(st.values.searchResults === 2, `kosan aramanin sonuclari duruyor: ${st.values.searchResults}`);
+    check(st.values.auditComplete === true, "kalan sonuclarla denetim tamamlanmali");
+
+    // Patlayan cagri SAYILIR: faturasi varsa oradadir, gizlenmez.
+    const aramaCagrilari = st.values.callLog.filter((c) => c.phase === "F4:search");
+    check(aramaCagrilari.length === 2, `iki arama cagrisi da kayitta: ${aramaCagrilari.length}`);
+    check(aramaCagrilari.filter((c) => c.failed).length === 1, "biri failed isaretli olmali");
+    const aramaKaydi = st.values.transcript.find((t) => t.phase === "F4:search");
+    check(
+      String(aramaKaydi.content).includes("1 arama çağrısı başarısız"),
+      `basarisizlik transkriptte gorunmeli: ${String(aramaKaydi.content).slice(0, 120)}`,
+    );
+    check(
+      st.values.summaryIssues.some((n) => n.includes("arama başarısız: OpenRouter 402")),
+      `hata mesaji notlarda gorunmeli: ${JSON.stringify(st.values.summaryIssues)}`,
+    );
+    // Patlayan cagri BUTCEYE yazilir: saglikli kosumla AYNI sayi cikmali, cunku cagri yapildi ve
+    // (gercekte) faturalandi. Sayinin dusmesi, yanan parayi gizlemek olurdu.
+    const son = stopEvent(await post({ threadId: T, resume: "karar" }));
+    check(son.metrics.callCount === TAM_KURUL, `patlayan cagri butcede sayilmali: ${son.metrics.callCount}`);
+    check(son.metrics.failedAttempts >= 1, `basarisiz deneme sayaci dolmali: ${son.metrics.failedAttempts}`);
+    console.log(
+      `  kanit: 1 patladi 1 kostu, toplam ${son.metrics.callCount} cagri (saglikli kosumla ayni), ` +
+        `basarisiz ${son.metrics.failedAttempts}, denetim tam`,
+    );
+  });
+
+  await scenario("S43", "Sorgu turu patlarsa: denetim aramasiz surer, rozet imkansiz (H-3)", async () => {
+    // KIRMIZI: sorgu turundaki kesilme DISI hata dugumu cokertiyordu ("OpenRouter 503"). Orantisiz:
+    // denetim daha DENENMEDI, kaybedilen yalniz topraklama.
+    const T = "e2e-s43";
+    await post({ threadId: T, idea: `${LONG} [TEST:sorgu-hata]` });
+    await post({ threadId: T, resume: "hmw" });
+    const s = stopEvent(await post({ threadId: T, resume: "cerceve onaylandi" }));
+    // Denetim KOSTU (cokme yok) ama aramasiz oldugu icin "dogrulanmis" hak edilemedi -> kapi.
+    check(s.gate === "DENETIM_EKSIK", `sorgu turu patlasa da denetim kosmali: ${s.gate ?? s.type}`);
+
+    const st = await durum(T);
+    check(st.values.searchCalls === 0, `sorgu yoksa arama da yok: ${st.values.searchCalls}`);
+    const sorguKaydi = st.values.transcript.find((t) => t.phase === "F4:audit:queries");
+    check(
+      String(sorguKaydi.content).includes("SORGU TURU BAŞARISIZ"),
+      `sorgu turunun patladigi transkriptte yazmali: ${String(sorguKaydi.content).slice(0, 100)}`,
+    );
+    check(
+      st.values.summaryIssues.some((n) => n.includes("sorgu turu başarısız: OpenRouter 503")),
+      `hata mesaji notlarda: ${JSON.stringify(st.values.summaryIssues)}`,
+    );
+    // Denetim cagrisi GERCEKTEN yapildi: "cokmedi" yetmez, denetimin kostugu gosterilmeli.
+    check(
+      st.values.transcript.filter((t) => t.phase === "F4:audit").length === 2,
+      "denetim ve iade cagrilari kosmus olmali",
+    );
+    console.log(`  kanit: sorgu turu patladi, denetim kostu, rozet hak edilemedi (${s.gate})`);
+  });
+
   await scenario("S41", "Sorgu turu susarsa: arama YOK, rozet imkansiz, kapi acilir (M2-C-2)", async () => {
     // Tasarim karari burada goruluyor: sorgu uretilemediginde denetim aramasiz kosar ama
     // "dogrulanmis" HAK EDILEMEZ. Sessizce eski bicim kontrolune dusmek, aramasiz bir denetime

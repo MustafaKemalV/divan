@@ -240,8 +240,17 @@ async function runAuditWithReturn(
     }
     if (!sorgular.length) sorguNotu = "sorgu üretilemedi: denetim aramasız koşuyor";
   } catch (e) {
-    if (!kesilme(e)) throw e;
-    return altyapiArizasi(e, 1, 0);
+    // SORGU TURU DENETİMİ DÜŞÜRMEZ (H-3). Eskiden kesilme dışı her hata düğümü çökertiyor,
+    // kesilme ise bütün denetimi ALTYAPI ARIZASI sayıyordu. İkisi de orantısızdı: henüz denetim
+    // DENENMEDİ, kaybedilen yalnız topraklama. Denetim aramasız koşar ve rozet imkansız olur
+    // (izinli küme boş), yani kayıp Şah'ın karar ekranında görünür, sessizce yutulmaz.
+    sorgular = [];
+    sorguNotu = `sorgu turu başarısız: ${(e as Error).message}`;
+    entries.push({
+      phase: `${phase}:queries`,
+      seatId: "auditor",
+      content: `[SORGU TURU BAŞARISIZ: ${(e as Error).message}]`,
+    });
   }
   let calls0 = 1;
 
@@ -250,6 +259,7 @@ async function runAuditWithReturn(
   // prompt'tan türetmesi böyle engellenir (15 Eylül probu: 35k karakterlik prompt'ta alakasız
   // sonuçlar). Sıralı koşar: kap sayımı eşzamanlılıkta yanılmasın.
   const sonuclar: { url: string; title?: string; content?: string }[] = [];
+  let basarisizArama = 0;
   for (const sorgu of sorgular) {
     try {
       const aramaCikti = await run("auditor", { phase: `${phase.replace(":audit", ":search")}`, idea: state.idea, context: sorgu, retry: 0 });
@@ -258,18 +268,27 @@ async function runAuditWithReturn(
         if (!sonuclar.some((x) => x.url === c.url)) sonuclar.push(c);
       }
     } catch (e) {
-      if (!kesilme(e)) throw e;
+      // ARAMA ÇAĞRISI DA DÜŞÜRMEZ (H-3). Ağ, 5xx, 402: hepsi aynı şey, o sorgunun cevabı yok.
+      // Çağrı SAYILIR (`run` onu tamponda `failed` işaretiyle kaydetti, faturası varsa oradadır)
+      // ve KALAN SORGULARLA DEVAM EDİLİR: üç sorgudan birinin patlaması, öbür ikisinin sonucunu
+      // çöpe atmak için sebep değil.
       calls0++;
-      sorguNotu = `${sorguNotu ? `${sorguNotu}; ` : ""}bir arama çağrısı kesildi`;
+      const ne = kesilme(e) ? "bir arama çağrısı kesildi" : `arama başarısız: ${(e as Error).message}`;
+      basarisizArama++;
+      sorguNotu = `${sorguNotu ? `${sorguNotu}; ` : ""}${ne}`;
     }
   }
   if (sorgular.length) {
     entries.push({
       phase: `${phase.replace(":audit", ":search")}`,
       seatId: "auditor",
-      content: sonuclar.length
-        ? `ARAMA SONUÇLARI (${sonuclar.length}):\n${sonuclar.map((r) => `- ${r.url} | ${r.title ?? "(başlık yok)"}`).join("\n")}`
-        : "[ARAMA SONUÇ VERMEDİ]",
+      content:
+        (sonuclar.length
+          ? `ARAMA SONUÇLARI (${sonuclar.length}):\n${sonuclar.map((r) => `- ${r.url} | ${r.title ?? "(başlık yok)"}`).join("\n")}`
+          : "[ARAMA SONUÇ VERMEDİ]") +
+        // Başarısız çağrı transkriptte GÖRÜNÜR: "iki sorgudan biri patladı" ile "iki sorgu da boş
+        // döndü" aynı sonuç kümesini üretir ama aynı şey değildir, ve farkı yalnız burası söyler.
+        (basarisizArama ? `\n[${basarisizArama} arama çağrısı başarısız]` : ""),
     });
   }
 

@@ -109,6 +109,8 @@ export const SMALL_IDEA_MAX_CHARS = 60;
  *   [TEST:badurl-arama:inat] -> iadede de listede olmayan URL (DENETIM_EKSIK kapısına kadar gider)
  *   [TEST:alinti-yok]      -> URL listede ama ALINTI parçada yok; iade turunda düzelir (§6.2 M2-C)
  *   [TEST:sorgu-yok]       -> sorgu turu şema üretemez; denetim aramasız koşar, rozet imkansız
+ *   [TEST:arama-hata]      -> BİRİNCİ arama çağrısı kesilme DIŞI hatayla patlar (H-3 dayanıklılığı)
+ *   [TEST:sorgu-hata]      -> sorgu turu kesilme DIŞI hatayla patlar; denetim aramasız sürer
  */
 /**
  * [TEST:cokme:<faz>] için tek seferlik çökme kaydı (U-14). Süreç ömrü boyunca yaşar: ilk deneme
@@ -310,6 +312,9 @@ export class StubSeatRunner implements SeatRunner {
       }
       // ADIM 1: sorgu turu (§6.2 M2-C). İki sorgu döner; kap 3 olduğu için ikisi de aranır.
       if (phase === "F4:audit:queries" || phase === "F4s:audit:queries") {
+        if (idea.includes("[TEST:sorgu-hata]")) {
+          throw new Error("OpenRouter 503: upstream unavailable");
+        }
         if (idea.includes("[TEST:sorgu-yok]")) {
           return { content: "Sorgu uretilemedi (stub).", data: { summary: "sorgu yok" } };
         }
@@ -324,6 +329,13 @@ export class StubSeatRunner implements SeatRunner {
 
       // ADIM 2: arama çağrısı. Sonuçları `stubAramaVar` ekler; kullanıcı mesajı yalnız sorgudur.
       if (phase === "F4:search" || phase === "F4s:search") {
+        // [TEST:arama-hata]: YALNIZ BİRİNCİ sorgu patlar (ağ, 5xx, 402 gibi kesilme DIŞI hata).
+        // Birinciyi seçmek şart: ikincinin yine de koştuğunu göstermek, "kalan sorgularla sürer"
+        // iddiasının tek kanıtı. İkisi de patlasaydı test, çökmediğini gösterir ama sürdüğünü
+        // göstermezdi.
+        if (idea.includes("[TEST:arama-hata]") && (input.context ?? "").startsWith("hedef segment")) {
+          throw new Error("OpenRouter 402: Insufficient credits");
+        }
         return { content: `Arama yapildi (stub): "${input.context ?? ""}"` };
       }
 
