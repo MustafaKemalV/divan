@@ -65,4 +65,14 @@ for (const k of digerleri) {
   // o yüzden bayrak olarak basılmaz, yalnız görünür kılınır.
   console.log(`# NOT: olay-tetikli kapi ${k} = ${kacir(yanitlar.get(k))} (bayrak olarak basilmadi)`);
 }
+// BÜTÇE KAPISI, kaynak koşumda AÇILMAMIŞ OLSA BİLE eklenir (H-4). Topraklama F4'ün beyan edilen
+// maliyetini 7'den 11'e çıkardı; kaynak koşum o kapıyı hiç görmemiş olabilir ama tekrar koşumda
+// görülür. Yanıtsız bir kapı sürücüyü çıkış 3 ile durdurur ve ölçüm koşumu yarıda kalır, yani
+// eksik bir bayrak burada birkaç dolarlık bir koşumu çöpe atar.
+//
+// 40 keyfi değil, GEÇİCİ: kalıcı tavan M2-C-7 ölçümünden sonra T3-6 yöntemiyle konacak. Tavanı
+// yükseltmek ölçüm koşumunun amacı değil; amaç fazın gerçekte ne harcadığını görmek.
+bayraklar.push(`--yanit BUTCE=40`);
+console.log(`# NOT: --yanit BUTCE=40 kaynak gunlukte olmasa da eklendi (H-4, gecici tavan)`);
+
 console.log(`\nnpm run oturum -- fikir.txt \\\n  ${bayraklar.join(" \\\n  ")}`);

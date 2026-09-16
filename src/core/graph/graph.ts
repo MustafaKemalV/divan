@@ -809,7 +809,15 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
     )
     .addNode("f4_feasibility", async (state: DivanStateType) => {
       // F4'ün tam maliyeti: fizibilite + denetim + ilk revizyon turu + hüküm turu.
-      const budget = budgetStop(state, FEASIBILITY.length + 1 + DEFENDERS.length + 1, "F4", [...FEASIBILITY, "auditor", ...DEFENDERS], "f4_feasibility");
+      // F4'ün faz maliyeti (H-4): fizibilite + SORGU TURU + en çok `perPhaseCap` arama + denetim
+      // + savunma + hüküm. Topraklamadan önce üç adımın ikisi yoktu ve kapı 7 beyan ederken faz 8
+      // çağrı harcıyordu; bir kapı eksik beyan ederse tavan tavan olmaktan çıkar.
+      //
+      // KAP beyan edilir, üretilen sorgu sayısı değil: kapı faz BAŞLAMADAN açılır ve o an kaç
+      // sorgu üretileceği bilinmez. Bir kapı en kötü hali beyan etmek zorundadır; umduğunu beyan
+      // eden kapı, aşılmayacağını garanti etmiş olmaz.
+      const f4Maliyeti = FEASIBILITY.length + 1 + perPhaseCapOku() + 1 + DEFENDERS.length + 1;
+      const budget = budgetStop(state, f4Maliyeti, "F4", [...FEASIBILITY, "auditor", ...DEFENDERS], "f4_feasibility");
       if (budget.abort) {
         // Akış burada durur; çıkışı koşullu kenar END'e yönlendirir (Command goto END
         // denendi: update uygulanıyor ama graf normal kenardan devam ediyordu).
@@ -924,7 +932,9 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
     )
     .addNode("f4s_feasibility", async (state: DivanStateType) => {
       // Küçük kurul F4: fizibilite + denetim + hüküm turu (revizyon döngüsü yok).
-      const budget = budgetStop(state, 3, "F4s", ["engineer1", "auditor"], "f4s_feasibility");
+      // Küçük kurulda da aynı üç adım koşar (H-4): fizibilite(1) + sorgu turu(1) + kap + denetim(1)
+      // + hüküm(1). Sabit "3" topraklamadan önce doğruydu; şimdi fazın yarısını beyan ediyordu.
+      const budget = budgetStop(state, 1 + 1 + perPhaseCapOku() + 1 + 1, "F4s", ["engineer1", "auditor"], "f4s_feasibility");
       if (budget.abort) {
         // Akış burada durur; çıkışı koşullu kenar END'e yönlendirir (Command goto END
         // denendi: update uygulanıyor ama graf normal kenardan devam ediyordu).

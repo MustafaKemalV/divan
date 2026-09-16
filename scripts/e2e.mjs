@@ -636,6 +636,26 @@ async function run() {
     console.log(`  kanit: URL gecerli + alinti uydurma -> iade, birebir alintiyla gecti (${s.metrics.callCount} cagri)`);
   });
 
+  await scenario("S44", "F4 butce kapisi topraklamayi da beyan eder (H-4)", async () => {
+    // KIRMIZI (olculdu): kapi F4 icin 7 cagri beyan ediyordu (fizibilite 3 + denetim 1 + savunma 2
+    // + hukum 1); faz GERCEKTE 8 harciyordu (sorgu turu 1 + arama 2 eklendi) ve kap uc sorguya
+    // izin verdigi icin en kotu hal 11. Eksik beyan eden bir kapi, tavani koşum ORTASINDA astirir:
+    // "asilacak mi" mantigi "asildi mi" mantigina duser.
+    const T = "e2e-s44";
+    await post({ threadId: T, idea: LONG, maxCalls: 20 });
+    await post({ threadId: T, resume: "hmw" });
+    const s = stopEvent(await post({ threadId: T, resume: "cerceve onaylandi" }));
+    check(s.gate === "BUTCE" && s.payload.at === "F4", `F4 butce kapisi acilmaliydi: ${s.gate}/${s.payload?.at}`);
+    // KAP beyan edilir, uretilen sorgu sayisi degil: kapi faz BASLAMADAN acilir ve o an kac sorgu
+    // uretilecegi bilinmez. Umdugunu beyan eden kapi, asilmayacagini garanti etmis olmaz.
+    check(s.payload.kesin.fazCagriSayisi === 11, `F4 maliyeti 3+1+kap(3)+1+2+1=11: ${s.payload.kesin.fazCagriSayisi}`);
+    check(s.payload.kesin.kosanCagri === 13, `F4 girisinde 13 cagri kosmus olmali: ${s.payload.kesin.kosanCagri}`);
+    // Eski beyanla (7) kapi HIC ACILMAZDI: 13 + 7 = 20, tavana tam oturur.
+    check(13 + 7 <= 20, "eski beyan bu tavanda kapiyi acmazdi (kirmizinin kendisi)");
+    check(13 + 11 > 20, "gercek maliyet kapiyi acmali");
+    console.log(`  kanit: F4 beyani 7 -> ${s.payload.kesin.fazCagriSayisi}; eski beyanla kapi acilmazdi (13+7=20)`);
+  });
+
   await scenario("S42", "Arama cagrisi patlarsa: dugum cokmez, kalan sorgu kosar (H-3)", async () => {
     // KIRMIZI (olculdu, stub): [TEST:arama-hata] ile birinci arama cagrisi Error firlatinca dugum
     // COKUYORDU -> "Error: OpenRouter 402: Insufficient credits", error olayi, cikis 1. Bir
