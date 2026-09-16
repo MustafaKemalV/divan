@@ -328,6 +328,11 @@ function kapiyiBas(e) {
           (p.searchResults === 0 ? "  <- SONUC YOK: bu denetimde rozet hak edilemez" : ""),
       );
     }
+    // Topraklama notlari KARAR ANINDA gorunur: "bu denetimin dis kaynagi yok" iddialarin nasil
+    // okunacagini degistirir, ve Sah karari verirken bunu bilmek zorunda.
+    if ((p.groundingNotes ?? []).length) {
+      console.log(`Topraklama notlari:\n${fmtListe(p.groundingNotes)}`);
+    }
     return "\nKararin: ";
   }
 
@@ -350,6 +355,10 @@ function kapiyiBas(e) {
   } else if (e.gate === "DENETIM_EKSIK") {
     console.log(`Denetim mekanik sartlari tasimiyor: ${p.reason}`);
     console.log(`Iade sayisi: ${p.retries} (§6: tek iade hakki kullanildi)`);
+    // "Rozet hak edilemedi" ile "arama patladigi icin rozet hak edilemedi" ayni karari gerektirmez.
+    if ((p.groundingNotes ?? []).length) {
+      console.log(`Topraklama notlari:\n${fmtListe(p.groundingNotes)}`);
+    }
   } else if (e.gate === "HUKUM_EKSIK") {
     console.log(`Hukum turu eksik: ${p.judgmentCount} madde, yeniden kosum ${p.retries}`);
     console.log(`Hukum tamamlandi mi: ${p.judgmentComplete}`);
@@ -396,6 +405,9 @@ function ciktiYaz(threadId, state, runnerMode, sureMs, sureKirilim) {
             `$${(terkEdilenDal().nano / 1e9).toFixed(6)}. Re-table checkpoint'i geri sardigi icin ` +
             `yukaridaki "Maliyet" satiri bu parayi GORMEZ; harcanmistir.`,
         ]
+      : []),
+    ...((v.groundingNotes ?? []).length
+      ? [`- **Topraklama notlari:** ${(v.groundingNotes ?? []).join(" | ")}`]
       : []),
     `- Revizyon turu: ${v.revisionRounds ?? 0} | Hukum yeniden kosumu: ${v.judgmentRetries ?? 0} | Denetim iadesi: ${v.auditRetries ?? 0}`,
     `- Denetim mekanik sartlari: ${v.auditComplete ? "tam" : `EKSIK (${v.auditIssue})`}`,

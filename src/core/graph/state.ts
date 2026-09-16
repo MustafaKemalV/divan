@@ -95,6 +95,19 @@ export const DivanState = Annotation.Root({
     reducer: (prev, next) => [...prev, ...next],
     default: () => [],
   }),
+  /**
+   * TOPRAKLAMA notları (§6.2 H-6): sorgu turu üretemedi, arama patladı, kap doldu.
+   *
+   * `summaryIssues`'tan AYRI bir kanal, çünkü iki farklı arıza. `summaryIssues` "bir koltuğun
+   * görüşü özete girmedi" demektir ve okuyanı transkripte bakmaya çağırır; topraklama notu ise
+   * "bu denetimin dış kaynağı yok" demektir ve iddiaların nasıl okunacağını değiştirir. İkisini
+   * tek listede toplamak, ikinci mesajı birinci başlığın altına gömüyordu: künyede "Özet kotası"
+   * diye etiketlenen bir satır, aslında rozetin neden hak edilemediğini söylüyordu.
+   */
+  groundingNotes: Annotation<string[]>({
+    reducer: (prev, next) => [...prev, ...next],
+    default: () => [],
+  }),
   // ALTYAPI arızaları (tavan/kesilme gibi): koltuğun şema disiplini siciline YAZILMAZ, ayrı tutulur.
   infraFailures: Annotation<string[]>({
     reducer: (prev, next) => [...prev, ...next],

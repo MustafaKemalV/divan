@@ -683,8 +683,8 @@ async function run() {
       `basarisizlik transkriptte gorunmeli: ${String(aramaKaydi.content).slice(0, 120)}`,
     );
     check(
-      st.values.summaryIssues.some((n) => n.includes("arama başarısız: OpenRouter 402")),
-      `hata mesaji notlarda gorunmeli: ${JSON.stringify(st.values.summaryIssues)}`,
+      st.values.groundingNotes.some((n) => n.includes("arama başarısız: OpenRouter 402")),
+      `hata mesaji TOPRAKLAMA notlarinda gorunmeli: ${JSON.stringify(st.values.groundingNotes)}`,
     );
     // Patlayan cagri BUTCEYE yazilir: saglikli kosumla AYNI sayi cikmali, cunku cagri yapildi ve
     // (gercekte) faturalandi. Sayinin dusmesi, yanan parayi gizlemek olurdu.
@@ -715,15 +715,26 @@ async function run() {
       `sorgu turunun patladigi transkriptte yazmali: ${String(sorguKaydi.content).slice(0, 100)}`,
     );
     check(
-      st.values.summaryIssues.some((n) => n.includes("sorgu turu başarısız: OpenRouter 503")),
-      `hata mesaji notlarda: ${JSON.stringify(st.values.summaryIssues)}`,
+      st.values.groundingNotes.some((n) => n.includes("sorgu turu başarısız: OpenRouter 503")),
+      `hata mesaji TOPRAKLAMA notlarinda: ${JSON.stringify(st.values.groundingNotes)}`,
     );
     // Denetim cagrisi GERCEKTEN yapildi: "cokmedi" yetmez, denetimin kostugu gosterilmeli.
     check(
       st.values.transcript.filter((t) => t.phase === "F4:audit").length === 2,
       "denetim ve iade cagrilari kosmus olmali",
     );
-    console.log(`  kanit: sorgu turu patladi, denetim kostu, rozet hak edilemedi (${s.gate})`);
+    // IKI KANAL AYRI (H-6): topraklama notu ozet kotasi listesine SIZMAMALI. "Bir koltugun gorusu
+    // ozete girmedi" ile "bu denetimin dis kaynagi yok" farkli arizalar; ikincisi iddialarin nasil
+    // okunacagini degistirir, birincisi transkripte bakmaya cagirir.
+    check(
+      !st.values.summaryIssues.some((n) => n.includes("sorgu turu")),
+      `topraklama notu ozet kotasina sizmamali: ${JSON.stringify(st.values.summaryIssues)}`,
+    );
+    check(s.payload.groundingNotes.length > 0, "topraklama notlari KAPI 3 payload'inda olmali");
+    console.log(
+      `  kanit: sorgu turu patladi, denetim kostu, rozet hak edilemedi (${s.gate}); ` +
+        `not ayri kanalda: ${s.payload.groundingNotes[0]}`,
+    );
   });
 
   await scenario("S41", "Sorgu turu susarsa: arama YOK, rozet imkansiz, kapi acilir (M2-C-2)", async () => {

@@ -366,7 +366,7 @@ async function runAuditWithReturn(
   return {
     auditComplete: check.ok,
     auditIssue: check.ok ? "" : check.reason,
-    ...(sorguNotu ? { summaryIssues: [`${phase}: ${sorguNotu}`] } : {}),
+    ...(sorguNotu ? { groundingNotes: [`${phase}: ${sorguNotu}`] } : {}),
     auditRetries: iade,
     // Yapılandırılmış hali de state'e yazılır; yalnız GEÇERLİ olan (§6: geçersiz çıktı taşınmaz).
     audit: check.ok ? check.audit : null,
@@ -1046,6 +1046,11 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
         gate: "DENETIM_EKSIK",
         reason: state.auditIssue,
         retries: state.auditRetries,
+        // Topraklama notlari (H-6) tam da BURADA gerekli: bu kapiya cogu zaman arama getiremedigi
+        // icin gelinir ve "rozet hak edilemedi" ile "arama patladigi icin rozet hak edilemedi"
+        // Sah'in vereceği karari degistirir. Notu yalniz KAPI 3'e koymak, onu en cok gerektigi
+        // kapida gizlemek olurdu.
+        groundingNotes: state.groundingNotes,
         kabulEdilen: KABUL,
         kurtarma: `Akış durursa re-table ile "gate_audit_missing" öncesinden devam edilebilir.`,
       });
@@ -1160,6 +1165,8 @@ export function buildCouncilGraph(runner: SeatRunner = new StubSeatRunner()) {
         silentSeats: state.silentSeats,
         // Özet kotası karşılanmayan fazlar: susturulmuş görüş sessizce kaybolmaz (§6).
         summaryIssues: state.summaryIssues,
+        // Topraklama notları (§6.2): aramanın neyi getiremediği, karar anında AYRI görünür.
+        groundingNotes: state.groundingNotes,
         // Karar anında maliyet de görünür: onay bedelini bilerek verilir.
         costNanoUsd: state.costNanoUsd,
         costUsd: formatUsd(state.costNanoUsd),

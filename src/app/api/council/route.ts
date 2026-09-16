@@ -191,6 +191,7 @@ export async function POST(req: Request) {
             },
             silentSeats: v.silentSeats ?? [],
             summaryIssues: v.summaryIssues ?? [],
+            groundingNotes: v.groundingNotes ?? [],
           });
         }
       } catch (e) {

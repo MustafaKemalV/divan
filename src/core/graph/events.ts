@@ -61,6 +61,7 @@ export type DivanEvent =
       silentSeats: string[];
       /** özet kotası karşılanmayan fazlar (§6): bir görüş özetten düşmüşse burada görünür */
       summaryIssues: string[];
+      groundingNotes: string[];
     }
   | { type: "error"; message: string };
 
